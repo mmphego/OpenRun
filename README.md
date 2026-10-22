@@ -1,0 +1,118 @@
+# OpenRun
+
+**Plan your next run. Record your walks. Keep your training on your phone.**
+
+A native Android running and walking app with original branding and code, offline training plans, GPS recording, audio cues and a locally cached race catalogue. Built with Java 17, Android Views and Android framework services.
+
+[Build checks](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml) · [APK releases](https://github.com/mmphego/OpenRun/releases) · [Contribute](CONTRIBUTING.md) · [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
+
+> **Beta · licensing decision pending.** No project-wide licence was present in the recovered source. This is a public-source collaboration candidate, not yet a fully licensed open-source project. Third-party licences remain in force. See [LICENSING.md](LICENSING.md). No Runna affiliation or feature-parity claim is made.
+
+## What it does
+
+| Area | Implemented | Limits |
+| --- | --- | --- |
+| Training | Goal/race-date plans, weekly scheduling, run/walk phases, pace estimates and reviewed adaptations | Original rules; qualified coach review remains outstanding. No automatic pain-hold clearance. |
+| Outdoor recording | GPS routes, splits, pause/resume, recording diagnostics, recovery checkpoints and audio coaching | Physical-device/background accuracy still needs acceptance testing. |
+| Indoor walking | Timer, optional phone-step distance estimate, calibration and movement reminders | Not a treadmill connection. Phone sensor availability and placement matter. |
+| Progress and data | Local history, activity file import/export and encrypted portable backup | Protect exports: they can contain routes and health data. |
+| Races | Top Events and Bield adapters, provider-aware merging, Room database, incremental content upserts, source links and saved races | Coverage depends on providers. Unknown facts stay unknown. RunSignup is disabled until operator approval/proxy configuration. |
+| Background updates | One JobScheduler job on each foreground session, debounced across navigation; in-process guard plus expiring DB lease | Android decides execution timing. Network failures retain cached races. No startup network wait. |
+| Optional integrations | Bluetooth heart-rate and Health Connect adapters; self-hosted account/backup/Strava service | Permissions, compatible hardware/provider and operator configuration required; live service validation incomplete. |
+| Optional AI explanations | Local LiteRT-LM adapter and consent-based server explanation endpoint | Gemma weights are not shipped; model terms, hardware and configuration apply. AI does not change workouts. |
+| Garmin account sync | **Not implemented** | Official partner approval, credentials and integration work required. File import is separate. |
+
+The app was previously named Rwun. Its Android package ID `app.rwun`, storage keys and backup formats are retained for compatibility; the display name and distribution name are OpenRun.
+
+The current focus is **running and walking**. Historical cycling and strength support code remains in the source to preserve completed work; it is outside the active product roadmap.
+
+## UI images
+
+These are real OpenRun Android Views rendered by the existing Robolectric Native Graphics tests with synthetic data, **not photographs, mockups, emulator captures or S23 acceptance evidence**. They show the recovered 1.4.4 planning and walking screens. The new provider catalogue screen is not pictured.
+
+<p>
+<img src="docs/screenshots/goals.png" width="240" alt="OpenRun goal selection rendered from Android Views">
+<img src="docs/screenshots/plan-preview.png" width="240" alt="OpenRun training plan preview rendered from Android Views">
+<img src="docs/screenshots/indoor-walk.png" width="240" alt="OpenRun indoor walking screen rendered from Android Views">
+</p>
+
+Device captures of the current build are a [starter contribution](CONTRIBUTING.md#good-first-contributions). Do not include personal routes or health records in screenshots.
+
+## Install an APK
+
+1. Download a signed APK and its `.sha256` file from [Releases](https://github.com/mmphego/OpenRun/releases), **when a release has been published**. No signed public release is promised by this README.
+2. Verify it: `sha256sum -c OpenRun-1.4.4.apk.sha256` (macOS: `shasum -a 256 -c OpenRun-1.4.4.apk.sha256`). Adjust the filename for the release.
+3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.4.4.apk`.
+4. Grant recording permissions when needed. Use an installed offline TTS voice for offline audio coaching.
+
+For an interim developer build, open a successful [CI run](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml), download its `OpenRun-debug-apk-<commit>` artifact, unzip and install `app-debug.apk`. Artifact download may require GitHub sign-in; retention is 14 days. Debug builds are for testing and may have different signing certificates. **Export a backup before uninstalling an incompatible old build**; uninstalling erases app data.
+
+## Develop from a clean clone
+
+Requirements: JDK **21** (Java source level 17), Python **3.12**, Android SDK platform **36**, Build Tools **35.0.0**, platform-tools, Git and internet for initial dependencies. The project commits Gradle **8.11.1** and its wrapper checksum, Android Gradle Plugin **8.9.1**, Room **2.6.1**, desugaring **2.1.4** and R8 **9.5.26**. R8 is explicitly upgraded for the current LiteRT runtime; do not remove that pin without testing dexing.
+
+```bash
+git clone https://github.com/mmphego/OpenRun.git
+cd OpenRun
+cp local.properties.example local.properties
+# Edit sdk.dir to your Android SDK path, or let Android Studio create this file.
+sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r server/requirements.txt
+./gradlew --version
+bash scripts/check.sh
+```
+
+Windows: use Android Studio with JDK 21 and `gradlew.bat` for Gradle tasks; the standalone shell regressions require WSL or Git Bash. No release keys, cloud accounts, Garmin credentials or model weights are required to build the debug APK.
+
+```bash
+./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:assembleDebugAndroidTest
+adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w app.rwun.test/app.rwun.SmokeInstrumentation
+```
+
+Do not use `connectedDebugAndroidTest` as a substitute for the command above: this project retains a custom Android instrumentation runner rather than an AndroidX/JUnit device test suite.
+
+## Configuration
+
+- Core planning and recording work without an account or a service.
+- Race refresh automatically contacts Top Events/Bield when Android runs the network-constrained job. No personal training records are sent to those catalogue providers. The public endpoints receive ordinary request metadata such as IP address.
+- `app/src/main/res/values/race_providers.xml` keeps RunSignup disabled. Enable it only with the required approval and an HTTPS proxy that holds caller credentials server-side. Never place secrets in Android resources: APKs can be inspected.
+- For the optional service, copy `server/.env.example` to `server/.env`, configure only the integrations you intend to operate, and follow [server/README.md](server/README.md). No service is deployed for you.
+- Local model setup and terms: [OFFLINE-COACH.md](docs/OFFLINE-COACH.md). Weights are not included.
+- Release signing: [docs/RELEASING.md](docs/RELEASING.md). All four signing secrets must be configured before tag builds can publish.
+
+## Architecture
+
+| Layer | Main components | Responsibility |
+| --- | --- | --- |
+| Native UI | `MainActivity`, `RacePlanActivity`, `RaceDiscoveryActivity`, `UiKit`, `PlanningUi` | Android Views, plan previews and user-reviewed changes |
+| Domain | `PlanEngine`, `WorkoutEngine`, `RaceTraining`, `AdaptiveCoach`, `GpsAccumulator` | Testable training rules, workout transitions and GPS filtering |
+| Recording | `TrackingService`, `IndoorStepService`, `HeartRateClient` | Foreground recording and device adapters |
+| Local data | `RunStore`, `ActivityFiles`, `BackupManager`, `RaceDatabase`, `RaceRepository` | Existing training storage plus a separate Room race catalogue |
+| Race ingestion | `RaceProvider` adapters, `RaceHttp`, `RaceSyncCoordinator`, `RaceSyncJob`, `OpenRunApplication` | Bounded provider fetches, conditional HTTP, transactional upserts, foreground scheduling and concurrency control |
+| Optional service | `server/` | Independently hosted encrypted backup and approved integrations |
+
+Race content, provider observations and saved user choices have separate write lifecycles. Identical content hashes skip edition/distance rewrites; last-seen and sync metadata still update. Conservative merge keys require matching name/date/country plus venue, exact source URL, or city and a shared distance. Ambiguous matches remain separate. Complete provider reconciliation is bounded; failed/incomplete fetches do not wipe the catalogue. See [race ingestion](docs/RACE-SYNC.md).
+
+## Tests and checks
+
+```bash
+python3 scripts/run-host-tests.py
+./gradlew :app:lintDebug :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+python3 -m unittest discover -s server -p 'test_*.py' -v
+python3 -m unittest discover -s tests/device -p 'test_*.py' -v
+```
+
+Host regressions compile/run the existing Java test programs; the runner downloads two checksum-pinned test-only JARs and emits logs/JUnit XML under `build/reports/host`. Gradle unit tests exercise actual Room upserts, cross-provider merging, saved choices and database leases through Robolectric. Android Lint is the current static analysis gate; no separate formatter or static analyser is claimed. Device QA utilities and the physical acceptance checklist are under [tests/device](tests/device/README.md) and [tests/s23](tests/s23/CHECKLIST.md).
+
+CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It uploads the debug APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Tag releases have a separate signing job and publish only after tests, signature verification and checksum generation. [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
+
+## Collaborate
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md), [ROADMAP.md](ROADMAP.md), [issues](https://github.com/mmphego/OpenRun/issues) and the [pull request template](.github/PULL_REQUEST_TEMPLATE.md). Read the [Code of Conduct](CODE_OF_CONDUCT.md) and report vulnerabilities using [SECURITY.md](SECURITY.md). Maintainers must resolve licensing before accepting code under an assumed licence.
+
+Documentation organisation and contributor onboarding were informed by [openGym](https://github.com/DuarteSantos8/openGym). Its implementation, assets and licence were not copied into OpenRun. Original release notes remain in [docs/HISTORY.md](docs/HISTORY.md); historical claims there may be superseded by this README and the roadmap. Third-party notices: [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md).
