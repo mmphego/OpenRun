@@ -1,0 +1,60 @@
+plugins { id 'com.android.application' }
+
+def signingValues = ['RWUN_KEYSTORE_PATH', 'RWUN_KEYSTORE_PASSWORD', 'RWUN_KEY_ALIAS', 'RWUN_KEY_PASSWORD'].collectEntries { [(it): System.getenv(it)] }
+def hasReleaseSigning = signingValues.values().every { it != null && !it.isBlank() }
+android {
+    namespace 'app.rwun'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'app.rwun'
+        minSdk 26
+        targetSdk 36
+        versionCode 22
+        versionName '1.4.4'
+        testInstrumentationRunner 'app.rwun.SmokeInstrumentation'
+        javaCompileOptions { annotationProcessorOptions { arguments += ["room.schemaLocation": "$projectDir/schemas".toString()] } }
+    }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(signingValues.RWUN_KEYSTORE_PATH)
+                storePassword signingValues.RWUN_KEYSTORE_PASSWORD
+                keyAlias signingValues.RWUN_KEY_ALIAS
+                keyPassword signingValues.RWUN_KEY_PASSWORD
+            }
+        }
+    }
+    buildTypes { release { if (hasReleaseSigning) signingConfig signingConfigs.release } }
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    lint { abortOnError true }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+            ['http.proxyHost', 'http.proxyPort', 'https.proxyHost', 'https.proxyPort', 'javax.net.ssl.trustStore'].each { name ->
+                if (System.getProperty(name)) systemProperty name, System.getProperty(name)
+            }
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.17'
+    implementation 'androidx.room:room-runtime:2.6.1'
+    annotationProcessor 'androidx.room:room-compiler:2.6.1'
+    implementation 'com.google.ai.edge.litertlm:litertlm-android:0.18.0'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+}
+
+tasks.register('verifyReleaseSigning') {
+    doLast {
+        if (!hasReleaseSigning) throw new GradleException('Release signing is not configured. Set all four RWUN signing environment variables; see docs/RELEASING.md.')
+        def tag = System.getenv('RWUN_RELEASE_VERSION')
+        if (tag != null && tag != "v${android.defaultConfig.versionName}") throw new GradleException('Release tag does not match versionName in app/build.gradle.')
+    }
+}

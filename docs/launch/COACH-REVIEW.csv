@@ -1,0 +1,9 @@
+Area,Implementation,Review needed,Status
+Onboarding,Original mileage and goal presets,Appropriateness for beginners and returning runners,Unreviewed
+Running progression,PlanEngine and PlanPreferences,Progression recovery weeks and taper by runner level,Unreviewed
+Run-walk,WorkoutFactory return mode,Work/recovery dosage and progression,Unreviewed
+Adaptation,AdaptiveCoach and TrainingReview,Thresholds reduction rules and pain hold language,Unreviewed
+Mixed activities,WeekBalance,Schedule-conflict heuristics and limits of any advice,Unreviewed
+Strength,StrengthPlan six routines,Technique dosage contraindications and demonstrations,Unreviewed
+Coaching content,CoachGuide 18 articles,Accuracy clarity and actionable safe wording,Unreviewed
+Audio,WorkoutEngine and TrackingService,Effort instructions and distraction risks,Unreviewed

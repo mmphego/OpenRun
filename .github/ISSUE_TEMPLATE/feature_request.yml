@@ -1,0 +1,24 @@
+name: Feature proposal
+description: Propose a focused running or walking improvement.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour and scope
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and validation
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Alternatives, provider approvals or credentials needed

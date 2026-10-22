@@ -28,7 +28,7 @@ The current focus is **running and walking**. Historical cycling and strength su
 
 ## UI images
 
-These are real OpenRun Android Views rendered by the existing Robolectric Native Graphics tests with synthetic data, **not photographs, mockups, emulator captures or S23 acceptance evidence**. They show the recovered 1.4.4 planning and walking screens. The new provider catalogue screen is not pictured.
+These are real Android Views from the Rwun baseline rendered by the existing Robolectric Native Graphics tests with synthetic data, **not photographs, mockups, emulator captures or S23 acceptance evidence**. They show the recovered Rwun 1.4.4 planning and walking screens. The new provider catalogue screen is not pictured.
 
 <p>
 <img src="docs/screenshots/goals.png" width="240" alt="OpenRun goal selection rendered from Android Views">
@@ -49,7 +49,7 @@ For an interim developer build, open a successful [CI run](https://github.com/mm
 
 ## Develop from a clean clone
 
-Requirements: JDK **21** (Java source level 17), Python **3.12**, Android SDK platform **36**, Build Tools **35.0.0**, platform-tools, Git and internet for initial dependencies. The project commits Gradle **8.11.1** and its wrapper checksum, Android Gradle Plugin **8.9.1**, Room **2.6.1**, desugaring **2.1.4** and R8 **9.5.26**. R8 is explicitly upgraded for the current LiteRT runtime; do not remove that pin without testing dexing.
+Requirements: JDK **21** (Java source level 17), Python **3.12**, Android SDK platform **36**, Build Tools **35.0.0**, platform-tools, Git and internet for initial dependencies. The project commits Gradle **8.11.1** and its wrapper checksum, Android Gradle Plugin **8.9.1**, Room **2.6.1**, desugaring **2.1.4** R8 **9.5.26** and Android Lint **9.4.0**. R8 is explicitly upgraded for the current LiteRT runtime; do not remove that pin without testing dexing.
 
 ```bash
 git clone https://github.com/mmphego/OpenRun.git

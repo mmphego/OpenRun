@@ -1,0 +1,10 @@
+package app.rwun;
+import android.app.job.*;import android.content.*;import java.util.*;import java.util.concurrent.*;
+/** Matches OpenRun's JobScheduler infrastructure: persisted, network-constrained and idempotently enqueued. */
+public final class RaceSyncJob extends JobService {
+ public static final int ID=82;private ExecutorService executor;private volatile boolean stopped;private RaceSyncCoordinator coordinator;
+ public static synchronized void schedule(Context c){JobScheduler jobs=c.getSystemService(JobScheduler.class);if(jobs==null||jobs.getPendingJob(ID)!=null)return;JobInfo job=new JobInfo.Builder(ID,new ComponentName(c,RaceSyncJob.class)).setPersisted(true).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setBackoffCriteria(60000,JobInfo.BACKOFF_POLICY_EXPONENTIAL).build();jobs.schedule(job);}
+ public static List<RaceProvider> providers(Context c){return List.of(new TopEventsRaceProvider(),new BieldRaceProvider(),new RunSignupRaceProvider(c.getString(R.string.race_runsignup_proxy),c.getResources().getBoolean(R.bool.race_runsignup_approved)));}
+ @Override public boolean onStartJob(JobParameters p){stopped=false;executor=Executors.newSingleThreadExecutor();executor.execute(()->{boolean retry=false;try{RaceRepository repo=RaceRepository.get(this);repo.seed(this);coordinator=new RaceSyncCoordinator(repo,new RaceHttp(),providers(this));retry=coordinator.sync().retry();}catch(Exception e){retry=true;}finally{if(!stopped)jobFinished(p,retry);executor.shutdown();}});return true;}
+ @Override public boolean onStopJob(JobParameters p){stopped=true;if(coordinator!=null)coordinator.cancel();if(executor!=null)executor.shutdownNow();return true;}
+}

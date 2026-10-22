@@ -1,0 +1,132 @@
+[
+  {
+    "name": "home",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/home/materialsymbolsrounded/home_24px.xml",
+    "sha256": "bf11ecd48c1a620b27ccafb5deb61aa53d8bae00da77b7424bfebd4ada00651b"
+  },
+  {
+    "name": "calendar_month",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/calendar_month/materialsymbolsrounded/calendar_month_24px.xml",
+    "sha256": "704bed162d5e7aab3df30bb80dc8bf84e002d5fc0f6b7eb00bd0ef68e03d6f6d"
+  },
+  {
+    "name": "directions_run",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/directions_run/materialsymbolsrounded/directions_run_24px.xml",
+    "sha256": "7b414473989e1ca836ca196bce49a8ad43d8138748028120e1be5a7d9313189a"
+  },
+  {
+    "name": "monitoring",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/monitoring/materialsymbolsrounded/monitoring_24px.xml",
+    "sha256": "042b04718d041f4f02e2ccd18a1bcb0876f61f21b10e9be271c71fcb2ee69f1c"
+  },
+  {
+    "name": "settings",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/settings/materialsymbolsrounded/settings_24px.xml",
+    "sha256": "8d9376f39e922c0a18495b0cc0ce14ea041920c526bf0ec377e88c9717753f1b"
+  },
+  {
+    "name": "fitness_center",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/fitness_center/materialsymbolsrounded/fitness_center_24px.xml",
+    "sha256": "73c322ca0fa8956f5e0ede9db545eec59149bb4f736f3deaaca6b839e9efc66c"
+  },
+  {
+    "name": "play_arrow",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/play_arrow/materialsymbolsrounded/play_arrow_24px.xml",
+    "sha256": "34a4406e0368098a7498dbc6f35a773c88e97a3a0b36897f4b042973ad9f0846"
+  },
+  {
+    "name": "pause",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/pause/materialsymbolsrounded/pause_24px.xml",
+    "sha256": "25ff6af5ae8a7282a35ca342c31349e1183703f7a8dbf1b32853138ec52e445c"
+  },
+  {
+    "name": "check",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/check/materialsymbolsrounded/check_24px.xml",
+    "sha256": "68f4fa5be6d463044ca4bfeee0100914cb9a2ec703de9c63a4e19a4e47504218"
+  },
+  {
+    "name": "watch",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/watch/materialsymbolsrounded/watch_24px.xml",
+    "sha256": "18ceeee38c958bad648f9fd6d5e8d076c15b028a5ff451407deacac552da5dd5"
+  },
+  {
+    "name": "favorite",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/favorite/materialsymbolsrounded/favorite_24px.xml",
+    "sha256": "15b025cd1f07d778bef37656769b6bb011bd03bee88f03d5f5b41bd6ba519b0f"
+  },
+  {
+    "name": "chevron_left",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/chevron_left/materialsymbolsrounded/chevron_left_24px.xml",
+    "sha256": "e524f87fd2b227e78ab2b8f6fcd3d47d580f6fb533c995128a029627c9fa4d4c"
+  },
+  {
+    "name": "chevron_right",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/chevron_right/materialsymbolsrounded/chevron_right_24px.xml",
+    "sha256": "dbe91ba63156d97e7e057644819cda42aae58401d09dfd037657875f8bfa46b7"
+  },
+  {
+    "name": "arrow_back",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/arrow_back/materialsymbolsrounded/arrow_back_24px.xml",
+    "sha256": "a3cd13e28be4b56563264c15735305e2a30d1a3c0e5424ecd15e198938df213e"
+  },
+  {
+    "name": "arrow_forward",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/arrow_forward/materialsymbolsrounded/arrow_forward_24px.xml",
+    "sha256": "fd7a2a9d126750334ae8d6cc67ce722480b6c9383abd4e25d1d6567734ae6744"
+  },
+  {
+    "name": "file_upload",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/file_upload/materialsymbolsrounded/file_upload_24px.xml",
+    "sha256": "3f2a8b9bb1cf81750f5f191202560d3fff5d87161f9666181d14f25e2c9d3df6"
+  },
+  {
+    "name": "file_download",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/file_download/materialsymbolsrounded/file_download_24px.xml",
+    "sha256": "28e6bd5fbaa5b8fd6d981891f3a9af6b9ed05d65d24643d3936ce5ebda973e44"
+  },
+  {
+    "name": "delete",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/delete/materialsymbolsrounded/delete_24px.xml",
+    "sha256": "7a258ae6ac5a64e26453b3f18d508b901a98ad9dcdf0bcbd07532105eb50d507"
+  },
+  {
+    "name": "volume_up",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/volume_up/materialsymbolsrounded/volume_up_24px.xml",
+    "sha256": "31e422e19a93f1afcc47ee4d2801f41da6b87668a0c2f89b3532d62ac8cf3dcb"
+  },
+  {
+    "name": "location_on",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/location_on/materialsymbolsrounded/location_on_24px.xml",
+    "sha256": "cf46ea5347c9d3006c3392647b3cc96293f007075b5954c6aae8dc12490939a3"
+  },
+  {
+    "name": "info",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/info/materialsymbolsrounded/info_24px.xml",
+    "sha256": "a85a00a54d1dc55e3577cee40c1ef237c10f8762f08dec9f8b499f663fcb6c12"
+  },
+  {
+    "name": "refresh",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/refresh/materialsymbolsrounded/refresh_24px.xml",
+    "sha256": "1a021ba81cf66bf899c412582f58d23576d04eef6d3f601981c6938ef94d6bed"
+  },
+  {
+    "name": "dark_mode",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/dark_mode/materialsymbolsrounded/dark_mode_24px.xml",
+    "sha256": "1730aa77a3e499c5a6fa3a383c639f545a65670da0fa39ecb63779ea9639b9c3"
+  },
+  {
+    "name": "light_mode",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/light_mode/materialsymbolsrounded/light_mode_24px.xml",
+    "sha256": "3b9c8a133f6dea5dce6d81dd26f322772da8c4f4f8173bbb7536bfd3889f716a"
+  },
+  {
+    "name": "assignment",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/assignment/materialsymbolsrounded/assignment_24px.xml",
+    "sha256": "6fce78a4368dc3fb8a210233728d6db9bad2f2d2d8a0cabfdd526022e27da312"
+  },
+  {
+    "name": "waving_hand",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/master/symbols/android/waving_hand/materialsymbolsrounded/waving_hand_24px.xml",
+    "sha256": "d6a2a0461c8e82953ab7628fa7b1b116f228fb43d9c9b2d7bccb5fa44f5143d8"
+  }
+]

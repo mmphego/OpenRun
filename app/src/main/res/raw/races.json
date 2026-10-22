@@ -1,0 +1,50 @@
+{
+  "updated": "2026-10-18",
+  "scope": "Small source-checked starter catalogue; not a complete South African calendar. Entry availability is not verified.",
+  "races": [
+    {
+      "id": "ctm-2027",
+      "name": "Sanlam Cape Town Marathon",
+      "date": "2027-05-23",
+      "km": 42.2,
+      "city": "Cape Town",
+      "country": "South Africa",
+      "surface": "Road",
+      "source": "https://capetownmarathon.com/FAQ/",
+      "verified": "2026-10-18"
+    },
+    {
+      "id": "ctpeace10-2027",
+      "name": "Cape Town 10 km Peace Run",
+      "date": "2027-05-22",
+      "km": 10,
+      "city": "Cape Town",
+      "country": "South Africa",
+      "surface": "Road",
+      "source": "https://capetownmarathon.com/peace-runs/",
+      "verified": "2026-10-18"
+    },
+    {
+      "id": "ctpeace5-2027",
+      "name": "Cape Town 5 km Peace Run",
+      "date": "2027-05-22",
+      "km": 5,
+      "city": "Cape Town",
+      "country": "South Africa",
+      "surface": "Road",
+      "source": "https://capetownmarathon.com/peace-runs/",
+      "verified": "2026-10-18"
+    },
+    {
+      "id": "two-oceans-half-2027",
+      "name": "Totalsports Two Oceans Half Marathon",
+      "date": "2027-04-03",
+      "km": 21.1,
+      "city": "Cape Town",
+      "country": "South Africa",
+      "surface": "Road",
+      "source": "https://www.discovery.co.za/corporate/discovery-two-oceans-marathon-sponsor",
+      "verified": "2026-10-18"
+    }
+  ]
+}

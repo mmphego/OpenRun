@@ -1,0 +1,7 @@
+{
+  "r8": {
+    "url": "https://dl.google.com/dl/android/maven2/com/android/tools/r8/9.5.26/r8-9.5.26.jar",
+    "sha256": "3502f087388ce95bbf5254555927f09385dc2636873964d0bd53f3eaf4fb49ad",
+    "version": "9.5.26"
+  }
+}

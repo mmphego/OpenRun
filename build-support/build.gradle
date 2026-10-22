@@ -1,0 +1,15 @@
+plugins { id 'java' }
+repositories { google(); mavenCentral() }
+configurations { raceRuntime; raceCompiler; hostQA }
+dependencies {
+ raceRuntime 'androidx.room:room-runtime:2.6.1'
+ raceCompiler 'androidx.room:room-compiler:2.6.1'
+ hostQA 'org.robolectric:robolectric:4.17'
+ hostQA 'junit:junit:4.13.2'
+ hostQA 'org.robolectric:android-all:15-robolectric-12650502'
+}
+tasks.register('fetch') { doLast {
+ copy { from configurations.raceRuntime; into '../build/race-runtime' }
+ copy { from configurations.raceCompiler; into '../build/race-compiler' }
+ copy { from configurations.hostQA; into '../build/qa-deps' }
+} }

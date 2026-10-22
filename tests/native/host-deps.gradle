@@ -1,0 +1,8 @@
+plugins { id 'java' }
+repositories { mavenCentral(); google() }
+dependencies {
+ implementation 'org.robolectric:robolectric:4.17'
+ implementation 'junit:junit:4.13.2'
+ implementation 'org.robolectric:android-all:15-robolectric-12650502'
+}
+tasks.register('fetch', Copy) { from configurations.runtimeClasspath; into 'lib' }

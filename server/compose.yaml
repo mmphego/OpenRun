@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    volumes: ["rwun-data:/data"]
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      RWUN_RACE_FEED_URL: ${RWUN_RACE_FEED_URL:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID:-}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET:-}
+      RWUN_TOKEN_KEY: ${RWUN_TOKEN_KEY:-}
+    ports: ["127.0.0.1:8000:8000"]
+volumes:
+  rwun-data:

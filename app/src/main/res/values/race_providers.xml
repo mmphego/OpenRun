@@ -1,0 +1,5 @@
+<resources>
+ <!-- Enable only after written approval for offline catalogue storage. Caller secrets belong on this HTTPS proxy, never in the APK. -->
+ <bool name="race_runsignup_approved">false</bool>
+ <string name="race_runsignup_proxy" translatable="false"></string>
+</resources>

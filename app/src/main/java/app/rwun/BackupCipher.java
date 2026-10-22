@@ -1,0 +1,9 @@
+package app.rwun;
+import java.security.*;import javax.crypto.*;import javax.crypto.spec.*;import java.util.*;import java.io.*;
+/** Portable authenticated encryption: magic + random salt + random nonce + AES-GCM ciphertext. */
+public final class BackupCipher {
+  private static final byte[] MAGIC={'R','W','U','N','E','N','C','1'};
+  private static javax.crypto.SecretKey key(char[] password,byte[] salt)throws Exception{if(password.length<12)throw new IllegalArgumentException("Use a backup passphrase of at least 12 characters");PBEKeySpec spec=new PBEKeySpec(password,salt,600000,256);try{return new SecretKeySpec(SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded(),"AES");}finally{spec.clearPassword();}}
+  public static byte[] encrypt(byte[] plain,char[] password)throws Exception{byte[] salt=new byte[16],nonce=new byte[12];SecureRandom random=new SecureRandom();random.nextBytes(salt);random.nextBytes(nonce);Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,key(password,salt),new GCMParameterSpec(128,nonce));cipher.updateAAD(MAGIC);ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(MAGIC);out.write(salt);out.write(nonce);out.write(cipher.doFinal(plain));return out.toByteArray();}
+  public static byte[] decrypt(byte[] data,char[] password)throws Exception{if(data.length<52||!Arrays.equals(MAGIC,Arrays.copyOf(data,8)))throw new IllegalArgumentException("Not a supported encrypted OpenRun backup");Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.DECRYPT_MODE,key(password,Arrays.copyOfRange(data,8,24)),new GCMParameterSpec(128,Arrays.copyOfRange(data,24,36)));cipher.updateAAD(MAGIC);try{return cipher.doFinal(data,36,data.length-36);}catch(AEADBadTagException error){throw new IllegalArgumentException("Backup passphrase is incorrect or the backup is damaged");}}
+}

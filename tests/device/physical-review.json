@@ -1,0 +1,20 @@
+{
+  "apk_sha256": "REPLACE_WITH_TESTED_APK_SHA256",
+  "reviewed_by": "",
+  "reviewed_at": "",
+  "measurements": {
+    "observed_steps": null,
+    "detected_steps": null,
+    "pad_distance_km": null,
+    "estimated_distance_km": null,
+    "personally_calibrated": false
+  },
+  "checks": {
+    "pocket-step-accuracy": {"status": "pending", "notes": "Count 200 steps independently. Record detected count, percentage error, speed and placement. Target <=10% step error; repeat if not met.", "evidence": []},
+    "locked-walk-distance": {"status": "pending", "notes": "Confirm the same session ran uninterrupted through the start/end screenshots. Walk for at least 30 locked minutes. Record pad/app start/end distance deltas before correction and calibration status. Target <=15% distance error after personal calibration at the tested speed. Retain locked-walk.json and screenshots.", "evidence": []},
+    "notification-finish": {"status": "pending", "notes": "Warm and cold Activity: tap notification Finish. Verify paused review and no automatic save. Cancel remains paused. Old notification cannot affect a new session.", "evidence": []},
+    "pause-resume": {"status": "pending", "notes": "Paused steps/time excluded; resume records again and labels partial estimate. Capture before/after diagnostics.", "evidence": []},
+    "single-save-walking-totals": {"status": "pending", "notes": "Save once; Walks contains one entry; running mileage unchanged. Capture before/after totals and saved distance provenance.", "evidence": []},
+    "interrupted-recovery": {"status": "pending", "notes": "Separate test: process death and reboot recover checkpoint without invented missing steps or duplicate saves. Do not force-stop as a substitute for process death.", "evidence": []}
+  }
+}

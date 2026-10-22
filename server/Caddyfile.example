@@ -1,0 +1,7 @@
+# Replace the hostname with your own DNS name. Run Caddy on the host.
+rwun.example.com {
+    request_body {
+        max_size 50MB
+    }
+    reverse_proxy 127.0.0.1:8000
+}
