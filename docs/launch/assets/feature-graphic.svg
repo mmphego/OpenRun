@@ -3,9 +3,9 @@
  <path d="M790 -40C1020 30 790 190 925 260S1080 440 800 530" fill="none" stroke="#203F41" stroke-width="104"/>
  <path d="M790 -40C1020 30 790 190 925 260S1080 440 800 530" fill="none" stroke="#48D8C1" stroke-width="3"/>
  <g transform="translate(56 42) scale(1.1)"><path fill="#176953" d="M0 0h48v48H0z"/><path fill="#FFF" d="M10 34L16 14h7l-2 7c5-7 12-8 17-7l-2 7c-7-1-13 2-16 13z"/></g>
- <text x="124" y="82" font-family="DejaVu Sans" font-weight="bold" font-size="37" fill="#E4E9F1">rwun</text>
+ <text x="124" y="82" font-family="DejaVu Sans" font-weight="bold" font-size="37" fill="#E4E9F1">OpenRun</text>
  <text x="56" y="215" font-family="DejaVu Sans" font-weight="bold" font-size="64" fill="#E4E9F1">Run around</text>
  <text x="56" y="294" font-family="DejaVu Sans" font-weight="bold" font-size="64" fill="#E4E9F1">your life.</text>
- <text x="58" y="374" font-family="DejaVu Sans" font-size="23" fill="#48D8C1">RUNNING · CYCLING · GYM · RECOVERY</text>
+ <text x="58" y="374" font-family="DejaVu Sans" font-size="23" fill="#48D8C1">RUNNING · WALKING · YOUR OWN PACE</text>
  <text x="58" y="428" font-family="DejaVu Sans" font-size="20" fill="#A5AFBF">One weekly view. Your own pace.</text>
 </svg>

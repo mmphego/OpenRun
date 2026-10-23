@@ -4,17 +4,32 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.room.*;
 import androidx.sqlite.db.SupportSQLiteQuery;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.room.migration.Migration;
 import java.util.List;
 
 /** Race content, provider observations, HTTP validators and user decisions have independent write lifecycles. */
-@Database(entities={RaceDatabase.Edition.class,RaceDatabase.Option.class,RaceDatabase.Reference.class,RaceDatabase.Seen.class,RaceDatabase.HttpPage.class,RaceDatabase.SyncState.class,RaceDatabase.Saved.class},version=1,exportSchema=true)
+@Database(entities={RaceDatabase.Edition.class,RaceDatabase.Option.class,RaceDatabase.Reference.class,RaceDatabase.Seen.class,RaceDatabase.HttpPage.class,RaceDatabase.SyncState.class,RaceDatabase.Saved.class},version=2,exportSchema=true)
 public abstract class RaceDatabase extends RoomDatabase {
  public abstract CatalogueDao catalogue();
- public static RaceDatabase open(Context context){return Room.databaseBuilder(context.getApplicationContext(),RaceDatabase.class,"race-catalogue.db").setJournalMode(JournalMode.WRITE_AHEAD_LOGGING).build();}
+ /** Both the public baseline and Rwun 1.5.0 used schema version 1. Preserve either layout. */
+ public static final Migration MIGRATION_1_2=new Migration(1,2){
+  @Override public void migrate(@NonNull SupportSQLiteDatabase database){
+   boolean hasEndDate=false;
+   try(android.database.Cursor columns=database.query("PRAGMA table_info(`race_editions`)")){
+    int name=columns.getColumnIndexOrThrow("name");
+    while(columns.moveToNext())if("endDate".equals(columns.getString(name)))hasEndDate=true;
+   }
+   if(!hasEndDate)database.execSQL("ALTER TABLE `race_editions` ADD COLUMN `endDate` TEXT NOT NULL DEFAULT ''");
+   database.execSQL("UPDATE `race_editions` SET `endDate`=`date` WHERE `endDate`=''");
+   database.execSQL("CREATE INDEX IF NOT EXISTS `index_race_seen_provider_requestUrl` ON `race_seen` (`provider`,`requestUrl`)");
+  }
+ };
+ public static RaceDatabase open(Context context){return Room.databaseBuilder(context.getApplicationContext(),RaceDatabase.class,"race-catalogue.db").addMigrations(MIGRATION_1_2).setJournalMode(JournalMode.WRITE_AHEAD_LOGGING).build();}
  @Entity(tableName="race_editions",indices={@Index({"country","date"}),@Index({"nameKey","date","country"})})
  public static class Edition {
   @PrimaryKey @NonNull public String id="";
-  @NonNull public String name="",nameKey="",date="",city="",province="",country="",venue="",time="",timezone="",surface="",fee="",description="",contentHash="";
+  @NonNull public String name="",nameKey="",date="",endDate="",city="",province="",country="",venue="",time="",timezone="",surface="",fee="",description="",contentHash="";
   public long contentVersion=1;
  }
  @Entity(tableName="race_distances",foreignKeys=@ForeignKey(entity=Edition.class,parentColumns="id",childColumns="editionId"),indices={@Index(value={"editionId","optionKey"},unique=true),@Index("metres")})
@@ -26,7 +41,7 @@ public abstract class RaceDatabase extends RoomDatabase {
  public static class Reference {
   @NonNull public String provider="",externalId="",editionYear="",editionId="",sourceUrl="",entryUrl="",contentHash="",payload="";
  }
- @Entity(tableName="race_seen",primaryKeys={"provider","externalId","editionYear"},indices=@Index("editionId"))
+ @Entity(tableName="race_seen",primaryKeys={"provider","externalId","editionYear"},indices={@Index("editionId"),@Index({"provider","requestUrl"})})
  public static class Seen {
   @NonNull public String provider="",externalId="",editionYear="",editionId="",revision="",requestUrl="";public long lastSeen;
  }
@@ -45,8 +60,8 @@ public abstract class RaceDatabase extends RoomDatabase {
   public String distanceId;public long savedAt;public Integer reminderMinutes;@NonNull public String goalPlanId="";
  }
  public static class Card {
-  @NonNull public String id="",name="",date="",city="",province="",country="",venue="",time="",timezone="",surface="",fee="";
-  public long lastSeen;public boolean saved;
+  @NonNull public String id="",name="",date="",endDate="",city="",province="",country="",venue="",time="",timezone="",surface="",fee="";
+  @NonNull public String distances="";public long lastSeen;public boolean saved;
  }
  @Dao public interface CatalogueDao {
   @Query("SELECT * FROM race_editions WHERE id=:id LIMIT 1") Edition edition(String id);
@@ -57,7 +72,7 @@ public abstract class RaceDatabase extends RoomDatabase {
   @Query("SELECT * FROM race_distances WHERE id=:id LIMIT 1") Option option(String id);
   @Query("SELECT * FROM saved_races WHERE editionId=:id LIMIT 1") Saved saved(String id);
   @Query("SELECT * FROM race_sync WHERE provider=:id LIMIT 1") SyncState sync(String id);
-  @Query("SELECT * FROM race_sync WHERE provider NOT IN ('_seed','_lease') ORDER BY provider") List<SyncState> states();
+  @Query("SELECT * FROM race_sync WHERE provider NOT IN ('_seed','_lease','_job') ORDER BY provider") List<SyncState> states();
   @Query("SELECT * FROM race_http WHERE provider=:provider AND requestUrl=:url LIMIT 1") HttpPage page(String provider,String url);
   @RawQuery List<Card> search(SupportSQLiteQuery query);
   @Query("SELECT DISTINCT country FROM race_editions WHERE country!='' ORDER BY country LIMIT 250") List<String> countries();

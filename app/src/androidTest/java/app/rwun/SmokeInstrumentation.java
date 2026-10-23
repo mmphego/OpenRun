@@ -21,6 +21,7 @@ public final class SmokeInstrumentation extends Instrumentation {
   public void onStart() {
     Bundle result = new Bundle();
     try {
+      check(java.util.Arrays.asList(getTargetContext().getPackageManager().getPackageInfo(getTargetContext().getPackageName(),android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions).contains(android.Manifest.permission.ACCESS_NETWORK_STATE),"network-constrained jobs declare network state permission");
       check(new IndoorClock(10,1000,1,false,false).snapshot(2000,2).paused(),"indoor reboot recovery pauses");
       check(Math.abs(StepEstimate.length(1,1400,"Walk")-1/1.4)<.00001,"step calibration");
       check(IndoorStepService.available(getTargetContext()) == (getTargetContext().getSystemService(android.hardware.SensorManager.class).getDefaultSensor(android.hardware.Sensor.TYPE_STEP_COUNTER)!=null),"step sensor availability lookup");

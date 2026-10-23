@@ -25,8 +25,8 @@ No personal access token is needed for the release: only its publish step receiv
 4. Tag the matching version and push without force:
 
 ```bash
-git tag -a v1.4.4 -m "OpenRun 1.4.4"
-git push origin v1.4.4
+git tag -a v1.5.0 -m "OpenRun 1.5.0"
+git push origin v1.5.0
 ```
 
 The workflow verifies a semantic `vMAJOR.MINOR.PATCH` tag, exact versionName match and membership in `main`, runs host/unit/lint/service checks, builds the release with the committed wrapper, verifies the signature, and stages `OpenRun-<version>.apk` plus `OpenRun-<version>.apk.sha256`. It creates a draft GitHub Release, attaches both files and only then publishes it. Existing releases are not overwritten.

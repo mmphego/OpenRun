@@ -14,12 +14,12 @@ public final class RaceSyncCoordinator {
   try {lease=repository.acquire(owner,System.currentTimeMillis());if(!lease)return new Result(true,false,0,0);
    for(RaceProvider provider:providers)work.add(pool.submit(()->syncProvider(provider)));
    int ok=0,bad=0;long deadline=System.nanoTime()+TimeUnit.MINUTES.toNanos(6);
-   for(Future<Boolean> f:work)try{if(f.get(Math.max(1,deadline-System.nanoTime()),TimeUnit.NANOSECONDS))ok++;else bad++;}catch(ExecutionException e){bad++;}catch(TimeoutException e){cancel();f.cancel(true);bad++;}
+   for(Future<Boolean> f:work)try{Boolean success=f.get(Math.max(1,deadline-System.nanoTime()),TimeUnit.NANOSECONDS);if(success!=null){if(success)ok++;else bad++;}}catch(ExecutionException e){bad++;}catch(TimeoutException e){cancel();f.cancel(true);bad++;}
    return new Result(false,bad>0,ok,bad);
-  }finally{for(Future<?> f:work)if(!f.isDone())f.cancel(true);pool.shutdownNow();if(lease)repository.release(owner);RUNNING.set(false);}
+  }finally{for(Future<?> f:work)if(!f.isDone())f.cancel(true);pool.shutdownNow();boolean ended=false;try{ended=pool.awaitTermination(20,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}if(lease&&ended)repository.release(owner);RUNNING.set(false);}
  }
- private boolean syncProvider(RaceProvider provider){var dao=repository.database().catalogue();RaceDatabase.SyncState state=dao.sync(provider.id());if(state==null){state=new RaceDatabase.SyncState();state.provider=provider.id();}state.attempted=System.currentTimeMillis();state.error="";state.pages=0;state.skipped=0;state.truncated=false;
-  if(!provider.blockedReason().isEmpty()){state.error=provider.blockedReason();dao.state(state);repository.notifyChanged();return true;}
+ private Boolean syncProvider(RaceProvider provider){var dao=repository.database().catalogue();RaceDatabase.SyncState state=dao.sync(provider.id());if(state==null){state=new RaceDatabase.SyncState();state.provider=provider.id();}state.attempted=System.currentTimeMillis();state.error="";state.pages=0;state.skipped=0;state.truncated=false;
+  if(!provider.blockedReason().isEmpty()){state.error=provider.blockedReason();dao.state(state);repository.notifyChanged();return null;}
   dao.state(state);repository.notifyChanged();String since=provider.incremental()?state.incrementalSince:"";
   // Periodic complete reconciliation; modified_since is used only by the documented RunSignup adapter.
   if(state.lastFull==0||state.attempted-state.lastFull>7*86400000L)since="";
@@ -27,7 +27,7 @@ public final class RaceSyncCoordinator {
   try {for(int page=1;page<=20;page++){
    if(Thread.currentThread().isInterrupted())throw new InterruptedException();String url=provider.endpoint(page,since);var previous=dao.page(provider.id(),url);var response=http.get(url,previous);boolean more;int pageCount;
    if(response.status()==304){if(previous==null)throw new IllegalStateException("304 without a cached page");more=previous.more;pageCount=previous.pageCount;dao.confirmPage(provider.id(),url,System.currentTimeMillis());}
-   else {var parsed=provider.parse(response.body(),LocalDate.now(ZoneOffset.UTC));more=parsed.more();pageCount=parsed.pageCount();state.skipped+=parsed.skipped();String hash=RaceData.digest(response.body());if(!pageHashes.add(hash)&&more)throw new IllegalStateException("Provider repeated a page; pagination stopped safely");
+   else {var parsed=provider.parse(response.body(),LocalDate.now());more=parsed.more();pageCount=parsed.pageCount();state.skipped+=parsed.skipped();String hash=RaceData.digest(response.body());if(!pageHashes.add(hash)&&more)throw new IllegalStateException("Provider repeated a page; pagination stopped safely");
     RaceDatabase.HttpPage cached=new RaceDatabase.HttpPage();cached.provider=provider.id();cached.requestUrl=url;cached.etag=response.etag();cached.modified=response.modified();cached.more=more;cached.pageCount=pageCount;cached.checked=System.currentTimeMillis();
     repository.database().runInTransaction(()->{repository.upsert(parsed.races(),cached.checked,url);dao.page(cached);});
    }
