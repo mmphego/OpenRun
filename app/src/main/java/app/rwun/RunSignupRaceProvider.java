@@ -6,7 +6,7 @@ public final class RunSignupRaceProvider implements RaceProvider {
  public RunSignupRaceProvider(){this("",false);}public RunSignupRaceProvider(String proxy,boolean approved){this.proxy=proxy;this.approved=approved;}
  public String id(){return "runsignup";}public boolean incremental(){return true;}
  public String blockedReason(){return !approved?"Automatic catalogue caching needs RunSignup approval.":!proxy.startsWith("https://")?"Configure the approved RunSignup proxy; caller secrets must stay off the phone.":"";}
- public String endpoint(int page,String since){String base=proxy.isBlank()?"https://api.runsignup.com/rest/races":proxy;return base+(base.contains("?")?"&":"?")+"format=json&country=ZA&events=T&results_per_page=100&page="+page+(since.isBlank()?"":"&modified_since="+URLEncoder.encode(since,StandardCharsets.UTF_8));}
+ public String endpoint(int page,String since){String base=proxy.isBlank()?"https://api.runsignup.com/rest/races":proxy;return base+(base.contains("?")?"&":"?")+"format=json&country=ZA&events=T&results_per_page=100&page="+page+(since.isBlank()?"":"&modified_since="+android.net.Uri.encode(since));}
  public Page parse(String json,LocalDate today)throws Exception{
   JSONArray rows=new JSONObject(json).getJSONArray("races");List<RaceData.Race> out=new ArrayList<>();int skipped=0;
   for(int i=0;i<rows.length();i++)try{JSONObject r=rows.getJSONObject(i).getJSONObject("race");JSONObject address=r.optJSONObject("address");if(address==null)address=new JSONObject();if(!RaceData.countryCode(address.optString("country_code")).equals("ZA"))continue;

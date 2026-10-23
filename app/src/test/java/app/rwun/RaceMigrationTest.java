@@ -38,8 +38,8 @@ public class RaceMigrationTest {
 
     private void upgrade(String fixture, boolean hasRange) throws Exception {
         context.deleteDatabase("race-catalogue.db");
-        JSONObject schema = new JSONObject(Files.readString(
-                Path.of(System.getProperty("rwun.root"), fixture))).getJSONObject("database");
+        JSONObject schema = new JSONObject(new String(Files.readAllBytes(
+                Path.of(System.getProperty("rwun.root"), fixture)), java.nio.charset.StandardCharsets.UTF_8)).getJSONObject("database");
         JSONArray entities = schema.getJSONArray("entities");
         try (SQLiteDatabase old = context.openOrCreateDatabase("race-catalogue.db", 0, null)) {
             for (int i = 0; i < entities.length(); i++) {
