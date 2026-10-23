@@ -27,14 +27,17 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: server/requirements.txt
+      - name: Install Python test dependencies
+        run: python3 -m pip install -r server/requirements.txt
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
-      - name: Install SDK and test dependencies
+      - name: Install Android SDK packages
         run: |
           sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"
-          python3 -m pip install -r server/requirements.txt
       - name: Host regression tests
         run: python3 scripts/run-host-tests.py
       - name: Android lint, unit tests and APK builds
