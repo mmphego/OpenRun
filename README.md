@@ -24,6 +24,8 @@ A native Android running and walking app with original branding and code, offlin
 
 The app was previously named Rwun. Its Android package ID `app.rwun`, storage keys and backup formats are retained for compatibility; the display name and distribution name are OpenRun.
 
+The current source candidate is **OpenRun 1.5.0 / versionCode 24**, incorporating the recovered Rwun 1.5.0 race implementation and the publication fixes. See [candidate notes](docs/RELEASE-1.5.0.md). A compatible APK upgrade also requires the same signing certificate as the installed app.
+
 The current focus is **running and walking**. Historical cycling and strength support code remains in the source to preserve completed work; it is outside the active product roadmap.
 
 ## UI images
@@ -41,8 +43,8 @@ Device captures of the current build are a [starter contribution](CONTRIBUTING.m
 ## Install an APK
 
 1. Download a signed APK and its `.sha256` file from [Releases](https://github.com/mmphego/OpenRun/releases), **when a release has been published**. No signed public release is promised by this README.
-2. Verify it: `sha256sum -c OpenRun-1.4.4.apk.sha256` (macOS: `shasum -a 256 -c OpenRun-1.4.4.apk.sha256`). Adjust the filename for the release.
-3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.4.4.apk`.
+2. Verify it: `sha256sum -c OpenRun-1.5.0.apk.sha256` (macOS: `shasum -a 256 -c OpenRun-1.5.0.apk.sha256`). Adjust the filename for the release.
+3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.5.0.apk`.
 4. Grant recording permissions when needed. Use an installed offline TTS voice for offline audio coaching.
 
 For an interim developer build, open a successful [CI run](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml), download its `OpenRun-debug-apk-<commit>` artifact, unzip and install `app-debug.apk`. Artifact download may require GitHub sign-in; retention is 14 days. Debug builds are for testing and may have different signing certificates. **Export a backup before uninstalling an incompatible old build**; uninstalling erases app data.
@@ -96,7 +98,7 @@ Do not use `connectedDebugAndroidTest` as a substitute for the command above: th
 | Race ingestion | `RaceProvider` adapters, `RaceHttp`, `RaceSyncCoordinator`, `RaceSyncJob`, `RwunApplication` | Bounded provider fetches, conditional HTTP, transactional upserts, foreground scheduling and concurrency control |
 | Optional service | `server/` | Independently hosted encrypted backup and approved integrations |
 
-Race content, provider observations and saved user choices have separate write lifecycles. Identical content hashes skip edition/distance rewrites; last-seen and sync metadata still update. Conservative merge keys require matching name/date/country plus venue, exact source URL, or city and a shared distance. Ambiguous matches remain separate. Complete provider reconciliation is bounded; failed/incomplete fetches do not wipe the catalogue. See [race ingestion](docs/RACE-SYNC.md).
+Race content, provider observations and saved user choices have separate write lifecycles. Identical content hashes skip edition/distance rewrites; last-seen and sync metadata still update. Conservative merge keys require matching name/date/known country, compatible cities/terrain, and a matching venue or exact event URL. Ambiguous matches remain separate. Complete provider reconciliation is bounded; failed/incomplete fetches do not wipe the catalogue. Schema 1→2 migration preserves either previous catalogue layout. See [race ingestion](docs/RACE-SYNC.md).
 
 ## Tests and checks
 
@@ -107,7 +109,7 @@ python3 -m unittest discover -s server -p 'test_*.py' -v
 python3 -m unittest discover -s tests/device -p 'test_*.py' -v
 ```
 
-Host regressions compile/run the existing Java test programs; the runner downloads two checksum-pinned test-only JARs and emits logs/JUnit XML under `build/reports/host`. Gradle unit tests exercise actual Room upserts, cross-provider merging, saved choices and database leases through Robolectric. Android Lint is the current static analysis gate; no separate formatter or static analyser is claimed. Device QA utilities and the physical acceptance checklist are under [tests/device](tests/device/README.md) and [tests/s23](tests/s23/CHECKLIST.md).
+Host regressions compile/run the existing Java test programs; the runner downloads two checksum-pinned test-only JARs and emits logs/JUnit XML under `build/reports/host`. Gradle tests include the recovered `tests/native` suites, Room upserts, both schema-1 migration paths, cross-provider merging, saved choices and database leases through Robolectric. Each test class runs in a fresh worker process; the live-provider test is skipped by default. Native UI renders are host evidence, not emulator or S23 acceptance. Android Lint is the current static analysis gate; no separate formatter or static analyser is claimed. Device QA utilities and the physical acceptance checklist are under [tests/device](tests/device/README.md) and [tests/s23](tests/s23/CHECKLIST.md).
 
 CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It verifies both debug APK signatures and ZIP alignment before uploading the app APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Tag releases have a separate signing job and publish only after tests, signature verification and checksum generation. [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
 

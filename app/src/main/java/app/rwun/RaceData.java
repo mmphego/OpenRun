@@ -13,16 +13,18 @@ import org.json.*;
 
 /** Provider-neutral facts. Empty strings mean unknown; no guessed geographic or entry data. */
 public final class RaceData {
- public record Distance(int metres,String label,String surface) {
-  public Distance { if(metres<100||metres>1000000)throw new IllegalArgumentException("Invalid race distance");label=text(label,180);surface=terrain(surface); }
+ public record Distance(int metres,String label,String surface,String externalId) {
+  public Distance(int metres,String label,String surface){this(metres,label,surface,"");}
+  public Distance { if(metres<100||metres>1000000)throw new IllegalArgumentException("Invalid race distance");label=text(label,180);surface=terrain(surface);externalId=text(externalId,200); }
   public String key(){return metres+":"+surface;}
  }
  public record Race(String provider,String externalId,String date,String name,String city,String province,String country,
                     String venue,String time,String timezone,String surface,String fee,String description,String url,String entryUrl,
-                    String revision,List<Distance> distances) {
+                    String revision,List<Distance> distances,String endDate) {
+  public Race(String provider,String externalId,String date,String name,String city,String province,String country,String venue,String time,String timezone,String surface,String fee,String description,String url,String entryUrl,String revision,List<Distance> distances){this(provider,externalId,date,name,city,province,country,venue,time,timezone,surface,fee,description,url,entryUrl,revision,distances,date);}
   public Race {
    if(externalId==null||externalId.isBlank()||externalId.length()>200)throw new IllegalArgumentException("Missing provider identity");
-   LocalDate.parse(date);name=text(name,250);if(name.isBlank())throw new IllegalArgumentException("Missing race name");
+   LocalDate.parse(date);endDate=endDate==null||endDate.isBlank()?date:LocalDate.parse(endDate).toString();if(endDate.compareTo(date)<0)throw new IllegalArgumentException("Invalid event date range");name=text(name,250);if(name.isBlank())throw new IllegalArgumentException("Missing race name");
    city=text(city,180);province=text(province,180);country=countryCode(country);venue=text(venue,300);time=time==null?"":time;
    timezone=timezone==null?"":timezone;surface=terrain(surface);fee=text(fee,180);description=text(description,1800);
    url=RaceData.url(url);entryUrl=RaceData.url(entryUrl);revision=revision==null?"":revision;distances=List.copyOf(distances);
@@ -30,16 +32,16 @@ public final class RaceData {
   public String editionKey(){return externalId+":"+LocalDate.parse(date).getYear();}
   public String nameKey(){return normal(name.replaceAll("\\b(?:19|20)\\d{2}\\b", " "));}
   public JSONObject json() {
-   try {JSONObject j=new JSONObject();j.put("name",name).put("date",date).put("city",city).put("province",province).put("country",country).put("venue",venue)
+   try {JSONObject j=new JSONObject();j.put("name",name).put("date",date).put("endDate",endDate).put("city",city).put("province",province).put("country",country).put("venue",venue)
     .put("time",time).put("timezone",timezone).put("surface",surface).put("fee",fee).put("description",description).put("url",url).put("entryUrl",entryUrl);
-    JSONArray a=new JSONArray();distances.stream().sorted(Comparator.comparing(Distance::key)).forEach(d->{try{a.put(new JSONObject().put("metres",d.metres).put("label",d.label).put("surface",d.surface));}catch(Exception e){throw new IllegalArgumentException(e);}});return j.put("distances",a);
+    JSONArray a=new JSONArray();distances.stream().sorted(Comparator.comparing(Distance::key).thenComparing(Distance::externalId).thenComparing(Distance::label)).forEach(d->{try{a.put(new JSONObject().put("metres",d.metres).put("label",d.label).put("surface",d.surface).put("externalId",d.externalId));}catch(Exception e){throw new IllegalArgumentException(e);}});return j.put("distances",a);
    }catch(Exception e){throw new IllegalArgumentException(e);}
   }
   public String hash(){return digest(json().toString());}
  }
  public static Race fromJson(String provider,String external,String revision,String json) {
-  try {JSONObject j=new JSONObject(json);List<Distance> options=new ArrayList<>();JSONArray a=j.optJSONArray("distances");if(a!=null)for(int i=0;i<a.length();i++){JSONObject d=a.getJSONObject(i);options.add(new Distance(d.getInt("metres"),d.optString("label"),d.optString("surface")));}
-   return new Race(provider,external,j.getString("date"),j.getString("name"),j.optString("city"),j.optString("province"),j.optString("country"),j.optString("venue"),j.optString("time"),j.optString("timezone"),j.optString("surface"),j.optString("fee"),j.optString("description"),j.optString("url"),j.optString("entryUrl"),revision,options);
+  try {JSONObject j=new JSONObject(json);List<Distance> options=new ArrayList<>();JSONArray a=j.optJSONArray("distances");if(a!=null)for(int i=0;i<a.length();i++){JSONObject d=a.getJSONObject(i);options.add(new Distance(d.getInt("metres"),d.optString("label"),d.optString("surface"),d.optString("externalId")));}
+   return new Race(provider,external,j.getString("date"),j.getString("name"),j.optString("city"),j.optString("province"),j.optString("country"),j.optString("venue"),j.optString("time"),j.optString("timezone"),j.optString("surface"),j.optString("fee"),j.optString("description"),j.optString("url"),j.optString("entryUrl"),revision,options,j.optString("endDate",j.getString("date")));
   }catch(Exception e){throw new IllegalArgumentException(e);}
  }
  public static String text(String raw,int max){if(raw==null)return "";String clean=raw.replaceAll("(?is)<(script|style)\\b[^>]*>.*?</\\1>"," ");clean=Html.fromHtml(clean,Html.FROM_HTML_MODE_LEGACY).toString().replaceAll("[\\p{Cntrl}\\s\\u00a0]+"," ").trim();return clean.substring(0,Math.min(max,clean.length()));}

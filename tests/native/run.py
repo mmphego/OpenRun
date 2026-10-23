@@ -23,5 +23,13 @@ config.write_text('\n'.join(f'{key}={value}' for key,value in {
 classpath=':'.join(str(x) for x in [*lib.glob('*.jar'),*(root/'build/runtime-deps').glob('*.jar'),root/'build/standalone/classes',classes])
 subprocess.run([javac,'-cp',classpath,'-d',str(classes),*[str(f) for f in (root/'tests/native').glob('*.java')]],check=True)
 evidence=Path(os.environ.get('RWUN_NATIVE_QA_OUTPUT',work/'evidence')).resolve()
-subprocess.run([java,*proxy,'-Drobolectric.dependency.repo.url=https://repo.maven.apache.org/maven2',f'-Drwun.evidence={evidence}','-cp',classpath,'org.junit.runner.JUnitCore','app.rwun.NativePlanningTest','app.rwun.GpsRecordingTest','app.rwun.IndoorRecordingTest','app.rwun.ReliabilityTest'],check=True)
+total=0
+for name in ['NativePlanningTest','GpsRecordingTest','IndoorRecordingTest','ReliabilityTest','RaceSyncTest','RaceDiscoveryUiTest']:
+ expected=(root/'tests/native'/(name+'.java')).read_text().count('@Test')
+ result=subprocess.run([java,*proxy,'-Drobolectric.dependency.repo.url=https://repo.maven.apache.org/maven2',f'-Drwun.root={root}',f'-Drwun.evidence={evidence}','-cp',classpath,'org.junit.runner.JUnitCore','app.rwun.'+name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+ print(result.stdout,flush=True)
+ if result.returncode!=0 or f'OK ({expected} tests)' not in result.stdout:
+  raise SystemExit(f'{name}: test process did not report all {expected} tests passed (exit {result.returncode})')
+ total+=expected
+print(f'Verified {total} completed host tests across isolated JVMs.',flush=True)
 print('Host native renders:',evidence,'(not emulator/S23 screenshots)')

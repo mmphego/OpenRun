@@ -1,0 +1,14 @@
+package app.rwun;
+import android.app.*;import android.content.Intent;import android.os.Looper;import android.view.*;import android.widget.*;import androidx.room.Room;
+import java.time.*;import java.util.*;
+import org.junit.*;import org.junit.runner.RunWith;import org.robolectric.*;import org.robolectric.annotation.*;import org.robolectric.android.controller.ActivityController;import org.robolectric.util.ReflectionHelpers;
+import static org.junit.Assert.*;
+@RunWith(RobolectricTestRunner.class) @Config(sdk=35,qualifiers="w393dp-h852dp-mdpi",manifest=Config.NONE,application=Application.class) @GraphicsMode(GraphicsMode.Mode.NATIVE) @LooperMode(LooperMode.Mode.PAUSED)
+public class RaceDiscoveryUiTest {
+ RaceDatabase db;RaceRepository repo;
+ @Before public void setup()throws Exception{db=Room.inMemoryDatabaseBuilder(RuntimeEnvironment.getApplication(),RaceDatabase.class).allowMainThreadQueries().build();repo=new RaceRepository(db);RaceDatabase.SyncState seeded=new RaceDatabase.SyncState();seeded.provider="_seed";db.catalogue().state(seeded);repo.upsert(new TopEventsRaceProvider().parse(RaceSyncTest.fixture("top-events.json"),LocalDate.of(2026,10,22)).races(),System.currentTimeMillis());ReflectionHelpers.setStaticField(RaceRepository.class,"instance",repo);}
+ @After public void cleanup(){ReflectionHelpers.setStaticField(RaceRepository.class,"instance",null);db.close();}
+ void waitFor(Activity a,String label)throws Exception{long end=System.nanoTime()+5_000_000_000L;while(System.nanoTime()<end){Shadows.shadowOf(Looper.getMainLooper()).idle();if(NativePlanningTest.find(a.getWindow().getDecorView(),label)!=null)return;Thread.sleep(20);}fail("Missing UI label: "+label);}
+ @Test public void cachedSouthAfricanRacesRenderWithoutNetwork()throws Exception{try(ActivityController<RaceDiscoveryActivity> c=Robolectric.buildActivity(RaceDiscoveryActivity.class).setup().visible()){waitFor(c.get(),"Chrysalis Academy 10km & 5km Trail Run 2026");NativePlanningTest.shot(c.get(),"21-race-discovery-cached");assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"South Africa"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Entry fee not supplied"));}}
+ @Test public void savedOnlyEmptyStateAndLargeFontRemainNavigable()throws Exception{RuntimeEnvironment.setFontScale(1.6f);try(ActivityController<RaceDiscoveryActivity> c=Robolectric.buildActivity(RaceDiscoveryActivity.class).setup().visible()){waitFor(c.get(),"Chrysalis Academy 10km & 5km Trail Run 2026");NativePlanningTest.click(c.get(),"Saved races");waitFor(c.get(),"No races match these filters. Try another date, location or country, or add your race manually.");NativePlanningTest.shot(c.get(),"22-races-saved-empty-large-font");NativePlanningTest.click(c.get(),"Don't see your race?");assertEquals(Activity.RESULT_FIRST_USER,Shadows.shadowOf(c.get()).getResultCode());}finally{RuntimeEnvironment.setFontScale(1f);}}
+}

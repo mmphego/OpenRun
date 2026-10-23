@@ -1,144 +1,51 @@
 package app.rwun;
 
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Bundle;
-import android.widget.*;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
+import android.app.*;import android.content.*;import android.os.*;import android.net.Uri;import android.text.*;import android.view.*;import android.widget.*;
+import java.time.*;import java.time.format.DateTimeFormatter;import java.util.*;
+import org.json.JSONObject;
 
-/** Local-only catalogue reads; JobScheduler owns all provider network requests. */
+/** Asynchronous, database-backed discovery in OpenRun's existing planning design system. */
 public final class RaceDiscoveryActivity extends Activity {
-    private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final UiKit.Palette palette = new UiKit.Palette(true);
-    private final Runnable observer = () -> runOnUiThread(this::load);
-    private RaceRepository repository;
-    private LinearLayout results;
-    private TextView status;
-    private EditText query;
-    private CheckBox savedOnly;
-    private int offset, generation;
-
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        repository = RaceRepository.get(this);
-        LinearLayout body = PlanningUi.column(this);
-        body.setPadding(UiKit.dp(this, 20), UiKit.dp(this, 36), UiKit.dp(this, 20), UiKit.dp(this, 24));
-        body.setBackgroundColor(PlanningUi.CANVAS);
-        body.addView(PlanningUi.label(this, "Find your race", 30, true));
-        body.addView(PlanningUi.label(this, "Cached listings · confirm details with the organiser", 15, false));
-        query = new EditText(this);
-        query.setSingleLine(true);
-        query.setHint("Race name, city or venue");
-        query.setContentDescription("Search local race catalogue");
-        if (state != null) query.setText(state.getString("query", ""));
-        body.addView(query);
-        savedOnly = new CheckBox(this);
-        savedOnly.setText("Saved races only");
-        savedOnly.setChecked(state != null && state.getBoolean("saved"));
-        body.addView(savedOnly);
-        body.addView(UiKit.action(this, palette, "Search", () -> { offset = 0; load(); }));
-        body.addView(UiKit.action(this, palette, "Refresh in background", () -> {
-            RaceSyncJob.schedule(this);
-            Toast.makeText(this, "Update queued. Cached races remain available.", Toast.LENGTH_SHORT).show();
-        }));
-        body.addView(UiKit.action(this, palette, "Add a race manually", () -> startActivity(new Intent(this, RacePlanActivity.class).putExtra("mode", "manual"))));
-        status = PlanningUi.label(this, "Loading local catalogue…", 13, false);
-        body.addView(status);
-        results = PlanningUi.column(this);
-        body.addView(results);
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(body);
-        setContentView(scroll);
-        repository.observe(observer);
-        load();
-    }
-
-    private void load() {
-        if (isFinishing() || isDestroyed()) return;
-        int request = ++generation;
-        String search = query.getText().toString();
-        boolean onlySaved = savedOnly.isChecked();
-        int page = offset;
-        submit(() -> {
-            try {
-                repository.seed(this);
-                List<RaceDatabase.Card> cards = repository.search(new RaceRepository.Filter(search, "", "", "All", 0,
-                        LocalDate.now().toString(), LocalDate.now().plusYears(5).toString(), onlySaved, page));
-                StringBuilder summary = new StringBuilder("Provider status: ");
-                for (var state : repository.database().catalogue().states()) {
-                    summary.append(state.provider).append(": ").append(state.error.isBlank() ? (state.success == 0 ? "pending" : "cached") : state.error).append(". ");
-                }
-                runOnUiThread(() -> {
-                    if (isDestroyed() || request != generation) return;
-                    status.setText(summary.toString());
-                    results.removeAllViews();
-                    if (cards.isEmpty()) results.addView(PlanningUi.label(this, "No matching cached races. Try another search or add one manually.", 16, false));
-                    for (var card : cards.subList(0, Math.min(30, cards.size()))) {
-                        LinearLayout row = PlanningUi.card(this);
-                        row.addView(PlanningUi.label(this, card.name, 20, true));
-                        row.addView(PlanningUi.label(this, card.date + " · " + card.city + " · " + RaceData.countryName(card.country) + " · " + card.surface, 14, false));
-                        row.addView(UiKit.action(this, palette, "Distances and sources", () -> details(card.id)));
-                        row.addView(UiKit.action(this, palette, card.saved ? "Unsave race" : "Save race", () -> submit(() -> {
-                            if (card.saved) repository.unsave(card.id); else repository.save(card.id, null);
-                        })));
-                        results.addView(row);
-                    }
-                    if (page > 0) results.addView(UiKit.action(this, palette, "Previous page", () -> { offset = Math.max(0, offset - 30); load(); }));
-                    if (cards.size() > 30) results.addView(UiKit.action(this, palette, "Next page", () -> { offset += 30; load(); }));
-                });
-            } catch (Exception e) { report(e); }
-        });
-    }
-
-    private void details(String id) {
-        submit(() -> {
-            try {
-                var distances = repository.options(id).stream().filter(d -> d.available).collect(java.util.stream.Collectors.toList());
-                var sources = repository.references(id);
-                runOnUiThread(() -> {
-                    if (isDestroyed()) return;
-                    String[] labels = new String[distances.size() + sources.size()];
-                    for (int i = 0; i < distances.size(); i++) labels[i] = "Plan · " + distances.get(i).label + " · " + distances.get(i).surface;
-                    for (int i = 0; i < sources.size(); i++) labels[distances.size() + i] = "Source · " + sources.get(i).provider;
-                    new AlertDialog.Builder(this).setTitle(distances.isEmpty() ? "Distance unknown · check organiser" : "Choose distance or source")
-                        .setItems(labels, (dialog, index) -> {
-                            if (index < distances.size()) {
-                                String distanceId = distances.get(index).id;
-                                submit(() -> {
-                                    try {
-                                        String race = repository.planningRace(id, distanceId).toString();
-                                        runOnUiThread(() -> { if (!isDestroyed()) startActivity(new Intent(this, RacePlanActivity.class).putExtra("raceJson", race)); });
-                                    } catch (Exception e) { report(e); }
-                                });
-                            } else {
-                                String url = RaceData.url(sources.get(index - distances.size()).sourceUrl);
-                                if (!url.isBlank()) try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception e) { report(e); }
-                            }
-                        }).setNegativeButton("Close", null).show();
-                });
-            } catch (Exception e) { report(e); }
-        });
-    }
-
-    private void submit(Runnable task) {
-        try { worker.execute(() -> { try { task.run(); } catch (Exception e) { report(e); } }); }
-        catch (RejectedExecutionException ignored) { /* Activity already closed. */ }
-    }
-    private void report(Exception e) { runOnUiThread(() -> { if (!isDestroyed()) status.setText(UserErrors.message(e)); }); }
-    @Override protected void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out);
-        out.putString("query", query.getText().toString());
-        out.putBoolean("saved", savedOnly.isChecked());
-    }
-    @Override protected void onDestroy() {
-        if (repository != null) repository.removeObserver(observer);
-        worker.shutdownNow();
-        super.onDestroy();
-    }
+ private final Handler main=new Handler(Looper.getMainLooper());private final UiKit.Palette palette=new UiKit.Palette(true);
+ private RaceRepository repository;private LinearLayout body,results;private TextView state;private PullScroll scroll;
+ private String query="",location="",country="ZA",surface="All";private int metres,limit=30,generation;private boolean savedOnly,closed;
+ private LocalDate from=LocalDate.now(),to=LocalDate.now().plusYears(2);
+ private final Runnable refresh=()->main.post(this::load);
+ private final Runnable searchLater=this::load;
+ @Override public void onCreate(Bundle saved){super.onCreate(saved);if(saved!=null){query=saved.getString("query","");location=saved.getString("location","");country=saved.getString("country","ZA");surface=saved.getString("surface","All");metres=saved.getInt("metres");savedOnly=saved.getBoolean("savedOnly");from=LocalDate.parse(saved.getString("from",from.toString()));to=LocalDate.parse(saved.getString("to",to.toString()));}
+  repository=RaceRepository.get(this);show();load();}
+ @Override protected void onStart(){super.onStart();repository.observe(refresh);load();}
+ @Override protected void onStop(){repository.removeObserver(refresh);super.onStop();}
+ @Override protected void onDestroy(){closed=true;generation++;main.removeCallbacksAndMessages(null);super.onDestroy();}
+ @Override protected void onSaveInstanceState(Bundle out){super.onSaveInstanceState(out);out.putString("query",query);out.putString("location",location);out.putString("country",country);out.putString("surface",surface);out.putInt("metres",metres);out.putBoolean("savedOnly",savedOnly);out.putString("from",from.toString());out.putString("to",to.toString());}
+ private int dp(int n){return UiKit.dp(this,n);}private TextView label(String text,int size,boolean bold){return PlanningUi.label(this,text,size,bold);}
+ private void show(){LinearLayout root=PlanningUi.column(this);root.setBackgroundColor(PlanningUi.CANVAS);root.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(i.getSystemWindowInsetLeft(),i.getSystemWindowInsetTop(),i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i.consumeSystemWindowInsets();});root.addView(PlanningUi.header(this,2,this::finish,this::finish));
+  scroll=new PullScroll();body=PlanningUi.column(this);body.setPadding(dp(20),dp(10),dp(20),dp(30));scroll.addView(body);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);getWindow().setStatusBarColor(PlanningUi.CANVAS);getWindow().setNavigationBarColor(PlanningUi.CANVAS);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+  body.addView(label("Find your race",28,true));body.addView(label("Choose a race. Build toward its start line.",16,false));PlanningUi.gap(this,body,20);
+  field("Search races",query,s->{query=s;limit=30;scheduleSearch();});field("City, province or venue",location,s->{location=s;limit=30;scheduleSearch();});
+  HorizontalScrollView filters=new HorizontalScrollView(this);LinearLayout chips=new LinearLayout(this);filters.setHorizontalScrollBarEnabled(false);chips.addView(PlanningUi.chip(this,country.isEmpty()?"All countries":RaceData.countryName(country),!country.equals("ZA"),this::countries));chips.addView(PlanningUi.chip(this,"Dates",false,this::dates));chips.addView(PlanningUi.chip(this,metres==0?"Distance":String.format(Locale.ROOT,"%.1f km",metres/1000d),metres!=0,this::distance));chips.addView(PlanningUi.chip(this,surface.equals("All")?"Road / trail":surface,surface.equals("All")?false:true,()->new AlertDialog.Builder(this).setTitle("Road or trail").setItems(new String[]{"All","Road","Trail","Unknown"},(d,w)->{surface=new String[]{"All","Road","Trail","Unknown"}[w];limit=30;show();load();}).show()));chips.addView(PlanningUi.chip(this,"Saved races",savedOnly,()->{savedOnly=!savedOnly;limit=30;show();load();}));filters.addView(chips);body.addView(filters);
+  state=label("Loading races saved on this phone…",12,false);state.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);LinearLayout freshness=new LinearLayout(this);freshness.setGravity(Gravity.CENTER_VERTICAL);freshness.addView(state,new LinearLayout.LayoutParams(0,-2,1));freshness.addView(PlanningUi.plainIcon(this,R.drawable.ic_refresh,"Refresh races",this::sync),new LinearLayout.LayoutParams(dp(44),dp(44)));body.addView(freshness);body.addView(label("Pull down to refresh · Change Country for international races.",12,false));
+  PlanningUi.gap(this,body,12);results=PlanningUi.column(this);body.addView(results);
+  body.addView(PlanningUi.choice(this,R.drawable.ic_assignment,"Don't see your race?","Add it manually",()->{setResult(RESULT_FIRST_USER);finish();}));
+  body.addView(UiKit.action(this,palette,"Sources & sync status",this::status));
+ }
+ private void field(String hint,String value,java.util.function.Consumer<String> changed){EditText input=new EditText(this);input.setTextColor(PlanningUi.INK);input.setHintTextColor(PlanningUi.MUTED);input.setTextSize(UiKit.textSizeSp(16));input.setSingleLine(true);input.setHint(hint);input.setContentDescription(hint);input.setText(value);input.setPadding(dp(14),dp(10),dp(14),dp(10));input.setBackground(PlanningUi.shape(this,PlanningUi.CARD,14,true));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(56));lp.setMargins(0,0,0,dp(12));body.addView(input,lp);input.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int n,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){changed.accept(s.toString());}public void afterTextChanged(Editable e){}});}
+ private void scheduleSearch(){main.removeCallbacks(searchLater);main.postDelayed(searchLater,250);}
+ private void sync(){RaceSyncJob.schedule(this);state.setText("Refresh queued. Saved races stay available while Android waits for a network.");}
+ private void load(){if(closed||results==null)return;final int ticket=++generation;var filter=new RaceRepository.Filter(query.trim(),location.trim(),country,surface,metres,from.toString(),to.toString(),savedOnly,0);final int display=limit;
+  RaceRepository.READS.execute(()->{try{repository.seed(this);List<RaceDatabase.Card> cards=new ArrayList<>();boolean more=false;for(int offset=0;offset<display;offset+=30){var page=repository.search(new RaceRepository.Filter(filter.query(),filter.location(),filter.country(),filter.surface(),filter.metres(),filter.from(),filter.to(),filter.savedOnly(),offset));int n=Math.min(30,page.size());cards.addAll(page.subList(0,n));more=page.size()>30;if(!more)break;}String summary=summary();boolean hasMore=more;main.post(()->{if(closed||ticket!=generation)return;render(cards,hasMore);state.setText(summary);});}catch(Exception e){main.post(()->{if(!closed&&ticket==generation){state.setText("Could not read saved races. Refresh or add a race manually; existing data is retained.");results.removeAllViews();}});}});
+ }
+ private String summary(){var states=repository.database().catalogue().states();long last=states.stream().mapToLong(s->s.success).max().orElse(0);long failed=states.stream().filter(s->!s.error.isEmpty()&&!s.provider.equals("runsignup")).count();String text=last==0?"Offline catalogue · live feeds have not completed a refresh yet.":"Cached races · last completed refresh "+Instant.ofEpochMilli(last).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM, HH:mm"));return text+(failed>0?" · Some sources could not update. See sync status.":"");}
+ private void render(List<RaceDatabase.Card> cards,boolean more){int y=scroll.getScrollY();results.removeAllViews();if(cards.isEmpty())results.addView(label("No races match these filters. Try another date, location or country, or add your race manually.",16,false));for(var r:cards){LinearLayout card=PlanningUi.card(this);card.addView(label(r.date+(!r.date.equals(r.endDate)?" – "+r.endDate:"")+(r.time.isEmpty()?"":" · "+r.time)+(r.timezone.isEmpty()?"":" · "+r.timezone),13,false));card.addView(label(r.name,19,true));String place=String.join(" · ",java.util.stream.Stream.of(r.venue,r.city,r.province,RaceData.countryName(r.country)).filter(s->!s.isBlank()).distinct().collect(java.util.stream.Collectors.toList()));card.addView(label(place,14,false));card.addView(label(r.distances.isEmpty()?"Distances not supplied":r.distances,14,false));card.addView(label(r.fee.isEmpty()?"Entry fee not supplied":r.fee,12,false));card.addView(label(r.surface+" · "+(r.saved?"Saved · ":"")+freshness(r.lastSeen),12,false));card.setClickable(true);card.setFocusable(true);card.setContentDescription(r.name+", "+r.date+", "+place);card.setOnClickListener(v->details(r.id));results.addView(card);}if(more)results.addView(UiKit.action(this,palette,"Load more races",()->{limit+=30;load();}));scroll.post(()->scroll.scrollTo(0,y));}
+ private String freshness(long last){if(last==0)return "Freshness unknown";long days=Math.max(0,(System.currentTimeMillis()-last)/86400000L);return days>7?"May be stale · checked "+days+" days ago":"Checked "+(days==0?"today":days+" days ago");}
+ private void countries(){RaceRepository.READS.execute(()->{var codes=new ArrayList<>(repository.countries());codes.remove("ZA");codes.add(0,"ZA");List<String> labels=new ArrayList<>();labels.add("All countries · includes international races");for(String c:codes)labels.add(RaceData.countryName(c));main.post(()->{if(!closed)new AlertDialog.Builder(this).setTitle("Country").setItems(labels.toArray(new String[0]),(d,w)->{country=w==0?"":codes.get(w-1);limit=30;show();load();}).show();});});}
+ private void dates(){new AlertDialog.Builder(this).setTitle("Race dates").setItems(new String[]{"Next 3 months","Next 6 months","Next 12 months","Next 24 months","Choose start date","Choose end date"},(d,w)->{if(w<4){from=LocalDate.now();to=from.plusMonths(new int[]{3,6,12,24}[w]);limit=30;load();}else{LocalDate selected=w==4?from:to;new DatePickerDialog(this,(v,y,m,day)->{LocalDate value=LocalDate.of(y,m+1,day);if(w==4)from=value;else to=value;if(to.isBefore(from)){to=from;}limit=30;load();},selected.getYear(),selected.getMonthValue()-1,selected.getDayOfMonth()).show();}}).show();}
+ private void distance(){new AlertDialog.Builder(this).setTitle("Distance").setItems(new String[]{"All distances","5 km","10 km","Half marathon","Marathon","Custom distance"},(d,w)->{if(w<5){metres=new int[]{0,5000,10000,21098,42195}[w];limit=30;show();load();}else{EditText input=new EditText(this);input.setInputType(8194);input.setHint("Kilometres");new AlertDialog.Builder(this).setTitle("Distance in km").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Filter",(x,n)->{try{double km=Double.parseDouble(input.getText().toString());if(!Double.isFinite(km)||km<.1||km>1000)throw new IllegalArgumentException();metres=(int)Math.round(km*1000);limit=30;show();load();}catch(Exception e){Toast.makeText(this,"Enter 0.1–1000 km",Toast.LENGTH_SHORT).show();}}).show();}}).show();}
+ private void status(){RaceRepository.READS.execute(()->{StringBuilder b=new StringBuilder();for(var provider:RaceSyncJob.providers(this)){var s=repository.database().catalogue().sync(provider.id());b.append(provider.id()).append("\n");if(!provider.blockedReason().isEmpty())b.append(provider.blockedReason());else if(s==null)b.append("Not checked yet");else b.append(s.error.isEmpty()?(s.attempted>s.success?"Refresh in progress":"Latest refresh completed"):s.error).append("\nLast success: ").append(s.success==0?"never":Instant.ofEpochMilli(s.success).toString()).append("\nPages checked: ").append(s.pages);b.append("\n\n");}b.append("Top Events: factual listings and links; reuse permission for descriptions/artwork is unresolved. Bield: public feed. RunSignup: approval/proxy needed. Absence from a feed never deletes a saved race. Check current details and entry availability with the organiser.");main.post(()->{if(!closed)new AlertDialog.Builder(this).setTitle("Sources & sync status").setMessage(b.toString()).setPositiveButton("Done",null).show();});});}
+ private void details(String id){RaceRepository.READS.execute(()->{var e=repository.edition(id);var options=repository.options(id);var refs=repository.references(id);boolean saved=repository.isSaved(id);main.post(()->{if(closed||e==null)return;LinearLayout content=PlanningUi.column(this);content.setPadding(dp(20),dp(10),dp(20),dp(16));ScrollView pane=new ScrollView(this);pane.addView(content);content.addView(label(e.date+(!e.date.equals(e.endDate)?" – "+e.endDate:"")+(e.time.isEmpty()?" · start time not supplied":" · "+e.time)+(e.timezone.isEmpty()?"":" · "+e.timezone),15,true));content.addView(label(String.join(" · ",java.util.stream.Stream.of(e.venue,e.city,e.province,RaceData.countryName(e.country)).filter(s->!s.isEmpty()).distinct().collect(java.util.stream.Collectors.toList())),14,false));content.addView(label(e.fee.isEmpty()?"Entry fee not supplied":e.fee+" · check current fee at source",14,false));if(!e.date.equals(e.endDate))content.addView(label("This source lists a multi-day event. Confirm the actual race day with the organiser and add it manually for training.",14,true));content.addView(label("Distances",18,true));if(options.isEmpty())content.addView(label("No explicit distances supplied. Check the organiser and add the race manually.",14,false));
+  AlertDialog dialog=new AlertDialog.Builder(this).setTitle(e.name).setView(pane).setNegativeButton("Close",null).setNeutralButton(saved?"Unsave race":"Save race",(d,w)->RaceRepository.READS.execute(()->{if(saved)repository.unsave(id);else repository.save(id,null);})).create();
+  for(var o:options){content.addView(label(String.format(Locale.ROOT,"%.2f km · %s%s",o.metres/1000d,o.surface,o.available?"":" · no longer listed"),15,true));content.addView(UiKit.action(this,palette,"Save this distance",()->RaceRepository.READS.execute(()->{repository.save(id,o.id);main.post(()->Toast.makeText(this,"Race and distance saved",Toast.LENGTH_SHORT).show());})));boolean plannable=e.date.equals(e.endDate)&&o.available&&o.metres>=5000&&o.metres<=42200&&!LocalDate.parse(e.date).isBefore(LocalDate.now().plusWeeks(4));if(!plannable)content.addView(label("You can save this race. Road plans currently need 5–42.2 km and at least four weeks before race day.",13,false));if(plannable)content.addView(UiKit.action(this,palette,"Train for "+String.format(Locale.ROOT,"%.2f km",o.metres/1000d),()->{if(o.surface.equals("Trail")){Toast.makeText(this,"Trail races can be saved. Trail-specific training is not available in this build.",Toast.LENGTH_LONG).show();return;}Runnable choose=()->RaceRepository.READS.execute(()->{try{JSONObject race=repository.planningRace(id,o.id);if(o.surface.equals("Unknown"))race.put("sourceSurface","Unknown").put("surface","Road");repository.save(id,o.id);main.post(()->{if(!closed){dialog.dismiss();setResult(RESULT_OK,new Intent().putExtra("race",race.toString()));finish();}});}catch(Exception error){main.post(()->Toast.makeText(this,error.getMessage(),Toast.LENGTH_LONG).show());}});if(o.surface.equals("Unknown"))new AlertDialog.Builder(this).setTitle("Use a road-running plan?").setMessage("The source does not specify terrain. Continue only if you know this is a road race. OpenRun currently supports road plans from 5 km to marathon; selecting a goal does not enter the race.").setNegativeButton("Cancel",null).setPositiveButton("Use road plan",(d,w)->choose.run()).show();else choose.run();}));}
+  for(var ref:refs){content.addView(label("Source: "+ref.provider,12,false));if(!ref.sourceUrl.isEmpty())content.addView(UiKit.action(this,palette,"Event details · "+ref.provider,()->open(ref.sourceUrl)));if(!ref.entryUrl.isEmpty())content.addView(UiKit.action(this,palette,"Entry / organiser link · "+ref.provider,()->open(ref.entryUrl)));}content.addView(label("Selecting a race does not register or pay for an entry. Saved training goals keep their reviewed date and distance when feeds change.",12,false));dialog.show();});});}
+ private void open(String url){String safe=RaceData.url(url);if(!safe.isEmpty())try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(safe)));}catch(Exception e){Toast.makeText(this,"No browser is available",Toast.LENGTH_SHORT).show();}}
+ private final class PullScroll extends ScrollView {float x,y;PullScroll(){super(RaceDiscoveryActivity.this);setFillViewport(true);setVerticalScrollBarEnabled(false);}public boolean dispatchTouchEvent(android.view.MotionEvent e){if(e.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){x=e.getX();y=e.getY();}if(e.getActionMasked()==android.view.MotionEvent.ACTION_UP&&getScrollY()==0&&e.getY()-y>dp(110)&&Math.abs(e.getX()-x)<dp(50)){sync();android.view.MotionEvent cancel=android.view.MotionEvent.obtain(e);cancel.setAction(android.view.MotionEvent.ACTION_CANCEL);super.dispatchTouchEvent(cancel);cancel.recycle();return true;}return super.dispatchTouchEvent(e);}}
 }

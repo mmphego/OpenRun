@@ -72,6 +72,7 @@ jobs:
           path: |
             app/build/reports/
             app/build/test-results/
+            app/schemas/
             build/reports/
           if-no-files-found: warn
           retention-days: 7

@@ -171,7 +171,7 @@ public final class MainActivity extends Activity {
 
   private Button button(String label, Runnable action) {
     if(label.startsWith("Back")){
-      header(appTitle==null?"rwun":appTitle.getText().toString(),action);
+      header(appTitle==null?"OpenRun":appTitle.getText().toString(),action);
       Button hidden=new Button(this);hidden.setVisibility(View.GONE);return hidden;
     }
     return UiKit.action(this, palette, label, () -> {
@@ -206,7 +206,7 @@ public final class MainActivity extends Activity {
       return insets.consumeSystemWindowInsets();
     });
     FrameLayout toolbar=new FrameLayout(this);toolbar.setMinimumHeight(dp(56));
-    appTitle=UiKit.label(this,tab.equals("Today")?"rwun":tab.equals("Plan")?"Your Plan":tab.equals("Run")?(tracker!=null&&tracker.active()&&tracker.walking()?"Walk":"Move"):tab,18,ink,true);appTitle.setGravity(Gravity.CENTER);appTitle.setSingleLine(true);appTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    appTitle=UiKit.label(this,tab.equals("Today")?"OpenRun":tab.equals("Plan")?"Your Plan":tab.equals("Run")?(tracker!=null&&tracker.active()&&tracker.walking()?"Walk":"Move"):tab,18,ink,true);appTitle.setGravity(Gravity.CENTER);appTitle.setSingleLine(true);appTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
     FrameLayout.LayoutParams titleLp=new FrameLayout.LayoutParams(-1,dp(56));titleLp.setMargins(dp(62),0,dp(62),0);toolbar.addView(appTitle,titleLp);
     appLeft=UiKit.iconButton(this,palette,R.drawable.ic_settings,"Profile",()->{tab="Profile";creatingPlan=false;render();});
     appLeft.setImageDrawable(getDrawable(R.drawable.ic_rwun));FrameLayout.LayoutParams leftLp=new FrameLayout.LayoutParams(dp(48),dp(48),Gravity.START|Gravity.CENTER_VERTICAL);leftLp.setMargins(dp(12),0,0,0);toolbar.addView(appLeft,leftLp);
@@ -328,7 +328,7 @@ public final class MainActivity extends Activity {
     return store.planId() + ":" + s.id();
   }
 
-  private void openRace(String mode){refreshFeatures=true;startActivityForResult(new Intent(this,mode.equals("search")?RaceDiscoveryActivity.class:RacePlanActivity.class).putExtra("mode",mode),207);}
+  private void openRace(String mode){refreshFeatures=true;startActivityForResult(new Intent(this,RacePlanActivity.class).putExtra("mode",mode),207);}
 
   private void openTraining(String screen){refreshFeatures=true;startActivity(new Intent(this,TrainingActivity.class).putExtra("screen",screen));}
 
@@ -1007,7 +1007,7 @@ public final class MainActivity extends Activity {
 
   private void settings() {
     content.addView(text("Your profile", 30, true));
-    content.addView(text("OpenRun 1.4.4 · Run around your life", 16, false));
+    content.addView(text("OpenRun 1.5.0 · Run around your life", 16, false));
 
     section("MY STUFF");
     LinearLayout devices=card();row(devices,R.drawable.ic_watch,"Connected apps & devices","Health Connect, Garmin and heart rate",this::connections);

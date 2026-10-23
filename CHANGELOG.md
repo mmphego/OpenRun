@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0 — OpenRun candidate
+
+- Reconciled the recovered Rwun 1.5.0 race discovery, provider and planning implementation with the published OpenRun build and CI fixes.
+- Updated Today, the home-screen widget, share cards and distribution examples to OpenRun; Android versionCode is 24, above Rwun 1.5.0's 23.
+- Preserved multi-day event ranges, conservative duplicate matching, bounded Bield redirects and provider failure isolation.
+- Added a non-destructive Room schema 1→2 migration for both previously shipped schema-1 layouts, retaining saved races and training goals.
+- Added the recovered native Android host tests to Gradle CI; live-provider checks remain opt-in and physical-device acceptance remains pending.
+
+This is a source/PR candidate, not a published signed release. Package `app.rwun`, storage keys, backup discriminator `Rwun` and external record identifiers remain unchanged. Updating an installed APK also requires the same signing certificate; the original private key is not committed.
+
 ## Unreleased — public collaboration preparation
 
 - Renamed visible branding and distribution artifacts from Rwun to OpenRun, preserving `app.rwun` and backup identity.

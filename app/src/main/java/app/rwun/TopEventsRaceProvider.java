@@ -8,7 +8,7 @@ public final class TopEventsRaceProvider implements RaceProvider {
   JSONObject root=new JSONObject(json);JSONArray events=root.getJSONArray("events");List<RaceData.Race> races=new ArrayList<>();int skipped=0;
   for(int i=0;i<events.length();i++)try{
    JSONObject e=events.getJSONObject(i);if(!e.optString("status","publish").equals("publish"))continue;
-   LocalDate date=RaceData.date(e.getString("start_date"));if(date.isBefore(today))continue;
+   LocalDate date=RaceData.date(e.getString("start_date"));LocalDate end=e.optString("end_date").isBlank()?date:RaceData.date(e.getString("end_date"));if(end.isBefore(today))continue;
    String categories=e.optJSONArray("categories")==null?"":e.getJSONArray("categories").toString();String title=RaceData.text(e.getString("title"),250);
    if((title+categories).toLowerCase(Locale.ROOT).matches(".*\\b(cycling|triathlon|swim|expo)\\b.*"))continue;
    JSONObject venue=e.optJSONObject("venue");if(venue==null)venue=new JSONObject();String surface=RaceData.terrain(title+" "+categories);
@@ -16,7 +16,7 @@ public final class TopEventsRaceProvider implements RaceProvider {
    String country=venue.optString("country");if(country.isBlank())country="ZA";
    String zone=e.optString("timezone");try{ZoneId.of(zone);}catch(Exception x){zone="";}
    String time=e.optBoolean("all_day")?"":RaceData.time(e.optString("start_date"));
-   races.add(new RaceData.Race(id(),e.get("id").toString(),date.toString(),title,venue.optString("city"),venue.optString("province",venue.optString("state")),country,venue.optString("venue"),time,zone,surface,e.optString("cost"),"",e.optString("url"),e.optString("website"),e.optString("modified_utc",e.optString("modified")),distances));
+   races.add(new RaceData.Race(id(),e.get("id").toString(),date.toString(),title,venue.optString("city"),venue.optString("province",venue.optString("state")),country,venue.optString("venue"),time,zone,surface,e.optString("cost"),"",e.optString("url"),e.optString("website"),e.optString("modified_utc",e.optString("modified")),distances,end.toString()));
   }catch(Exception bad){skipped++;}
   int pages=root.optInt("total_pages",1);return new Page(races,root.optInt("page",0)<pages,Math.max(1,pages),skipped);
  }
