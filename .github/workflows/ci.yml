@@ -50,6 +50,12 @@ jobs:
           set -o pipefail
           python3 -m unittest discover -s server -p 'test_*.py' -v 2>&1 | tee build/reports/python/server.txt
           python3 -m unittest discover -s tests/device -p 'test_*.py' -v 2>&1 | tee build/reports/python/device-utilities.txt
+      - name: Verify debug APK signing and alignment
+        run: |
+          for apk in app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk; do
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+            "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 "$apk"
+          done
       - name: Upload debug APK
         if: ${{ success() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -93,7 +93,7 @@ Do not use `connectedDebugAndroidTest` as a substitute for the command above: th
 | Domain | `PlanEngine`, `WorkoutEngine`, `RaceTraining`, `AdaptiveCoach`, `GpsAccumulator` | Testable training rules, workout transitions and GPS filtering |
 | Recording | `TrackingService`, `IndoorStepService`, `HeartRateClient` | Foreground recording and device adapters |
 | Local data | `RunStore`, `ActivityFiles`, `BackupManager`, `RaceDatabase`, `RaceRepository` | Existing training storage plus a separate Room race catalogue |
-| Race ingestion | `RaceProvider` adapters, `RaceHttp`, `RaceSyncCoordinator`, `RaceSyncJob`, `OpenRunApplication` | Bounded provider fetches, conditional HTTP, transactional upserts, foreground scheduling and concurrency control |
+| Race ingestion | `RaceProvider` adapters, `RaceHttp`, `RaceSyncCoordinator`, `RaceSyncJob`, `RwunApplication` | Bounded provider fetches, conditional HTTP, transactional upserts, foreground scheduling and concurrency control |
 | Optional service | `server/` | Independently hosted encrypted backup and approved integrations |
 
 Race content, provider observations and saved user choices have separate write lifecycles. Identical content hashes skip edition/distance rewrites; last-seen and sync metadata still update. Conservative merge keys require matching name/date/country plus venue, exact source URL, or city and a shared distance. Ambiguous matches remain separate. Complete provider reconciliation is bounded; failed/incomplete fetches do not wipe the catalogue. See [race ingestion](docs/RACE-SYNC.md).
@@ -109,7 +109,7 @@ python3 -m unittest discover -s tests/device -p 'test_*.py' -v
 
 Host regressions compile/run the existing Java test programs; the runner downloads two checksum-pinned test-only JARs and emits logs/JUnit XML under `build/reports/host`. Gradle unit tests exercise actual Room upserts, cross-provider merging, saved choices and database leases through Robolectric. Android Lint is the current static analysis gate; no separate formatter or static analyser is claimed. Device QA utilities and the physical acceptance checklist are under [tests/device](tests/device/README.md) and [tests/s23](tests/s23/CHECKLIST.md).
 
-CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It uploads the debug APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Tag releases have a separate signing job and publish only after tests, signature verification and checksum generation. [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
+CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It verifies both debug APK signatures and ZIP alignment before uploading the app APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Tag releases have a separate signing job and publish only after tests, signature verification and checksum generation. [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
 
 ## Collaborate
 
