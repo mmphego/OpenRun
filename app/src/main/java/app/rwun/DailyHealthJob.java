@@ -11,7 +11,7 @@ import java.util.function.Supplier;
 
 /** Approximate, opt-in checks. No network or continuously running location/sensor service. */
 public final class DailyHealthJob extends JobService {
-    static final int JOB_ID=82,NOTIFICATION_ID=1050;
+    static final int JOB_ID=83,NOTIFICATION_ID=1050;
     private static final AtomicBoolean BUSY=new AtomicBoolean();
     private CompletableFuture<Void> active;private volatile int generation;
     static boolean permitted(Context context){return HealthAccess.available(context)&&HealthAccess.backgroundSupported(context)&&HealthAccess.granted(context,DailyHealthSource.STEPS,HealthJob.BACKGROUND);}

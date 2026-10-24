@@ -31,6 +31,11 @@ public class DailyHealthJobTest {
     void complete(Source source,Long steps){source.result.complete(new DailyHealthRules.Movement(steps,now.toInstant(),now.minusHours(1).toInstant(),now.toInstant()));}
     CompletableFuture<Void> check(Source source,AtomicBoolean active,AtomicBoolean access){return DailyHealthJob.check(app,source,active::get,access::get,()->now);}
     int count(){return Shadows.shadowOf(notifications).getAllNotifications().size();}
+    @Test public void disabledMonitorCannotCancelRaceRefresh(){
+        RaceSyncJob.schedule(app);store.clear();DailyHealthJob.schedule(app);
+        assertNotNull(app.getSystemService(android.app.job.JobScheduler.class).getPendingJob(RaceSyncJob.ID));
+        assertNotEquals(RaceSyncJob.ID,DailyHealthJob.JOB_ID);
+    }
     @Test public void knownLowMovementNotifiesOnceAndActionPreservesConfiguredGoal(){
         Source source=new Source();var work=check(source,new AtomicBoolean(true),new AtomicBoolean(true));complete(source,0L);work.join();assertEquals(1,count());
         Notification notification=Shadows.shadowOf(notifications).getNotification(DailyHealthJob.NOTIFICATION_ID);assertEquals("Time for a movement break?",notification.extras.getString(Notification.EXTRA_TITLE));

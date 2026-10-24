@@ -33,7 +33,7 @@ public final class DailyHealthActivity extends Activity {
         ScrollView scroll=new ScrollView(this);body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(20),dp(8),dp(20),dp(28));scroll.addView(body);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);status=text("",14);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         try{switch(screen){case "movement"->movement();case "checkin"->checkin();case "advice"->advice();case "privacy"->privacy();default->home();}}
-        catch(RuntimeException error){status.setText(UserErrors.message(error));}
+        catch(RuntimeException error){status.setText(UserErrors.message(error));if(!screen.equals("privacy"))action("Review feature data",()->navigate("privacy"));}
     }
     private TextView text(String label,int size){TextView v=UiKit.label(this,label,size,palette.ink,size>=20);body.addView(v);return v;}
     private void note(String title,String detail){

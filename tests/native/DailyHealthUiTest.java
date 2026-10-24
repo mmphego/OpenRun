@@ -49,4 +49,15 @@ public class DailyHealthUiTest {
             store.saveCheckin(new DailyHealthRules.Checkin(Instant.now(),null,0,0,DailyHealthRules.Answer.UNKNOWN,DailyHealthRules.Answer.UNKNOWN,false));prompt.beforeStart(controller.get(),()->started[0]=true);assertTrue(started[0]);
         }
     }
+    @Test public void unreadableOptionalStateCanBeReviewedWithoutLosingTrainingData(){
+        context.getSharedPreferences(DailyHealthStore.FILE,0).edit().putString("settings","broken").commit();
+        try(var controller=open("home")){
+            NativePlanningTest.click(controller.get(),"Review feature data");
+            assertNotNull(NativePlanningTest.find(controller.get().getWindow().getDecorView(),"Delete movement & recovery data"));
+            boolean[] started={false};RecoveryPrompt prompt=new RecoveryPrompt();prompt.beforeStart(controller.get(),()->started[0]=true);
+            AlertDialog dialog=(AlertDialog)org.robolectric.shadows.ShadowDialog.getLatestDialog();assertFalse(started[0]);
+            dialog.getButton(-3).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertTrue(started[0]);
+            assertEquals("broken",context.getSharedPreferences(DailyHealthStore.FILE,0).getString("settings",""));
+        }
+    }
 }
