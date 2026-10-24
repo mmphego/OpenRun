@@ -27,6 +27,11 @@ The runner uses the retained Gradle wrapper for host-only test dependencies. `RW
 
 The runner now also executes `GpsRecordingTest` against the actual Android service. Its ten methods cover delayed and fresh 2 km sequences, provider timestamp boundaries, duplicate callbacks, pause/resume, accuracy/jump/gap protection, a visible zero-distance warning and a known-distance walk save. These are controlled Android-framework host tests, not a physical GPS measurement or a Samsung background-delivery test.
 
+`VoiceCoachTest` covers actual native coaching screens, missing-data states, settings,
+reviewed stage changes/undo, pain holds, large fonts, saved-run reflection, indoor
+step continuity and controlled audio interruptions. Synthetic host renders do not
+validate physical TTS, Bluetooth/music/call routing, GPS or Samsung background behaviour.
+
 ## Plan-change history
 
 `PlanChangesUiTest` exercises the actual Plan/Coach entry points, honest empty state,

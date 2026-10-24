@@ -41,6 +41,7 @@
   <activity android:name=".RaceDiscoveryActivity" android:exported="false"/>
   <activity android:name=".HealthConnectActivity" android:exported="false"/>
   <activity android:name=".ImportReviewActivity" android:exported="false"/>
+  <activity android:name=".VoiceCoachActivity" android:exported="false"/>
   <activity android:name=".IndoorActivity" android:exported="false"/>
   <activity android:name=".OfflineCoachActivity" android:exported="false"/>
   <service android:name=".GemmaService" android:exported="false" android:process=":offlinecoach" android:stopWithTask="true"/>

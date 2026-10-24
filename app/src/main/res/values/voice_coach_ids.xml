@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="coach_detail" type="id" />
+    <item name="coach_interval" type="id" />
+    <item name="coach_splits" type="id" />
+    <item name="coach_heart_limit" type="id" />
+</resources>

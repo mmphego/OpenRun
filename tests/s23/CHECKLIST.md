@@ -105,3 +105,17 @@ Check normal and enlarged Samsung text/display settings in Plan, race/manual onb
 - Import the same real workout through two providers. It must be held for review outside history totals; repeated sync must not queue it twice. Keep existing, then sync again. Test two separate same-day sessions with similar totals, timezone date differences, time-only walks and a GPX/TCX/FIT file. Compare displayed start times, original feedback, route and running mileage.
 - Back up/restore pending import reviews on a test dataset. An invalid import or failed save must retain existing activities. This release does not automatically merge previously saved duplicate activities or apply provider edits/deletions.
 - Open Recording diagnostics and preview feedback. Version must be 1.4.4; mode, sensor permission/availability, recent sample, heartbeat/checkpoint age and bounded error code should be shown without routes, account data or raw samples. Sharing requires an explicit user action.
+
+
+## Personal voice coach acceptance
+
+- Open Coach → Beginner sessions & personal progress with no feedback, several reviewed runs and 160% font. Check scrolling, labels, TalkBack and touch targets.
+- Save pain in the start check-in; confirm no recording starts and the hold survives relaunch.
+- Run the timed beginner definition with the screen locked through warm-up/run/walk/cool-down. Save early and verify it cannot qualify as completed stage evidence.
+- Repeat indoors with time-only distance; verify no GPS/distance is invented and step/reflection state survives recreation.
+- Test an installed offline TTS voice in airplane mode, all voice detail modes, check intervals and the audio-off switch.
+- With music and Bluetooth headphones, test calls, focus denial, headset disconnection, pause/resume and repeat-current-instruction. No obsolete phase/pace advice should play afterwards.
+- With no live HR, verify Health Connect history causes no live alerts. Test the chosen threshold, freshness and cooldown using controlled sensor fixtures; do not deliberately overexert.
+- Preview/reject stage changes without history mutation; apply and eligible undo create events. New activity/check-in/settings and recovery holds reject stale apply/undo.
+- Reflect on an imported run; preserve source/totals and do not invent stage completion. Correct totals and verify old completion/pacing evidence is invalidated.
+- Export/restore a backup; retain coaching settings/history and existing activity IDs. Record device/API/build and actual results with synthetic data only.

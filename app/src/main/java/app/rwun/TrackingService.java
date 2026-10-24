@@ -26,6 +26,11 @@ public final class TrackingService extends Service implements LocationListener {
   private android.media.AudioManager audioManager;
   private android.media.AudioFocusRequest focusRequest;
   private final Set<String> spoken=new HashSet<>();
+  private final SpeechQueue speechQueue=new SpeechQueue();private SpeechQueue.Cue playingCue,lastSpokenCue;
+  private VoiceGuidance guidance=new VoiceGuidance();private int coachStage=-1;private String startLesson="";private boolean audioFocusAvailable=true;
+  private final android.media.AudioManager.OnAudioFocusChangeListener audioFocusListener=this::focusChanged;
+  private void focusChanged(int change){if(change<0){audioFocusAvailable=false;stopSpeech();}else if(change==android.media.AudioManager.AUDIOFOCUS_GAIN)audioFocusAvailable=true;}
+
   private long lastCheckpoint,lastNotification;
   private String startRequest="",startFailure="";
   String startRequest(){return startRequest;}
@@ -63,7 +68,7 @@ public final class TrackingService extends Service implements LocationListener {
     audioManager=getSystemService(android.media.AudioManager.class);
     focusRequest=new android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
       .setAudioAttributes(new android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
-      .setAcceptsDelayedFocusGain(false).setOnAudioFocusChangeListener(change->{if(change<0){stopSpeech();}},handler).build();
+      .setAcceptsDelayedFocusGain(false).setOnAudioFocusChangeListener(audioFocusListener,handler).build();
     getSystemService(NotificationManager.class)
         .createNotificationChannel(
             new NotificationChannel("recording", "Active run", NotificationManager.IMPORTANCE_LOW));
@@ -87,11 +92,11 @@ public final class TrackingService extends Service implements LocationListener {
           public void onDone(String id) {handler.post(()->audioDone(id));}
 
           public void onError(String id) {
-            handler.post(() -> {voiceReady=false;audioDone(id);});
+            handler.post(() -> {if(spoken.contains(id))voiceReady=false;audioDone(id);});
           }
 
           public void onError(String id, int error) {
-            handler.post(() -> {voiceReady=false;audioDone(id);});
+            handler.post(() -> {if(spoken.contains(id))voiceReady=false;audioDone(id);});
           }
         });
     speech.setAudioAttributes(
@@ -190,7 +195,9 @@ public final class TrackingService extends Service implements LocationListener {
       throw new IllegalStateException("Enable device GPS before starting.");
     id = i.getStringExtra("id");
     if (id == null) id = "free:" + UUID.randomUUID();
-    target = i.getDoubleExtra("target", 0);
+    target = i.getDoubleExtra("target",0);coachStage=BeginnerProgramme.stageFromId(id);
+    if(coachStage>=0&&coachStage!=CoachingMemory.stage(store))throw new IllegalStateException("Beginner stage changed. Review it before starting.");
+    guidance=new VoiceGuidance();stopSpeech();lastSpokenCue=null;startLesson=CoachingMemory.lesson(store);
     connectedMode = false;
     hrSum = 0;
     hrCount = 0;
@@ -213,7 +220,8 @@ public final class TrackingService extends Service implements LocationListener {
       }
     WorkoutFactory.Workout definition =
         walking?new WorkoutFactory.Workout(java.util.List.of(new WorkoutFactory.Step("Walk at your own pace",PaceProfile.Zone.EASY,0,0,PaceProfile.Range.effort()))):session == null ? WorkoutFactory.free() : WorkoutFactory.create(session, store.profile());
-    workoutType = walking?"Walk":session == null ? "Free run" : session.title();
+    if(coachStage>=0)definition=BeginnerProgramme.workout(coachStage);
+    workoutType=walking?"Walk":coachStage>=0?"Beginner run / walk · stage "+(coachStage+1):session==null?"Free run":session.title();
     if (session != null) target = session.km();
     workout = new WorkoutEngine(definition);
     rollingPace.reset();
@@ -242,6 +250,7 @@ public final class TrackingService extends Service implements LocationListener {
       checkpoint();
       store.event("recording_started");
       lastCheckpoint=SystemClock.elapsedRealtime();lastNotification=0;refreshNotification();
+      if(!walking&&CoachingMemory.settings(store).mode()!=VoiceGuidance.Mode.QUIET)enqueue(startLesson,SpeechQueue.Kind.BRIEFING,"lesson");
       handler.post(tick);
     } catch (RuntimeException e) {
       active = false;
@@ -255,18 +264,22 @@ public final class TrackingService extends Service implements LocationListener {
       new Runnable() {
         public void run() {
           if (!active) return;
+          if(!paused&&store.resting()){freeze();say("Training is on hold. Review recovery before resuming.");}
           if (!paused) {
-            for (String s :
-                workout.update(
-                    seconds(),
-                    gps.metres(),
-                    !walking&&store.paceAlerts() ? rollingPace.value(seconds()) : Double.NaN)) say(s);
+            var settings=CoachingMemory.settings(store);
+            for(var event:workout.updateEvents(seconds(),gps.metres(),!walking&&store.paceAlerts()?rollingPace.value(seconds()):Double.NaN)){
+              if(event.kind()==SpeechQueue.Kind.SPLIT&&(!settings.splits()||settings.mode()==VoiceGuidance.Mode.QUIET))continue;
+              if(event.kind()==SpeechQueue.Kind.PACE&&settings.mode()==VoiceGuidance.Mode.QUIET)continue;
+              enqueue(event.text(),event.kind(),event.kind().name());
+            }
+            if(!walking){var advice=guidance.evaluate(seconds(),bpm,lastHr==0?Long.MAX_VALUE:SystemClock.elapsedRealtime()-lastHr,workout.step().zone()==PaceProfile.Zone.EASY,workout.complete(),settings);enqueue(advice.text(),advice.heartRate()?SpeechQueue.Kind.HEART:SpeechQueue.Kind.EFFORT,"effort");enqueue(guidance.nearingFinish(workout.remainingMetres(gps.metres()),workout.finalEasyDistance(),settings),SpeechQueue.Kind.EFFORT,"finish");}
             if (!distanceWarningSpoken && distanceNeedsAttention()) {
               distanceWarningSpoken = true;
               say("No distance has been recorded. If you are moving, check GPS. For a walking pad or treadmill, use an indoor session.");
               refreshNotification();
             }
           }
+          drainSpeech();
           if (bpm > 0 && SystemClock.elapsedRealtime() - lastHr > 15000) {
             bpm = 0;
             hrStatus = "Heart-rate data stale";
@@ -287,7 +300,7 @@ public final class TrackingService extends Service implements LocationListener {
     if (active && !paused) {
       elapsedBefore = seconds();
       paused = true;pausedAtWall=System.currentTimeMillis();
-      gps.breakSegment();
+      gps.breakSegment();stopSpeech();
     }
   }
 
@@ -302,7 +315,7 @@ public final class TrackingService extends Service implements LocationListener {
       gps.breakSegment();
       rollingPace.reset();
       segment++;
-      say(walking?"Walk resumed.":"Resuming run.");
+      guidance.resetAfterPause(seconds());say(walking?"Walk resumed.":"Resuming run. "+workout.announcement());
     } else {
       elapsedBefore = seconds();
       paused = true;pausedAtWall=System.currentTimeMillis();
@@ -314,19 +327,14 @@ public final class TrackingService extends Service implements LocationListener {
     checkpoint();refreshNotification();
   }
 
-  private void say(String s) {
-    cue = s;
-    if (store.audio() && voiceReady) {
-      try{if(audioManager.requestAudioFocus(focusRequest)!=android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED)return;}catch(RuntimeException unavailable){return;}
-      String id=UUID.randomUUID().toString();spoken.add(id);
-      int result = speech.speak(s, TextToSpeech.QUEUE_ADD, null,id);
-      if (result == TextToSpeech.ERROR) {voiceReady=false;audioDone(id);}
-    }
-  }
-
-  private void stopSpeech(){if(speech!=null)speech.stop();spoken.clear();if(audioManager!=null)audioManager.abandonAudioFocusRequest(focusRequest);}
-
-  private void audioDone(String id){spoken.remove(id);if(spoken.isEmpty()&&audioManager!=null)audioManager.abandonAudioFocusRequest(focusRequest);}
+  private void say(String text){enqueue(text,SpeechQueue.Kind.SYSTEM,"system");drainSpeech();}
+  private void enqueue(String text,SpeechQueue.Kind kind,String key){if(text==null||text.isEmpty())return;cue=text;long now=SystemClock.elapsedRealtime();int step=active&&workout!=null?workout.stepIndex():-1;long ttl=kind==SpeechQueue.Kind.PHASE?20000:kind==SpeechQueue.Kind.BRIEFING?30000:10000;var next=new SpeechQueue.Cue(key,text,kind,step,now,now+ttl);if(playingCue!=null&&(next.priority()>playingCue.priority()||kind==SpeechQueue.Kind.PHASE&&next.step()!=playingCue.step()))stopSpeech();speechQueue.offer(next,now,step);}
+  private void drainSpeech(){if(!store.audio()){stopSpeech();return;}if(!voiceReady||speech==null||!spoken.isEmpty())return;long now=SystemClock.elapsedRealtime();int step=active&&workout!=null?workout.stepIndex():-1;var next=speechQueue.poll(now,step);while(next!=null&&!cueEnabled(next))next=speechQueue.poll(now,step);if(next==null)return;try{if(audioManager.requestAudioFocus(focusRequest)!=android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED){audioFocusAvailable=false;speechQueue.clear();return;}audioFocusAvailable=true;}catch(RuntimeException unavailable){audioFocusAvailable=false;speechQueue.clear();return;}String id=UUID.randomUUID().toString();spoken.add(id);playingCue=next;lastSpokenCue=next;if(speech.speak(next.text(),TextToSpeech.QUEUE_FLUSH,null,id)==TextToSpeech.ERROR){voiceReady=false;audioDone(id);}}
+  private boolean cueEnabled(SpeechQueue.Cue cue){var s=CoachingMemory.settings(store);return switch(cue.kind()){case SPLIT->s.splits()&&s.mode()!=VoiceGuidance.Mode.QUIET;case EFFORT->s.mode()!=VoiceGuidance.Mode.QUIET;case PACE->store.paceAlerts()&&s.mode()!=VoiceGuidance.Mode.QUIET;case HEART->s.heartLimit()>0&&bpm>=s.heartLimit()&&lastHr>0&&SystemClock.elapsedRealtime()-lastHr<=10000;case BRIEFING->!active||s.mode()!=VoiceGuidance.Mode.QUIET;default->true;};}
+  private void stopSpeech(){speechQueue.clear();playingCue=null;if(speech!=null)speech.stop();spoken.clear();if(audioManager!=null)audioManager.abandonAudioFocusRequest(focusRequest);}
+  private void audioDone(String id){if(!spoken.remove(id))return;playingCue=null;if(spoken.isEmpty()&&audioManager!=null)audioManager.abandonAudioFocusRequest(focusRequest);drainSpeech();}
+  void repeatCue(){if(paused)return;if(active&&workout!=null){enqueue(workout.announcement(),SpeechQueue.Kind.PHASE,"repeat");drainSpeech();return;}if(lastSpokenCue!=null&&SystemClock.elapsedRealtime()<=lastSpokenCue.expires()){enqueue(lastSpokenCue.text(),lastSpokenCue.kind(),"repeat");drainSpeech();}}
+  String voiceStatus(){return !store.audio()?"Audio cues off":!voiceReady()?"Voice unavailable · install or enable an Android TTS voice":!audioFocusAvailable?"Audio interrupted · current instruction stays on screen":!spoken.isEmpty()?"Speaking workout cue":"Voice ready · "+CoachingMemory.settings(store).mode().name().toLowerCase(Locale.ROOT);}
 
   void stopIndoorSpeech(){if(!active)stopSpeech();}
   boolean indoorSpeechActive(){return !active&&!spoken.isEmpty();}
@@ -335,7 +343,7 @@ public final class TrackingService extends Service implements LocationListener {
     if(active)return "Finish the current run before playing a briefing; workout cues take priority.";
     if(!store.audio())return "Enable spoken workout cues in Profile first.";
     if(!voiceReady||speech==null)return "Voice engine is not ready. Check your installed TTS voice.";
-    stopSpeech();say(briefing);return !spoken.isEmpty()?"Playing workout briefing":"Audio focus is unavailable. The briefing remains on screen.";
+    stopSpeech();enqueue(briefing,SpeechQueue.Kind.BRIEFING,"briefing");drainSpeech();return !spoken.isEmpty()?"Playing workout briefing":"Audio focus is unavailable. The briefing remains on screen.";
   }
 
   void testVoice() {
@@ -571,7 +579,7 @@ public final class TrackingService extends Service implements LocationListener {
     try {
       store.checkpoint(
           new JSONObject()
-              .put("id", id).put("walking",walking)
+              .put("id",id).put("walking",walking).put("coachStage",coachStage).put("workoutComplete",workout!=null&&workout.complete()).put("workoutType",workoutType).put("paceSegments",workout==null||gps.gaps()>0||delayedFixes>0?0:workout.paceSegments()).put("firstPace",workout==null?0:workout.firstMainPace()).put("lastPace",workout==null?0:workout.lastMainPace()).put("variation",workout==null?0:workout.paceVariation())
               .put("date", date).put("startedAtWall",startedAtWall).put("endedAtWall",paused&&pausedAtWall>0?pausedAtWall:System.currentTimeMillis()).put("heartbeatWall",System.currentTimeMillis()).put("boot",IndoorState.boot(this)).put("paused",paused).put("pausedAtWall",pausedAtWall)
               .put("km", km()).put("gpsReceived",receivedFixes).put("gpsAccepted",gps.accepted())
               .put("gpsDelayed",delayedFixes).put("gpsGaps",gps.gaps())
