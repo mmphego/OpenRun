@@ -23,7 +23,7 @@ import org.json.*;
 
 public final class MainActivity extends Activity {
   private boolean refreshFeatures;
-  private String filterType="All workouts",filterYear="All years",filterMonth="All months",pendingHealthExport="";
+  private String filterType="All workouts",filterYear="All years",filterMonth="All months";
   private TextView appTitle;
   private ImageButton appLeft;
   private boolean planSchedule,creatingPlan;
@@ -35,7 +35,6 @@ public final class MainActivity extends Activity {
   private String subpage="";
   private boolean performance,walkMode,walkProgress,exportingWalk;
   private LocalDate calendarStart=LocalDate.now().with(DayOfWeek.MONDAY);
-  private String healthMessage="";
   private UiKit.Palette palette;
   private int ink, green, paper;
   private RunDashboard dashboard;
@@ -80,7 +79,6 @@ public final class MainActivity extends Activity {
       planSchedule=state.getBoolean("planSchedule",false);creatingPlan=state.getBoolean("creatingPlan",false);setupStep=state.getInt("setupStep",0);
       draftVolume=state.getString("draftVolume","12");draftWeeks=state.getString("draftWeeks","8");draftDays=state.getString("draftDays","3");draftTime=state.getString("draftTime","");draftGoal=state.getInt("draftGoal");draftBenchmark=state.getInt("draftBenchmark");draftSpeed=state.getBoolean("draftSpeed");draftReturn=state.getBoolean("draftReturn");draftStart=LocalDate.parse(state.getString("draftStart",LocalDate.now().toString()));
       startingRun=state.getBoolean("startingRun");resumeRunFromSettings=state.getBoolean("resumeRunFromSettings");startRequest=state.getString("startRequest","");startDeadline=state.getLong("startDeadline");
-      pendingHealthExport=state.getString("pendingHealthExport","");
       week = state.getInt("week");
       performance=state.getBoolean("performance",false);walkMode=state.getBoolean("walkMode");walkProgress=state.getBoolean("walkProgress");exportingWalk=state.getBoolean("exportingWalk");
       calendarStart=LocalDate.parse(state.getString("calendarStart",calendarStart.toString()));
@@ -132,7 +130,6 @@ public final class MainActivity extends Activity {
     super.onSaveInstanceState(out);
     out.putBoolean("planSchedule",planSchedule);out.putBoolean("creatingPlan",creatingPlan);out.putInt("setupStep",setupStep);out.putString("draftVolume",draftVolume);out.putString("draftWeeks",draftWeeks);out.putString("draftDays",draftDays);out.putString("draftTime",draftTime);out.putInt("draftGoal",draftGoal);out.putInt("draftBenchmark",draftBenchmark);out.putBoolean("draftSpeed",draftSpeed);out.putBoolean("draftReturn",draftReturn);out.putString("draftStart",draftStart.toString());
     out.putBoolean("startingRun",startingRun);out.putBoolean("resumeRunFromSettings",resumeRunFromSettings);out.putString("startRequest",startRequest);out.putLong("startDeadline",startDeadline);
-    out.putString("pendingHealthExport",pendingHealthExport);
     out.putInt("week", week);
     out.putBoolean("performance",performance);out.putBoolean("walkMode",walkMode);out.putBoolean("walkProgress",walkProgress);out.putBoolean("exportingWalk",exportingWalk);out.putString("calendarStart",calendarStart.toString());
     out.putString("tab", tab);
@@ -626,10 +623,6 @@ public final class MainActivity extends Activity {
   @Override
   public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
     super.onRequestPermissionsResult(request, permissions, results);
-    if(request==107){healthConnect();return;}
-    if(request==104){healthConnect();return;}
-    if(request==106){boolean granted=Build.VERSION.SDK_INT>=34&&checkSelfPermission(HealthJob.BACKGROUND)==PackageManager.PERMISSION_GRANTED;HealthJob.schedule(this,granted);Toast.makeText(this,granted?"Background import enabled; Android controls timing":"Background access was not granted. Manual import remains available.",Toast.LENGTH_LONG).show();healthConnect();return;}
-    if(request==105){String id=pendingHealthExport;pendingHealthExport="";if(Build.VERSION.SDK_INT>=34&&HealthExport.granted(this))for(var run:store.runs())if(run.sessionId().equals(id)){exportHealth(run);break;}return;}
     if (request == 100) {
       if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
           == PackageManager.PERMISSION_GRANTED) {try{prepareStart(pendingId, pendingTarget);}catch(RuntimeException e){error(e);}}
@@ -965,7 +958,7 @@ public final class MainActivity extends Activity {
       if (!r.routeFile().isEmpty()) {
         c.addView(button("View route", () -> showRoute(r)));
         c.addView(button("Export GPX", () -> {exportingWalk=false;export(r.routeFile());}));
-        if(Build.VERSION.SDK_INT>=34&&r.source().equals("GPS"))c.addView(button("Write to Health Connect",()->exportHealth(r)));
+        if(Build.VERSION.SDK_INT>=34&&(r.source().equals("GPS")||r.source().startsWith("Indoor · ")))c.addView(button("Write to Health Connect",()->exportHealth(r)));
         c.addView(button("Send to Strava",()->uploadStrava(r)));
       }
       c.addView(
@@ -1007,7 +1000,7 @@ public final class MainActivity extends Activity {
 
   private void settings() {
     content.addView(text("Your profile", 30, true));
-    content.addView(text("OpenRun 1.5.0 · Run around your life", 16, false));
+    content.addView(text("OpenRun 1.6.0 · Run around your life", 16, false));
 
     section("MY STUFF");
     LinearLayout devices=card();row(devices,R.drawable.ic_watch,"Connected apps & devices","Health Connect, Garmin and heart rate",this::connections);
@@ -1077,34 +1070,7 @@ public final class MainActivity extends Activity {
     section("ACTIVITY FILES");LinearLayout files=card();row(files,R.drawable.ic_file_download,"Import GPX / TCX / FIT","Garmin Connect exports and compatible files",this::importActivity);
   }
 
-  private void healthConnect(){
-    clearContent();subpage="Health";content.addView(button("Back to connections",this::connections));content.addView(text("Health Connect",28,true));
-    LinearLayout status=card();status.addView(text(HealthSync.status(this),20,true));status.addView(text("Import recent runs and walks shared with Health Connect. Exercise and distance access are required.",15,false));
-    if(Build.VERSION.SDK_INT>=34){
-      if(!HealthSync.granted(this))status.addView(button("Enable Health Connect",()->new AlertDialog.Builder(this).setTitle("Enable activity import?").setMessage("OpenRun will request read access to exercise sessions and distance. Imports stay on this phone. You can revoke access in Health Connect. Import never writes or deletes records there. Writing an original GPS activity requires separate write access and an explicit action.").setNegativeButton("Cancel",null).setPositiveButton("Continue",(d,w)->requestPermissions(HealthSync.PERMISSIONS,104)).show()));
-      Button sync=button(HealthSync.busy()?"Import in progress…":"Sync now",this::syncHealth);sync.setEnabled(HealthSync.granted(this)&&!HealthSync.busy());status.addView(sync);
-      status.addView(button("Manage Health Connect access",this::openHealthSettings));
-      status.addView(text("Background import: "+(((android.app.job.JobScheduler)getSystemService(JOB_SCHEDULER_SERVICE)).getPendingJob(81)!=null?"scheduled":"off"),13,false));
-      status.addView(button("Allow average heart-rate import",()->requestPermissions(new String[]{HealthSync.HEART_RATE},107)));
-      status.addView(button("Enable background activity import",()->new AlertDialog.Builder(this).setTitle("Allow background reads?").setMessage("If your Health Connect version supports it, Android can import activities periodically while OpenRun is closed. Android controls timing. Exercise and distance read access are also required.").setNegativeButton("Cancel",null).setPositiveButton("Continue",(d,w)->requestPermissions(new String[]{HealthJob.BACKGROUND},106)).show()));
-      status.addView(button("Disable background activity import",()->{HealthJob.schedule(this,false);Toast.makeText(this,"Background import disabled",Toast.LENGTH_SHORT).show();}));
-    }
-    if(store.pendingImports().length()>0)content.addView(button("Review possible duplicates",()->startActivity(new Intent(this,ImportReviewActivity.class))));
-    if(!healthMessage.isEmpty())content.addView(text(healthMessage,14,false));
-    content.addView(text("Last 30 days · running and walking · background import is optional",13,false));
-    content.addView(button("How importing works",()->new AlertDialog.Builder(this).setTitle("About activity import").setMessage("Distance must be shared by the same publisher as the exercise. Runs with missing distance are skipped; walks can retain time only. Imported duration is elapsed time. Average heart rate is optional; routes and effort feedback are not imported. Repeating sync skips saved record IDs. Possible cross-source duplicates are held for review before affecting totals. Imports do not complete scheduled workouts or adjust training feedback.").setPositiveButton("OK",null).show()));
-    content.addView(button("Health data & privacy",()->startActivity(new Intent(this,HealthPrivacyActivity.class))));
-  }
-
-  private void syncHealth(){
-    if(Build.VERSION.SDK_INT<34)return;
-    healthMessage="Importing activities…";
-    HealthSync.sync(getApplicationContext(),store).whenComplete((message,failure)->runOnUiThread(()->{
-      if(isDestroyed()||isFinishing())return;
-      healthMessage=failure==null?message:"Import stopped. "+UserErrors.message(failure)+" Saved activities are kept; you can retry safely.";
-      if(subpage.equals("Health"))healthConnect();
-    }));healthConnect();
-  }
+  private void healthConnect(){subpage="Connections";startActivity(new Intent(this,HealthConnectActivity.class));}
 
   private void garmin(){
     clearContent();subpage="Garmin";content.addView(button("Back to connections",this::connections));content.addView(text("Garmin Connect",28,true));
@@ -1158,7 +1124,7 @@ public final class MainActivity extends Activity {
   private void openFeatures(String screen){refreshFeatures=true;startActivity(new Intent(this,FeaturesActivity.class).putExtra("screen",screen));}
   private void filterControl(LinearLayout row,List<String> choices,String selected,java.util.function.Consumer<String> select){Spinner spinner=new Spinner(this);spinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,choices));spinner.setSelection(Math.max(0,choices.indexOf(selected)));spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> parent,View view,int index,long id){String value=choices.get(index);if(!value.equals(selected))select.accept(value);}public void onNothingSelected(AdapterView<?> p){}});row.addView(spinner,new LinearLayout.LayoutParams(0,dp(52),1));}
   private void exportCalendar(){startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("text/calendar").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"OpenRun-training.ics"),204);}
-  private void exportHealth(RunStore.Run run){if(Build.VERSION.SDK_INT<34)return;if(!HealthExport.granted(this)){pendingHealthExport=run.sessionId();requestPermissions(HealthExport.PERMISSIONS,105);return;}HealthExport.write(this,run).whenComplete((result,error)->runOnUiThread(()->{if(isDestroyed()||isFinishing())return;if(error!=null)error(new IllegalStateException(UserErrors.message(error)));else Toast.makeText(this,result,Toast.LENGTH_LONG).show();}));}
+  private void exportHealth(RunStore.Run run){startActivity(new Intent(this,HealthConnectActivity.class).putExtra("exportId",run.sessionId()));}
   private void uploadStrava(RunStore.Run run){
     CloudClient client=new CloudClient(this);if(!client.vault.read().has("token")){openFeatures("strava");return;}
     new AlertDialog.Builder(this).setTitle("Upload this route to Strava?").setMessage("This sends the activity’s precise GPS route through your configured OpenRun server to Strava. Strava applies your account privacy settings.").setNegativeButton("Cancel",null).setPositiveButton("Upload",(d,w)->worker.submit(()->{try{byte[] gpx=ActivityFiles.gpx(TrackingService.readRoute(this,run.routeFile())).getBytes(StandardCharsets.UTF_8);JSONObject result=client.request("POST","/v1/strava/upload",gpx,"application/gpx+xml",-1).json();if(!result.isNull("error")&&!result.optString("error").isEmpty())throw new IllegalStateException(result.optString("error"));JSONObject settings=client.vault.read();settings.put("lastUpload",result.getLong("upload_id"));client.vault.write(settings);runOnUiThread(()->Toast.makeText(this,"Upload queued. Check its result in Strava connection settings.",Toast.LENGTH_LONG).show());}catch(Exception e){runOnUiThread(()->error(e));}})).show();

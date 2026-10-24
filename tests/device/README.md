@@ -1,6 +1,6 @@
-# OpenRun 1.5.0 device QA
+# OpenRun 1.6.0 device QA
 
-The current candidate is OpenRun 1.5.0 / versionCode 24. A Samsung account is not required for these local tests. The emulator is AOSP Android 16 at 1080 × 2340, density 420; this approximates the S23 display and does not emulate Samsung One UI, its step sensor or its battery policies.
+The current candidate is OpenRun 1.6.0 / versionCode 25. A Samsung account is not required for these local tests. The emulator is AOSP Android 16 at 1080 × 2340, density 420; this approximates the S23 display and does not emulate Samsung One UI, its step sensor or its battery policies.
 
 ## 1. Emulator UI tests on your Mac
 
@@ -56,7 +56,7 @@ The gate does not publish or install a production release, and does not approve 
 For candidate packaging, use the gated entry point below. It refuses to create an archive when evidence is pending/failed or belongs to a different APK, and never overwrites an existing archive. Normal debug builds remain available for testing fixes. This package clears only the recording/UI checks, not the other production launch requirements.
 
 ```bash
-python3 package_candidate.py --apk OpenRun-1.5.0-debug.apk --evidence evidence --output recording-qa-cleared.zip
+python3 package_candidate.py --apk OpenRun-1.6.0-debug.apk --evidence evidence --output recording-qa-cleared.zip
 ```
 
 ## Run from source

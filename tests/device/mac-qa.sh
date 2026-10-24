@@ -4,7 +4,7 @@ set -euo pipefail
 QA_DIR="$(cd "$(dirname "$0")" && pwd)"
 RWUN_SDK="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}"
 ADB="${ADB:-$RWUN_SDK/platform-tools/adb}"
-RWUN_APK="${RWUN_APK:-$QA_DIR/OpenRun-1.5.0-debug.apk}"
+RWUN_APK="${RWUN_APK:-$QA_DIR/OpenRun-1.6.0-debug.apk}"
 RWUN_QA_OUTPUT="${RWUN_QA_OUTPUT:-$QA_DIR/evidence}"
 export ADB RWUN_APK RWUN_QA_OUTPUT
 mkdir -p "$RWUN_QA_OUTPUT"
