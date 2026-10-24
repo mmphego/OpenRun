@@ -24,7 +24,7 @@ classpath=':'.join(str(x) for x in [*lib.glob('*.jar'),*(root/'build/runtime-dep
 subprocess.run([javac,'-cp',classpath,'-d',str(classes),*[str(f) for f in (root/'tests/native').glob('*.java')]],check=True)
 evidence=Path(os.environ.get('RWUN_NATIVE_QA_OUTPUT',work/'evidence')).resolve()
 total=0
-for name in ['NativePlanningTest','ProgressUiTest','GpsRecordingTest','IndoorRecordingTest','ReliabilityTest','RaceSyncTest','RaceDiscoveryUiTest']:
+for name in ['NativePlanningTest','VoiceCoachTest','ProgressUiTest','GpsRecordingTest','IndoorRecordingTest','ReliabilityTest','RaceSyncTest','RaceDiscoveryUiTest']:
  expected=(root/'tests/native'/(name+'.java')).read_text().count('@Test')
  result=subprocess.run([java,*proxy,'-Drobolectric.dependency.repo.url=https://repo.maven.apache.org/maven2',f'-Drwun.root={root}',f'-Drwun.evidence={evidence}','-cp',classpath,'org.junit.runner.JUnitCore','app.rwun.'+name],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
  print(result.stdout,flush=True)

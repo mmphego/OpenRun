@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Personal voice coach
+
+- Add next-run lessons, optional manageability/helpfulness reflections, previous-run review and comparable effort/pacing summaries.
+- Add repeatable timed beginner run/walk stages for GPS and treadmill sessions, with reviewed progression, stage history and safe undo.
+- Add quiet/standard/detailed voice preferences, configurable effort checks, optional kilometre and live HR reminders, and repeat-current-instruction.
+- Prioritise/expire speech across phases and interruptions; save running feedback and pain holds atomically.
+- See [behaviour, storage and acceptance limits](docs/VOICE-COACH.md). Qualified training review and physical-device audio acceptance remain outstanding.
+
+
 ## Unreleased — Automated APK releases
 
 - Build and publish a signed APK after main merges, with unique build tags and increasing Android version codes.

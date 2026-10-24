@@ -13,6 +13,7 @@ A native Android running and walking app with original branding and code, offlin
 | Area | Implemented | Limits |
 | --- | --- | --- |
 | Training | Goal/race-date plans, weekly scheduling, run/walk phases, pace estimates and reviewed adaptations | Original rules; qualified coach review remains outstanding. No automatic pain-hold clearance. |
+| Personal voice coach | Next-run lessons, effort checks, optional live HR reminders, reflections and reviewed beginner run/walk stages with undo | [Behaviour and limits](docs/VOICE-COACH.md); original training rules and physical audio still need acceptance. |
 | Outdoor recording | GPS routes, splits, pause/resume, recording diagnostics, recovery checkpoints and audio coaching | Physical-device/background accuracy still needs acceptance testing. |
 | Indoor walking | Timer, optional phone-step distance estimate, calibration and movement reminders | Not a treadmill connection. Phone sensor availability and placement matter. |
 | Progress and data | Local history, activity file import/export and encrypted portable backup | Protect exports: they can contain routes and health data. |
