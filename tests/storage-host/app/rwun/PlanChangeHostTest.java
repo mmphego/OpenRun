@@ -86,6 +86,9 @@ public final class PlanChangeHostTest {
     events.getJSONObject(0).getJSONArray("changes").getJSONObject(0).getJSONObject("before").put("km",123);
     forged.put("planChanges",events.toString());store.restorePreferences(forged);
     rejected(()->store.previewUndo(),"inconsistent imported undo consequences rejected");
+    setup();context.getSharedPreferences("rwun",0).edit().remove("rest").commit();
+    store.adapt(store.proposalFingerprint(),new AdaptiveCoach.Advice(.8,false,"Legacy plan without a stored hold flag"));
+    store.undoPlanChange(store.previewUndo());check(!store.resting()&&store.factor(first().date())==1,"missing legacy false hold flag does not block safe undo");
     System.out.println("Plan-change history: "+assertions+" assertions passed");
   }
 }

@@ -109,7 +109,7 @@ final class PlanChanges {
     try {
       JSONArray history=new JSONArray((String)edit.before.getOrDefault("planChanges","[]"));JSONObject event=history.getJSONObject(history.length()-1),before=event.getJSONObject("before"),after=event.getJSONObject("after");
       for(String key:KEYS)if(!canonical(before.opt(key)).equals(canonical(after.opt(key)))) {
-        if(key.equals("rest"))throw new IllegalStateException("Undo cannot change a recovery hold.");
+        if(key.equals("rest")){if(before.optBoolean("rest")!=after.optBoolean("rest"))throw new IllegalStateException("Undo cannot change a recovery hold.");continue;}
         if(!before.has(key))edit.remove(key);else put(edit,key,before.get(key));
       }
       JSONObject data=new JSONObject((String)edit.after.getOrDefault("v103","{}"));

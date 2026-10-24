@@ -41,15 +41,16 @@ public class PlanChangesUiTest {
       String text=ProgressUiTest.all(controller.get().getWindow().getDecorView());assertTrue(text.contains("Rescheduled workout"));assertTrue(text.contains("Evidence:"));assertTrue(text.contains("km →"));
       NativePlanningTest.shot(controller.get(),"plan-changes-history");
       NativePlanningTest.click(controller.get(),"Review undo of latest change");AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();assertTrue(dialog.isShowing());dialog.getButton(-2).performClick();assertEquals(history,store.planChanges().toString());
-      NativePlanningTest.click(controller.get(),"Review undo of latest change");dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();
-      assertEquals(2,new RunStore(app).planChanges().length());assertTrue(ProgressUiTest.all(controller.get().getWindow().getDecorView()).contains("Undo"));
+      NativePlanningTest.click(controller.get(),"Review undo of latest change");dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertEquals("Confirm must append undo after the dialog callback runs",2,new RunStore(app).planChanges().length());
+      assertTrue(ProgressUiTest.all(controller.get().getWindow().getDecorView()).contains("Undo"));
       controller.recreate();assertTrue(ProgressUiTest.all(controller.get().getWindow().getDecorView()).contains("Undo"));
     }
   }
   @Test public void dialogCannotClearHoldAddedAfterPreview()throws Exception{
     move();try(var controller=Robolectric.buildActivity(PlanChangesActivity.class).setup().visible()){
       NativePlanningTest.click(controller.get(),"Review undo of latest change");AlertDialog review=(AlertDialog)ShadowDialog.getLatestDialog();
-      store.adapt(new AdaptiveCoach.Advice(0,true,"Reported pain"));review.getButton(-1).performClick();assertTrue(store.resting());assertEquals(2,store.planChanges().length());
+      store.adapt(new AdaptiveCoach.Advice(0,true,"Reported pain"));review.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertTrue(store.resting());assertEquals(2,store.planChanges().length());
       assertTrue(((AlertDialog)ShadowDialog.getLatestDialog()).isShowing());
     }
   }
