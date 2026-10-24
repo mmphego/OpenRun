@@ -22,6 +22,7 @@ import java.util.concurrent.*;
 import org.json.*;
 
 public final class MainActivity extends Activity {
+  private final RecoveryPrompt recoveryPrompt=new RecoveryPrompt();
   private boolean refreshFeatures;
   private String filterType="All workouts",filterYear="All years",filterMonth="All months";
   private TextView appTitle;
@@ -127,6 +128,7 @@ public final class MainActivity extends Activity {
 
   @Override
   protected void onDestroy() {
+    recoveryPrompt.close();
     worker.shutdown();
     super.onDestroy();
   }
@@ -365,7 +367,7 @@ public final class MainActivity extends Activity {
     LinearLayout start=new LinearLayout(this);Button run=button("Start run",()->{walkMode=false;prepareStart("free:"+UUID.randomUUID(),0);}),walk=button("Start walk",this::chooseWalk);LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,-2,1);a.setMargins(0,dp(6),dp(5),dp(6));start.addView(run,a);LinearLayout.LayoutParams b=new LinearLayout.LayoutParams(0,-2,1);b.setMargins(dp(5),dp(6),0,dp(6));start.addView(walk,b);content.addView(start);
     LinearLayout indoor=card();row(indoor,R.drawable.ic_directions_walk,"Walking pad & treadmill","Phone steps and estimated distance · no GPS",()->openIndoor(null));
     weeklySummary();WalkData.Week w=WalkData.week(store.v103(),LocalDate.now());LinearLayout walking=card();walking.addView(text("WALKING · LAST 7 DAYS",11,true));walking.addView(text(w.seconds()/60+" minutes · "+w.days()+" active days",21,true));walking.addView(text("Everyday movement, kept separate from running mileage.",14,false));
-    LinearLayout tools=card();row(tools,R.drawable.ic_calendar_month,"Movement reminders","Choose times that suit your day",()->openTraining("reminders"));row(tools,R.drawable.ic_info,"How are you feeling?","Optional check-in before your next session",()->openTraining("checkin"));
+    LinearLayout tools=card();row(tools,R.drawable.ic_calendar_month,"Movement & recovery","Working-hour movement breaks and recovery check-ins",()->startActivity(new Intent(this,DailyHealthActivity.class)));
     if(!store.adaptation().equals("No adjustments applied.")){LinearLayout changes=card();changes.addView(text("Your plan",20,true));changes.addView(text(store.adaptation(),15,false));}
   }
 
@@ -618,6 +620,9 @@ public final class MainActivity extends Activity {
     startRecording();
   }
   private void startRecording(){
+    recoveryPrompt.beforeStart(this,()->{try{startReviewedRecording();}catch(RuntimeException e){error(e);}});
+  }
+  private void startReviewedRecording(){
     if(startingRun||!canStartRun())return;
     if(store.skipped(pendingId))throw new IllegalStateException("Unskip this workout before starting it.");
     startRequest=UUID.randomUUID().toString();startDeadline=SystemClock.elapsedRealtime()+10000;startingRun=true;
@@ -1085,7 +1090,7 @@ public final class MainActivity extends Activity {
 
   private void settings() {
     content.addView(text("Your profile", 30, true));
-    content.addView(text("OpenRun 1.6.0 · Run around your life", 16, false));
+    content.addView(text("OpenRun 1.7.0 · Run around your life", 16, false));
 
     section("MY STUFF");
     LinearLayout devices=card();row(devices,R.drawable.ic_watch,"Connected apps & devices","Health Connect, Garmin and heart rate",this::connections);
@@ -1093,6 +1098,7 @@ public final class MainActivity extends Activity {
 
     
     section("TRAINING PREFERENCES");
+    LinearLayout wellness=card();row(wellness,R.drawable.ic_directions_walk,"Movement & recovery","Movement breaks, recovery check-ins and private data",()->startActivity(new Intent(this,DailyHealthActivity.class)));
     LinearLayout preferences=card();row(preferences,R.drawable.ic_calendar_month,"Programme & training days","Weekdays, long run and plan type",()->openFeatures("plan"));
     row(preferences,R.drawable.ic_monitoring,"Pace profile & targets","Recent race result and workout targets",this::paceProfile);
     Switch audio=new Switch(this);audio.setText(R.string.spoken_cues);audio.setTextColor(ink);audio.setMinHeight(dp(56));audio.setChecked(store.audio());audio.setOnCheckedChangeListener((b,on)->store.audio(on));preferences.addView(audio);
