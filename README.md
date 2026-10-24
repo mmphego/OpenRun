@@ -39,6 +39,14 @@ These are real Android Views from the Rwun baseline rendered by the existing Rob
 <img src="docs/screenshots/indoor-walk.png" width="240" alt="OpenRun indoor walking screen rendered from Android Views">
 </p>
 
+The Progress redesign below is rendered from the current native Android Views with synthetic activities. Running history uses monthly groups and compact metrics; activity details show saved routes with an optional inline street map. Health Connect imports without route data show an explicit unavailable state. These are host renders, not device acceptance evidence.
+
+<p>
+<img src="docs/screenshots/progress-history.png" width="240" alt="OpenRun Progress history with monthly groups and distance, time and pace columns">
+<img src="docs/screenshots/progress-route-detail.png" width="240" alt="OpenRun activity details with an offline route preview, street map control and metrics">
+<img src="docs/screenshots/progress-health-detail.png" width="240" alt="OpenRun Health Connect activity details with available metrics and a missing-route explanation">
+</p>
+
 Device captures of the current build are a [starter contribution](CONTRIBUTING.md#good-first-contributions). Do not include personal routes or health records in screenshots.
 
 ## Install an APK

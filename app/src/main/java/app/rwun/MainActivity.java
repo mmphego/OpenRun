@@ -25,6 +25,8 @@ public final class MainActivity extends Activity {
   private boolean refreshFeatures;
   private String filterType="All workouts",filterYear="All years",filterMonth="All months";
   private TextView appTitle;
+  private String progressActivityId = "";
+  private long progressRender;
   private ImageButton appLeft;
   private boolean planSchedule,creatingPlan;
   private int setupStep;
@@ -79,6 +81,10 @@ public final class MainActivity extends Activity {
       planSchedule=state.getBoolean("planSchedule",false);creatingPlan=state.getBoolean("creatingPlan",false);setupStep=state.getInt("setupStep",0);
       draftVolume=state.getString("draftVolume","12");draftWeeks=state.getString("draftWeeks","8");draftDays=state.getString("draftDays","3");draftTime=state.getString("draftTime","");draftGoal=state.getInt("draftGoal");draftBenchmark=state.getInt("draftBenchmark");draftSpeed=state.getBoolean("draftSpeed");draftReturn=state.getBoolean("draftReturn");draftStart=LocalDate.parse(state.getString("draftStart",LocalDate.now().toString()));
       startingRun=state.getBoolean("startingRun");resumeRunFromSettings=state.getBoolean("resumeRunFromSettings");startRequest=state.getString("startRequest","");startDeadline=state.getLong("startDeadline");
+      progressActivityId=state.getString("progressActivityId", "");
+      filterType=state.getString("filterType", "All workouts");
+      filterYear=state.getString("filterYear", "All years");
+      filterMonth=state.getString("filterMonth", "All months");
       week = state.getInt("week");
       performance=state.getBoolean("performance",false);walkMode=state.getBoolean("walkMode");walkProgress=state.getBoolean("walkProgress");exportingWalk=state.getBoolean("exportingWalk");
       calendarStart=LocalDate.parse(state.getString("calendarStart",calendarStart.toString()));
@@ -130,6 +136,8 @@ public final class MainActivity extends Activity {
     super.onSaveInstanceState(out);
     out.putBoolean("planSchedule",planSchedule);out.putBoolean("creatingPlan",creatingPlan);out.putInt("setupStep",setupStep);out.putString("draftVolume",draftVolume);out.putString("draftWeeks",draftWeeks);out.putString("draftDays",draftDays);out.putString("draftTime",draftTime);out.putInt("draftGoal",draftGoal);out.putInt("draftBenchmark",draftBenchmark);out.putBoolean("draftSpeed",draftSpeed);out.putBoolean("draftReturn",draftReturn);out.putString("draftStart",draftStart.toString());
     out.putBoolean("startingRun",startingRun);out.putBoolean("resumeRunFromSettings",resumeRunFromSettings);out.putString("startRequest",startRequest);out.putLong("startDeadline",startDeadline);
+    out.putString("progressActivityId",progressActivityId);
+    out.putString("filterType",filterType);out.putString("filterYear",filterYear);out.putString("filterMonth",filterMonth);
     out.putInt("week", week);
     out.putBoolean("performance",performance);out.putBoolean("walkMode",walkMode);out.putBoolean("walkProgress",walkProgress);out.putBoolean("exportingWalk",exportingWalk);out.putString("calendarStart",calendarStart.toString());
     out.putString("tab", tab);
@@ -194,6 +202,7 @@ public final class MainActivity extends Activity {
     View focused=getCurrentFocus();
     if(focused!=null){android.view.inputmethod.InputMethodManager keyboard=(android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(keyboard!=null)keyboard.hideSoftInputFromWindow(focused.getWindowToken(),0);}
     subpage="";
+    progressRender++;
     WorkoutWidget.updateAll(this);
     dashboard = null; pauseControl = null;
     root = column(); root.setFocusableInTouchMode(true); root.requestFocus();root.setBackgroundColor(paper);
@@ -217,7 +226,7 @@ public final class MainActivity extends Activity {
     LinearLayout nav=new LinearLayout(this);nav.setBackgroundColor(palette.surface);nav.setPadding(dp(4),0,dp(4),0);
     String[] names={"Today","Plan","Calendar","Progress","Coach"};
     int[] icons={R.drawable.ic_home,R.drawable.ic_assignment,R.drawable.ic_calendar_month,R.drawable.ic_monitoring,R.drawable.ic_volume_up};
-    for(int i=0;i<names.length;i++){String name=names[i];nav.addView(UiKit.navigationItem(this,palette,name,icons[i],name.equals(tab),()->{tab=name;creatingPlan=false;if(name.equals("Plan")){planSchedule=false;if(config!=null)week=Math.max(0,Math.min(config.weeks()-1,(int)(java.time.temporal.ChronoUnit.DAYS.between(config.start(),LocalDate.now())/7)));}render();}),new LinearLayout.LayoutParams(0,-2,1));}
+    for(int i=0;i<names.length;i++){String name=names[i];nav.addView(UiKit.navigationItem(this,palette,name,icons[i],name.equals(tab),()->{progressActivityId="";tab=name;creatingPlan=false;if(name.equals("Plan")){planSchedule=false;if(config!=null)week=Math.max(0,Math.min(config.weeks()-1,(int)(java.time.temporal.ChronoUnit.DAYS.between(config.start(),LocalDate.now())/7)));}render();}),new LinearLayout.LayoutParams(0,-2,1));}
     root.addView(nav);
     if(creatingPlan){setup();return;}
     switch(tab){case "Plan":if(planSchedule)plan();else planHub();break;case "Calendar":calendar();break;case "Run":recording();break;case "Progress":progress();break;case "Profile":settings();break;case "Coach":coach();break;default:today();}
@@ -915,69 +924,136 @@ public final class MainActivity extends Activity {
     for(int i=all.size()-1;i>=0;i--){JSONObject r=all.get(i);LinearLayout c=card();String id=r.optString("id"),source=r.optString("source",r.optString("distanceSource","Indoor timer"));c.addView(text(r.optString("date")+" · "+source,15,true));c.addView(text(duration(r.optLong("seconds"))+(r.isNull("km")||!r.optBoolean("distanceKnown",true)?" · time only":String.format(Locale.US," · %.2f km",r.optDouble("km"))),22,true));if(r.optLong("phoneSteps")>0)c.addView(text(r.optLong("phoneSteps")+" detected steps · "+(r.optBoolean("partialSteps")?"may be partial":"phone-step estimate"),14,false));if(id.startsWith("walk:")){RunStore.Run walk=new RunStore.Run(id,r.optString("date"),r.optDouble("km"),Math.max(1,(int)(r.optLong("seconds")/60)),r.optInt("rpe"),r.optInt("fatigue",2),r.optBoolean("pain"),source,r.optString("route"),r.optInt("hr"),r.optLong("seconds"));if(!walk.routeFile().isEmpty()){c.addView(button("View walking route",()->showRoute(walk)));c.addView(button("Export walking GPX",()->{exportingWalk=true;export(walk.routeFile());}));}c.addView(button("Correct walking distance",()->correctWalkDistance(r)));c.addView(button("Delete walk",()->new AlertDialog.Builder(this).setTitle("Delete saved walk?").setMessage("The latest deletion can be undone for 15 minutes.").setNegativeButton("Keep",null).setPositiveButton("Delete",(d,n)->{try{store.deleteWalk(id);render();}catch(Exception e){error(e);}}).show()));}else c.addView(button("Indoor session details",()->openTraining("indoorHistory")));}
   }
 
-  private void progress() {
-    if(store.pendingImports().length()>0)content.addView(button("Review imports · "+store.pendingImports().length()+" possible duplicates",()->startActivity(new Intent(this,ImportReviewActivity.class))));
+  private long activityStarted(RunStore.Run run) {
+    JSONObject origins=store.v103().optJSONObject("importOrigins");
+    JSONObject origin=origins==null?null:origins.optJSONObject(run.sessionId());
+    return origin==null?0:origin.optLong("started");
+  }
 
-    store.purgeUndo(this,false);
-    
-    if(store.v103().has("undo"))content.addView(button("Undo most recent deletion · 15 minutes",()->{store.undoDelete();render();}));
+  private void progress() {
+    if(!progressActivityId.isEmpty()) {
+      for(var run:store.runs())if(run.sessionId().equals(progressActivityId)){activityDetail(run);return;}
+      progressActivityId="";
+    }
     content.addView(UiKit.tabs(this,palette,new String[]{"Runs","Walks","Performance"},walkProgress?1:performance?2:0,index->{walkProgress=index==1;performance=index==2;render();}));
     if(walkProgress){walkingProgress();return;}
     if(performance){performance();return;}
-    List<RunStore.Run> runs = store.runs();
+    store.purgeUndo(this,false);
+    LinearLayout tools=new LinearLayout(this);tools.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
+    TextView caption=ProgressViews.label(this,"YOUR ACTIVITIES",11,palette.muted,true);
+    tools.addView(caption,new LinearLayout.LayoutParams(0,-2,1));
+    Button importButton=button("Import activity",this::importActivity);
+    importButton.setTextSize(13);tools.addView(importButton,new LinearLayout.LayoutParams(-2,-2));content.addView(tools);
+    if(store.pendingImports().length()>0)content.addView(button("Review imports · "+store.pendingImports().length()+" possible duplicates",()->{refreshFeatures=true;startActivity(new Intent(this,ImportReviewActivity.class));}));
+    if(store.v103().has("undo"))content.addView(button("Undo most recent deletion · 15 minutes",()->{store.undoDelete();render();}));
+    List<RunStore.Run> runs=store.runs();
     if(runs.isEmpty()){emptyProgress();return;}
-    TreeSet<String> years=new TreeSet<>(Comparator.reverseOrder());TreeSet<String> types=new TreeSet<>();for(var run:runs){years.add(run.date().substring(0,4));types.add(run.workoutType());}
-    List<String> typeOptions=new ArrayList<>(List.of("All workouts"));typeOptions.addAll(types);List<String> yearOptions=new ArrayList<>(List.of("All years"));yearOptions.addAll(years);List<String> monthOptions=new ArrayList<>(List.of("All months"));for(int m=1;m<=12;m++)monthOptions.add(String.format(Locale.US,"%02d",m));
-    LinearLayout filters=new LinearLayout(this);filterControl(filters,typeOptions,filterType,v->{filterType=v;render();});filterControl(filters,yearOptions,filterYear,v->{filterYear=v;render();});filterControl(filters,monthOptions,filterMonth,v->{filterMonth=v;render();});content.addView(filters);
-    runs=runs.stream().filter(r->filterType.equals("All workouts")||r.workoutType().equals(filterType)).filter(r->filterYear.equals("All years")||r.date().startsWith(filterYear)).filter(r->filterMonth.equals("All months")||r.date().substring(5,7).equals(filterMonth)).collect(java.util.stream.Collectors.toList());
+    TreeSet<String> years=new TreeSet<>(Comparator.reverseOrder());TreeSet<String> types=new TreeSet<>();
+    for(var run:runs){years.add(run.date().substring(0,4));types.add(run.workoutType());}
+    List<String> typeOptions=new ArrayList<>(List.of("All workouts"));typeOptions.addAll(types);
+    List<String> yearOptions=new ArrayList<>(List.of("All years"));yearOptions.addAll(years);
+    List<String> monthOptions=new ArrayList<>(List.of("All months"));for(int m=1;m<=12;m++)monthOptions.add(String.format(Locale.US,"%02d",m));
+    // A horizontally scrolling row keeps full filter labels readable on narrow phones.
+    HorizontalScrollView filterScroll=new HorizontalScrollView(this);filterScroll.setHorizontalScrollBarEnabled(false);
+    LinearLayout filters=new LinearLayout(this);
+    progressFilter(filters,"Workout type",typeOptions,filterType,v->{filterType=v;render();});
+    progressFilter(filters,"Year",yearOptions,filterYear,v->{filterYear=v;render();});
+    progressFilter(filters,"Month",monthOptions,filterMonth,v->{filterMonth=v;render();});
+    filterScroll.addView(filters);content.addView(filterScroll);
+    runs=runs.stream().filter(r->filterType.equals("All workouts")||r.workoutType().equals(filterType))
+        .filter(r->filterYear.equals("All years")||r.date().startsWith(filterYear))
+        .filter(r->filterMonth.equals("All months")||r.date().substring(5,7).equals(filterMonth))
+        .sorted(Comparator.comparing(RunStore.Run::date).thenComparingLong(this::activityStarted).reversed())
+        .collect(java.util.stream.Collectors.toList());
     if(runs.isEmpty()){content.addView(text("No activities match these filters.",17,true));content.addView(button("Clear filters",()->{filterType="All workouts";filterYear="All years";filterMonth="All months";render();}));return;}
-    LinearLayout totals = card();
-    totals.addView(
-        text(activityDistance(runs.stream().mapToDouble(RunStore.Run::km).sum()), 34, true));
-    totals.addView(
-        text(
-            runs.size()
-                + (runs.size() == 1 ? " run · " : " runs · ")
-                + duration(runs.stream().mapToLong(RunStore.Run::seconds).sum()),
-            17,
-            false));
-    content.addView(button("Import Garmin GPX / TCX / FIT", this::importActivity));
-    for (int i = runs.size() - 1; i >= 0; i--) {
-      RunStore.Run r = runs.get(i);
-      LinearLayout c = card();
-      c.addView(
-          text(
-              r.date() + " · " + (r.source().startsWith("Garmin ") ? "Garmin" : r.source()),
-              16,
-              true));
-      c.addView(text(activityDistance(r.km()) + " · " + duration(r.seconds()), 22, true));
-      String pace=PaceProfile.format(r.seconds()/r.km())+" min/km";
-      c.addView(text(pace+((r.source().startsWith("Health Connect")||r.source().equals("Strava"))?" · elapsed time · feedback not recorded":" · effort "+r.rpe()+"/10")+(r.avgHr()>0?" · "+r.avgHr()+" bpm":""),15,false));
-      c.addView(button("Review, correct & match workout",()->{refreshFeatures=true;startActivity(new Intent(this,TrainingActivity.class).putExtra("screen","review").putExtra("id",r.sessionId()));}));
-      c.addView(button("Share activity card",()->{refreshFeatures=true;startActivity(new Intent(this,V1Activity.class).putExtra("screen","share").putExtra("id",r.sessionId()));}));
-      if (!r.routeFile().isEmpty()) {
-        c.addView(button("View route", () -> showRoute(r)));
-        c.addView(button("Export GPX", () -> {exportingWalk=false;export(r.routeFile());}));
-        if(Build.VERSION.SDK_INT>=34&&(r.source().equals("GPS")||r.source().startsWith("Indoor · ")))c.addView(button("Write to Health Connect",()->exportHealth(r)));
-        c.addView(button("Send to Strava",()->uploadStrava(r)));
-      }
-      c.addView(
-          button(
-              "Delete activity",
-              () ->
-                  new AlertDialog.Builder(this)
-                      .setTitle("Delete saved run?")
-                      .setMessage(
-                          "You can undo the most recent deletion for 15 minutes. Applied plan adjustments remain until reviewed.")
-                      .setNegativeButton("Cancel", null)
-                      .setPositiveButton(
-                          "Delete",
-                          (d, w) -> {
-                            store.purgeUndo(this,true);store.softDelete(r.sessionId());Reminders.schedule(this);
-                            render();
-                          })
-                      .show()));
+    Map<YearMonth,List<RunStore.Run>> months=new LinkedHashMap<>();
+    for(var run:runs)months.computeIfAbsent(YearMonth.from(LocalDate.parse(run.date())),key->new ArrayList<>()).add(run);
+    for(var month:months.entrySet()){
+      LinearLayout heading=new LinearLayout(this);heading.setGravity(Gravity.CENTER_VERTICAL);heading.setPadding(0,dp(22),0,0);
+      TextView name=ProgressViews.label(this,month.getKey().format(DateTimeFormatter.ofPattern("MMMM yyyy")),20,ink,true);
+      if(Build.VERSION.SDK_INT>=28)name.setAccessibilityHeading(true);
+      heading.addView(name,new LinearLayout.LayoutParams(0,-2,1));
+      heading.addView(ProgressViews.label(this,String.format(Locale.getDefault(),"%.1f km",month.getValue().stream().mapToDouble(RunStore.Run::km).sum()),16,palette.muted,false));
+      content.addView(heading);
+      int count=month.getValue().size();
+      content.addView(ProgressViews.label(this,count+(count==1?" activity · ":" activities · ")+ProgressViews.time(month.getValue().stream().mapToLong(RunStore.Run::seconds).sum()),14,palette.muted,false));
+      for(var run:month.getValue())content.addView(ProgressViews.workout(this,palette,run,activityStarted(run),()->{progressActivityId=run.sessionId();render();}));
     }
+  }
+
+  private void progressFilter(LinearLayout row,String title,List<String> choices,String selected,java.util.function.Consumer<String> select){
+    String display=selected.startsWith("All ")?title:selected;
+    if(title.equals("Workout type"))display=ProgressViews.workoutType(display);
+    if(title.equals("Month")&&!selected.equals("All months"))display=Month.of(Integer.parseInt(selected)).getDisplayName(java.time.format.TextStyle.FULL,Locale.getDefault());
+    Button control=button(display,()->{
+      String[] labels=choices.stream().map(value->title.equals("Workout type")?ProgressViews.workoutType(value):title.equals("Month")&&!value.equals("All months")?Month.of(Integer.parseInt(value)).getDisplayName(java.time.format.TextStyle.FULL,Locale.getDefault()):value).toArray(String[]::new);
+      new AlertDialog.Builder(this).setTitle(title).setSingleChoiceItems(labels,Math.max(0,choices.indexOf(selected)),(dialog,index)->{dialog.dismiss();select.accept(choices.get(index));}).setNegativeButton("Cancel",null).show();
+    });
+    control.setTextSize(13);control.setContentDescription(title+": "+(selected.startsWith("All ")?selected:display));
+    control.setCompoundDrawablesRelative(null,null,UiKit.icon(this,R.drawable.ic_expand_more,palette.muted,18),null);
+    LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-2,-2);params.setMargins(0,dp(4),dp(8),dp(4));row.addView(control,params);
+  }
+
+  private void activityDetail(RunStore.Run run){
+    subpage="Activity";header("Activity",()->{progressActivityId="";render();});
+    TextView title=ProgressViews.label(this,ProgressViews.title(run),28,ink,true);content.addView(title);
+    content.addView(ProgressViews.label(this,ProgressViews.date(run,activityStarted(run)),15,palette.muted,false));
+    content.addView(ProgressViews.label(this,ProgressViews.source(this,run.source())+" · "+ProgressViews.workoutType(run.workoutType()),13,green,false));
+    LinearLayout route=column();route.setPadding(dp(16),dp(12),dp(16),dp(12));route.setBackground(UiKit.shape(this,palette.surface,16));
+    LinearLayout.LayoutParams routeSpace=new LinearLayout.LayoutParams(-1,-2);routeSpace.setMargins(0,dp(16),0,dp(16));content.addView(route,routeSpace);
+    TextView routeStatus=ProgressViews.label(this,run.routeFile().isEmpty()?"Route unavailable":"Loading GPS route…",16,ink,true);route.addView(routeStatus);
+    if(run.routeFile().isEmpty())route.addView(ProgressViews.label(this,run.source().startsWith("Health Connect")?"This Health Connect import has no GPS route. Import the original GPX, TCX or FIT file to view its route.":"No GPS route was saved for this activity. Indoor and manual activities can still show your workout metrics.",13,palette.muted,false));
+    else {
+      long generation=progressRender;
+      worker.submit(()->{
+        try{
+          var points=TrackingService.readRoute(this,run.routeFile());
+          runOnUiThread(()->{
+            if(isDestroyed()||generation!=progressRender)return;
+            if(points.size()<2){routeStatus.setText("Route unavailable");route.addView(ProgressViews.label(this,"There are not enough saved GPS points to draw this route.",13,palette.muted,false));return;}
+            routeStatus.setText("GPS route");
+            RouteView preview=new RouteView(this,points);
+            route.addView(preview,new LinearLayout.LayoutParams(-1,dp(220)));
+            TextView legend=ProgressViews.label(this,"Offline route preview · start and finish marked",12,palette.muted,false);
+            route.addView(legend);
+            Button loadMap=button("Load street map",()->new AlertDialog.Builder(this).setTitle("Load a street map?")
+                .setMessage("OpenStreetMap receives tile requests for the area you view and your network address. Your route overlay stays on this phone. Tiles are cached for at least seven days when available.")
+                .setNegativeButton("Cancel",null).setPositiveButton("Load map",(dialog,which)->{
+                  if(generation!=progressRender)return;
+                  int index=route.indexOfChild(preview);if(index<0)return;
+                  route.removeView(preview);
+                  View loadControl=route.findViewWithTag("loadStreetMap");if(loadControl!=null)loadControl.setVisibility(View.GONE);
+                  StreetMapActivity.MapView map=new StreetMapActivity.MapView(this,points,worker);map.enabled=true;
+                  route.addView(map,index,new LinearLayout.LayoutParams(-1,dp(260)));
+                  legend.setText("Street map · drag to pan");
+                  View credit=ProgressViews.label(this,"© OpenStreetMap contributors · map data & licence",12,palette.muted,false);
+                  credit.setMinimumHeight(dp(48));credit.setClickable(true);credit.setFocusable(true);
+                  credit.setOnClickListener(v->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://www.openstreetmap.org/copyright"))));
+                  route.addView(credit);
+                  LinearLayout zoom=new LinearLayout(this);
+                  zoom.addView(button("Zoom in",()->map.zoom(1)),new LinearLayout.LayoutParams(0,-2,1));
+                  zoom.addView(button("Zoom out",()->map.zoom(-1)),new LinearLayout.LayoutParams(0,-2,1));route.addView(zoom);
+                }).show());
+            loadMap.setTag("loadStreetMap");route.addView(loadMap);
+          });
+        }catch(Exception e){runOnUiThread(()->{if(!isDestroyed()&&generation==progressRender){routeStatus.setText("Route unavailable");route.addView(ProgressViews.label(this,"The saved route could not be read. Your activity metrics are still available.",13,palette.muted,false));}});}
+      });
+    }
+    ProgressViews.metrics(this,palette,content,new String[]{"Distance","Time","Avg pace"},new String[]{ProgressViews.distance(run.km()),ProgressViews.time(run.seconds()),ProgressViews.pace(run)},true);
+    boolean imported=run.source().startsWith("Health Connect")||run.source().equals("Strava");
+    ProgressViews.metrics(this,palette,content,new String[]{"Avg heart rate","Effort","Cadence"},new String[]{run.avgHr()>0?run.avgHr()+" bpm":"—",imported?"—":run.rpe()+" /10","—"},false);
+    content.addView(ProgressViews.label(this,(imported?"Time and pace use elapsed duration. ":"")+"A dash means the metric was not recorded. Cadence, elevation gain and calories are not available in the saved activity data.",12,palette.muted,false));
+    LinearLayout actions=card();
+    actions.addView(button("Review, correct & match workout",()->{refreshFeatures=true;startActivity(new Intent(this,TrainingActivity.class).putExtra("screen","review").putExtra("id",run.sessionId()));}));
+    actions.addView(button("Share activity card",()->{refreshFeatures=true;startActivity(new Intent(this,V1Activity.class).putExtra("screen","share").putExtra("id",run.sessionId()));}));
+    if(!run.routeFile().isEmpty()){
+      actions.addView(button("Export GPX",()->{exportingWalk=false;export(run.routeFile());}));
+      actions.addView(button("Send to Strava",()->uploadStrava(run)));
+    }
+    if(Build.VERSION.SDK_INT>=34&&(run.source().equals("GPS")||run.source().startsWith("Indoor · ")))actions.addView(button("Write to Health Connect",()->exportHealth(run)));
+    actions.addView(button("Delete activity",()->new AlertDialog.Builder(this).setTitle("Delete saved run?")
+        .setMessage("You can undo the most recent deletion for 15 minutes. Applied plan adjustments remain until reviewed.")
+        .setNegativeButton("Cancel",null).setPositiveButton("Delete",(dialog,which)->{store.purgeUndo(this,true);store.softDelete(run.sessionId());Reminders.schedule(this);progressActivityId="";render();}).show()));
   }
 
   private void showRoute(RunStore.Run run) {
@@ -1122,7 +1198,6 @@ public final class MainActivity extends Activity {
 
 
   private void openFeatures(String screen){refreshFeatures=true;startActivity(new Intent(this,FeaturesActivity.class).putExtra("screen",screen));}
-  private void filterControl(LinearLayout row,List<String> choices,String selected,java.util.function.Consumer<String> select){Spinner spinner=new Spinner(this);spinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,choices));spinner.setSelection(Math.max(0,choices.indexOf(selected)));spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> parent,View view,int index,long id){String value=choices.get(index);if(!value.equals(selected))select.accept(value);}public void onNothingSelected(AdapterView<?> p){}});row.addView(spinner,new LinearLayout.LayoutParams(0,dp(52),1));}
   private void exportCalendar(){startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("text/calendar").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"OpenRun-training.ics"),204);}
   private void exportHealth(RunStore.Run run){startActivity(new Intent(this,HealthConnectActivity.class).putExtra("exportId",run.sessionId()));}
   private void uploadStrava(RunStore.Run run){
@@ -1146,6 +1221,7 @@ public final class MainActivity extends Activity {
   }
 
   @Override public void onBackPressed(){
+    if(tab.equals("Progress")&&!progressActivityId.isEmpty()){progressActivityId="";render();return;}
     if(creatingPlan||config==null){if(setupStep>0){setupStep--;render();return;}if(config!=null){creatingPlan=false;render();return;}if(setupStep==0){setupStep=-1;render();return;}super.onBackPressed();return;}
     if(tab.equals("Calendar")){tab="Plan";render();return;}
     if(subpage.equals("Schedule")){planSchedule=false;render();return;}
