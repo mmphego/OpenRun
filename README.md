@@ -15,7 +15,7 @@ A native Android running and walking app with original branding and code, offlin
 | Training | Goal/race-date plans, weekly scheduling, run/walk phases, pace estimates and reviewed adaptations | Original rules; qualified coach review remains outstanding. No automatic pain-hold clearance. |
 | Outdoor recording | GPS routes, splits, pause/resume, recording diagnostics, recovery checkpoints and audio coaching | Physical-device/background accuracy still needs acceptance testing. |
 | Indoor walking | Timer, optional phone-step distance estimate, calibration and movement reminders | Not a treadmill connection. Phone sensor availability and placement matter. |
-| Progress and data | Local history, activity file import/export and encrypted portable backup | Protect exports: they can contain routes and health data. |
+| Progress and data | Local activity and plan-change history, reviewed safe undo, activity file import/export and encrypted portable backup | Protect exports: they can contain routes and health data. |
 | Races | Top Events and Bield adapters, provider-aware merging, Room database, incremental content upserts, source links and saved races | Coverage depends on providers. Unknown facts stay unknown. RunSignup is disabled until operator approval/proxy configuration. |
 | Background updates | One JobScheduler job on each foreground session, debounced across navigation; in-process guard plus expiring DB lease | Android decides execution timing. Network failures retain cached races. No startup network wait. |
 | Health Connect | Separate read/write consent; recent run/walk import and reviewed original outdoor/indoor recording exports | Android 14+; optional average HR read, no routes or imported-activity re-export. Device acceptance pending. |
@@ -25,7 +25,7 @@ A native Android running and walking app with original branding and code, offlin
 
 The app was previously named Rwun. Its Android package ID `app.rwun`, storage keys and backup formats are retained for compatibility; the display name and distribution name are OpenRun.
 
-The current source candidate is **OpenRun 1.6.0 / versionCode 25**, adding [Health Connect reading and writing](docs/HEALTH-CONNECT.md) to the recovered 1.5.0 implementation. A compatible APK upgrade requires the same signing certificate as the installed app.
+The current source candidate is **OpenRun 1.7.0 / versionCode 26**, adding [plan-change history and safe undo](docs/PLAN-CHANGES.md) on top of Health Connect and the Progress redesign. A compatible APK upgrade requires the same signing certificate as the installed app.
 
 The current focus is **running and walking**. Historical cycling and strength support code remains in the source to preserve completed work; it is outside the active product roadmap.
 
@@ -52,8 +52,8 @@ Device captures of the current build are a [starter contribution](CONTRIBUTING.m
 ## Install an APK
 
 1. Download a signed APK and its `.sha256` file from [Releases](https://github.com/mmphego/OpenRun/releases), **when a release has been published**. No signed public release is promised by this README.
-2. Verify it: `sha256sum -c OpenRun-1.6.0.apk.sha256` (macOS: `shasum -a 256 -c OpenRun-1.6.0.apk.sha256`). Adjust the filename for the release.
-3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.6.0.apk`.
+2. Verify it: `sha256sum -c OpenRun-1.7.0.apk.sha256` (macOS: `shasum -a 256 -c OpenRun-1.7.0.apk.sha256`). Adjust the filename for the release.
+3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.7.0.apk`.
 4. Grant recording permissions when needed. Use an installed offline TTS voice for offline audio coaching.
 
 For an interim developer build, open a successful [CI run](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml), download its `OpenRun-debug-apk-<commit>` artifact, unzip and install `app-debug.apk`. Artifact download may require GitHub sign-in; retention is 14 days. Debug builds are for testing and may have different signing certificates. **Export a backup before uninstalling an incompatible old build**; uninstalling erases app data.

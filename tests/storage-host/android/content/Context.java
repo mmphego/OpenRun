@@ -35,7 +35,10 @@ public class Context {
     return getFileStreamPath(name).delete();
   }
 
+  public int preferenceCommits(){return preferences.get("rwun").commits;}
+
   private static final class MemoryPreferences implements SharedPreferences {
+    private int commits;
     private final Map<String, Object> values = new HashMap<>();
 
     public Map<String, ?> getAll() {
@@ -107,6 +110,7 @@ public class Context {
         }
 
         public boolean commit() {
+          commits++;
           if (clear) values.clear();
           updates.forEach(
               (k, v) -> {
