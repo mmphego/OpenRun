@@ -8,7 +8,9 @@ Open **Profile → Connected apps & devices → Health Connect**. Read and write
 | --- | --- | --- |
 | Read | Last 30 days of runs, treadmill runs and walks; publisher-matched distance; optional average heart rate | Manual import, with separately consented background reads when supported. Walks stay outside running mileage. |
 | Write | Original OpenRun GPS runs/walks and indoor run/walk recordings with real start/end times | Choose an activity and review it before writing its session and known distance. |
-| Excluded | Imported activity exports, routes, step totals, heart-rate samples, feedback, sleep and medical records | No unsupported data is fabricated or silently shared. |
+| Excluded | Imported activity exports, routes, step totals and sleep from the activity import/export flow, heart-rate samples, feedback and medical records | No unsupported data is fabricated or silently shared. |
+
+The separately opted-in [Movement & recovery](DAILY-HEALTH.md) feature can read aggregate steps, sleep-session windows and resting heart rate. Its permissions and local-only storage are independent of activity import/export.
 
 ## Permission and data handling
 

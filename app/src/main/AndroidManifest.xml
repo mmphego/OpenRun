@@ -21,6 +21,9 @@
  <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" tools:targetApi="s"/>
  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
  <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
+ <uses-permission android:name="android.permission.health.READ_STEPS"/>
+ <uses-permission android:name="android.permission.health.READ_SLEEP"/>
+ <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE"/>
  <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
  <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
  <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
@@ -42,6 +45,9 @@
   <activity android:name=".OfflineCoachActivity" android:exported="false"/>
   <service android:name=".GemmaService" android:exported="false" android:process=":offlinecoach" android:stopWithTask="true"/>
   <activity android:name=".RacePlanActivity" android:exported="false"/>
+  <activity android:name=".DailyHealthActivity" android:exported="false"/>
+  <receiver android:name=".DailyHealthActions" android:exported="false"/>
+  <service android:name=".DailyHealthJob" android:exported="true" android:permission="android.permission.BIND_JOB_SERVICE"/>
   <activity android:name=".TrainingActivity" android:exported="false"/>
   <service android:name=".IndoorStepService" android:exported="false" android:foregroundServiceType="health|mediaPlayback"/>
   <receiver android:name=".Reminders" android:exported="false"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/><action android:name="android.intent.action.TIME_SET"/><action android:name="android.intent.action.TIMEZONE_CHANGED"/></intent-filter></receiver>
