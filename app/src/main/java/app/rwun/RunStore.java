@@ -64,8 +64,10 @@ final class RunStore {
   private final SharedPreferences preferences;
 
   RunStore(Context context) {
-    preferences = context.getSharedPreferences("rwun", Context.MODE_PRIVATE);
+    this(context.getSharedPreferences("rwun", Context.MODE_PRIVATE));
   }
+
+  RunStore(SharedPreferences preferences) { this.preferences=preferences; }
 
   PlanEngine.Config config() {
     if (!preferences.contains("start")) return null;
@@ -83,15 +85,15 @@ final class RunStore {
   }
 
   JSONObject v1(){ synchronized(LOCK){try{return new JSONObject(preferences.getString("v1","{}"));}catch(Exception e){throw new IllegalStateException("V1 preferences cannot be read",e);}}}
-  void v1(JSONObject data){ synchronized(LOCK){try{V1State.validate(data);commit(preferences.edit().putString("v1",data.toString()));}catch(Exception e){throw new IllegalArgumentException("Invalid v1 preferences",e);}}}
+  void v1(JSONObject data){ synchronized(LOCK){try{V1State.validate(data);commit(new PreferenceEdit(preferences).putString("v1",data.toString()));}catch(Exception e){throw new IllegalArgumentException("Invalid v1 preferences",e);}}}
   void event(String name){ synchronized(LOCK){try{JSONObject data=v1();if(!data.optBoolean("metrics",false))return;V1State.event(data,name,LocalDate.now());v1(data);}catch(Exception ignored){/* Optional metrics never interrupt training. */}}}
 
   JSONObject cycling(){synchronized(LOCK){return object("cycling");}}
-  void cycling(JSONObject d,boolean clear,boolean pain){synchronized(LOCK){try{CyclingData.validate(d);var e=preferences.edit().putString("cycling",d.toString());if(clear)e.remove("active");if(pain)e.putBoolean("rest",true).putString("adaptReason","Pain reported during cycling. Review recovery before resuming training.");commit(e);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
+  void cycling(JSONObject d,boolean clear,boolean pain){synchronized(LOCK){try{CyclingData.validate(d);var e=new PreferenceEdit(preferences).putString("cycling",d.toString());if(clear)e.remove("active");if(pain)e.putBoolean("rest",true).putString("adaptReason","Pain reported during cycling. Review recovery before resuming training.");commit(e);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
   List<WeekBalance.Other> otherActivities(){return List.of();}
-  void refocus(Context context){synchronized(LOCK){try{if(preferences.getInt("focusVersion",0)>=1)return;JSONObject cycle=cycling();JSONArray archived=CyclingData.rows(cycle,"archivedRecordings");JSONObject indoor=cycle.optJSONObject("active");if(indoor!=null){indoor.put("archiveType","Indoor ride");archived.put(indoor);cycle.remove("active");}boolean clear=false;if(!checkpoint().isEmpty()){JSONObject record=new JSONObject(checkpoint());if(record.optBoolean("cycling")){record.put("archiveType","GPS ride");String route=record.optString("route");if(!route.isEmpty()&&!context.getFileStreamPath(route).isFile())record.put("missingRoute",route).put("route","");archived.put(record);clear=true;}}if(archived.length()>0)cycle.put("archivedRecordings",archived);CyclingData.validate(cycle);var e=preferences.edit().putString("cycling",cycle.toString()).putInt("focusVersion",1);if(clear)e.remove("active");commit(e);}catch(Exception e){throw new IllegalStateException("Previous recording could not be archived safely",e);}}}
+  void refocus(Context context){synchronized(LOCK){try{if(preferences.getInt("focusVersion",0)>=1)return;JSONObject cycle=cycling();JSONArray archived=CyclingData.rows(cycle,"archivedRecordings");JSONObject indoor=cycle.optJSONObject("active");if(indoor!=null){indoor.put("archiveType","Indoor ride");archived.put(indoor);cycle.remove("active");}boolean clear=false;if(!checkpoint().isEmpty()){JSONObject record=new JSONObject(checkpoint());if(record.optBoolean("cycling")){record.put("archiveType","GPS ride");String route=record.optString("route");if(!route.isEmpty()&&!context.getFileStreamPath(route).isFile())record.put("missingRoute",route).put("route","");archived.put(record);clear=true;}}if(archived.length()>0)cycle.put("archivedRecordings",archived);CyclingData.validate(cycle);var e=new PreferenceEdit(preferences).putString("cycling",cycle.toString()).putInt("focusVersion",1);if(clear)e.remove("active");commit(e);}catch(Exception e){throw new IllegalStateException("Previous recording could not be archived safely",e);}}}
   JSONArray walks(){return WalkData.outdoor(v103());}
-  void addWalk(Run run){synchronized(LOCK){try{JSONArray rows=walks();for(int i=0;i<rows.length();i++)if(rows.getJSONObject(i).getString("id").equals(run.sessionId()))throw new IllegalArgumentException("This walk is already saved");rows.put(WalkData.from(run));WalkData.validate(rows);JSONObject d=v103().put("walks",rows);captureGpsOrigin(d,run.sessionId());V103Data.validate(d);var e=preferences.edit().putString("v103",d.toString());if(run.pain())e.putBoolean("rest",true).putString("adaptReason","Pain reported during walking. Review recovery before resuming training.");commit(e);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
+  void addWalk(Run run){synchronized(LOCK){try{JSONArray rows=walks();for(int i=0;i<rows.length();i++)if(rows.getJSONObject(i).getString("id").equals(run.sessionId()))throw new IllegalArgumentException("This walk is already saved");rows.put(WalkData.from(run));WalkData.validate(rows);JSONObject d=v103().put("walks",rows);captureGpsOrigin(d,run.sessionId());V103Data.validate(d);var e=new PreferenceEdit(preferences).putString("v103",d.toString());if(run.pain())e.putBoolean("rest",true).putString("adaptReason","Pain reported during walking. Review recovery before resuming training.");commit(e);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
   void correctWalkDistance(String id,double km){synchronized(LOCK){
     if(!Double.isFinite(km)||km<0||km>250)throw new IllegalArgumentException("Enter a walking distance from 0 to 250 km");
     try{JSONArray rows=walks();for(int i=0;i<rows.length();i++){JSONObject row=rows.getJSONObject(i);if(row.getString("id").equals(id)){
@@ -104,11 +106,15 @@ final class RunStore {
   void undoWalk(){synchronized(LOCK){try{JSONObject d=v103(),u=d.optJSONObject("walkUndo");if(u==null||u.getLong("expires")<System.currentTimeMillis())throw new IllegalArgumentException("The 15-minute undo window ended");JSONArray rows=walks();rows.put(u.getJSONObject("walk"));WalkData.validate(rows);d.put("walks",rows);d.remove("walkUndo");v103(d);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
   void purgeWalkUndo(Context c){synchronized(LOCK){try{JSONObject d=v103(),u=d.optJSONObject("walkUndo");if(u==null||u.getLong("expires")>=System.currentTimeMillis())return;String route=u.getJSONObject("walk").optString("route");boolean used=false;for(int i=0;i<walks().length();i++)if(walks().getJSONObject(i).optString("route").equals(route))used=true;if(!used&&runs().stream().noneMatch(r->r.routeFile().equals(route))&&route.matches("route-[a-zA-Z0-9-]+\\.jsonl"))c.deleteFile(route);d.remove("walkUndo");v103(d);}catch(Exception ignored){}}}
   JSONObject v103(){synchronized(LOCK){return object("v103");}}
-  void v103(JSONObject data){synchronized(LOCK){try{V103Data.validate(data);commit(preferences.edit().putString("v103",data.toString()));}catch(Exception e){throw new IllegalArgumentException("Invalid feature settings: "+e.getMessage(),e);}}}
+  void v103(JSONObject data){synchronized(LOCK){try{V103Data.validate(data);commit(new PreferenceEdit(preferences).putString("v103",data.toString()));}catch(Exception e){throw new IllegalArgumentException("Invalid feature settings: "+e.getMessage(),e);}}}
   boolean indoorPending(){return v103().has("activeIndoor")||cycling().has("active");}
-  String proposalFingerprint(){return planId()+plannedSessions()+runs().toString()+preferences.getString("skips","")+resting();}
+  String proposalFingerprint(){synchronized(LOCK){return PlanChanges.context(new HashMap<>(preferences.getAll()));}}
   void applyProposal(String fingerprint,List<ScheduleProposer.Change> changes){applyReviewedProposal(fingerprint,changes,"");}
   void applyReviewedProposal(String fingerprint,List<ScheduleProposer.Change> changes,String reviewTicket){synchronized(LOCK){
+    commit(proposalEdit(fingerprint,changes,reviewTicket),reviewTicket.isEmpty()?"Weekly adjustment":"Recent-running adaptation",changes.stream().map(ScheduleProposer.Change::reason).distinct().collect(java.util.stream.Collectors.joining(" ")),"Reviewed "+changes.size()+" upcoming workouts. "+runningEvidence());
+  }}
+  String previewProposal(String fingerprint,List<ScheduleProposer.Change> changes,String reviewTicket){synchronized(LOCK){return PlanChanges.describe(proposalEdit(fingerprint,changes,reviewTicket));}}
+  private PreferenceEdit proposalEdit(String fingerprint,List<ScheduleProposer.Change> changes,String reviewTicket){
     if(!reviewTicket.isEmpty()&&v103().optString("raceReview").equals(reviewTicket))throw new IllegalStateException("This running evidence has already been reviewed and applied.");
     if(!fingerprint.equals(proposalFingerprint()))throw new IllegalStateException("Your plan changed. Generate a new preview.");
     if(resting()||!checkpoint().isEmpty()||indoorPending())throw new IllegalStateException("Review the training hold or pending recording first");
@@ -116,17 +122,17 @@ final class RunStore {
       for(var s:plannedSessions())if(!changed.contains(s.id())&&!skipped(planId()+":"+s.id()))occupied.add(s.date());
       Map<String,PlanEngine.Session> current=new HashMap<>();for(var s:plannedSessions())current.put(s.id(),s);
       for(var c:changes){var old=current.get(c.id());String key=planId()+":"+c.id();if(old==null||completed(key)||old.date().isBefore(LocalDate.now())||skipped(key)||c.km()>old.km()+.001||c.km()<=0)throw new IllegalArgumentException("Proposal changes protected history or increases mileage");if(c.skip()){skips.put(key,true);continue;}if(c.after().isBefore(LocalDate.now())||c.after().isBefore(config().start())||!c.after().isBefore(config().start().plusWeeks(config().weeks()))||!occupied.add(c.after()))throw new IllegalArgumentException("Invalid or occupied proposal date");moves.put(key,c.after().toString());overrides.put(key,new JSONObject().put("date",c.after().toString()).put("km",c.km()).put("factor",factor(c.after())).put("title",c.title()));}
-      data.put("overrides",overrides);if(!reviewTicket.isEmpty())data.put("raceReview",reviewTicket);V103Data.validate(data);commit(preferences.edit().putString("v103",data.toString()).putString("moves",moves.toString()).putString("skips",skips.toString()));
+      data.put("overrides",overrides);if(!reviewTicket.isEmpty())data.put("raceReview",reviewTicket);V103Data.validate(data);return new PreferenceEdit(preferences).putString("v103",data.toString()).putString("moves",moves.toString()).putString("skips",skips.toString());
     }catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}
-  }}
+  }
   void matchWorkout(String activity,String session){synchronized(LOCK){if(runs().stream().noneMatch(r->r.sessionId().equals(activity)))throw new IllegalArgumentException("Activity is no longer available");if(completed(session))throw new IllegalArgumentException("Workout is already completed");boolean exists=plannedSessions().stream().anyMatch(s->(planId()+":"+s.id()).equals(session));if(!exists||skipped(session))throw new IllegalArgumentException("Choose an unskipped planned workout");try{JSONObject d=v103(),m=d.optJSONObject("matches");if(m==null)m=new JSONObject();if(m.has(activity))throw new IllegalArgumentException("Unmatch the existing workout first");m.put(activity,session);d.put("matches",m);v103(d);}catch(JSONException e){throw new IllegalArgumentException(e);}}}
   void unmatch(String activity){synchronized(LOCK){JSONObject d=v103(),m=d.optJSONObject("matches");if(m!=null){m.remove(activity);v103(d);}}}
-  void correctTotals(String id,double km,long seconds){synchronized(LOCK){try{if(!Double.isFinite(km)||km<=0||km>250||seconds<1||seconds>180000)throw new IllegalArgumentException("Check distance and duration");JSONArray records=new JSONArray(preferences.getString("runs","[]"));boolean found=false;for(int i=0;i<records.length();i++){JSONObject row=records.getJSONObject(i);if(row.getString("id").equals(id)){if(id.startsWith("indoor:"))row.put("source","Indoor · corrected totals");row.put("km",km).put("seconds",seconds).put("minutes",Math.max(1,seconds/60)).put("qualityKm",0).put("qualitySeconds",0).put("targetPace",0).put("benchmark",0);found=true;}}if(!found)throw new IllegalArgumentException("Activity no longer exists");JSONObject d=v103();JSONArray indoor=d.optJSONArray("indoor");if(indoor!=null)for(int i=0;i<indoor.length();i++){JSONObject row=indoor.getJSONObject(i);if(id.equals("indoor:"+row.getString("id")))row.put("km",km).put("seconds",seconds).put("distanceSource","Corrected totals");}V103Data.validate(d);commit(preferences.edit().putString("runs",records.toString()).putString("v103",d.toString()));}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
-  void softDelete(String id){synchronized(LOCK){try{JSONArray rows=new JSONArray(preferences.getString("runs","[]")),keep=new JSONArray();JSONObject removed=null;for(int i=0;i<rows.length();i++){var row=rows.getJSONObject(i);if(row.getString("id").equals(id))removed=row;else keep.put(row);}if(removed==null)return;JSONObject d=v103(),undo=new JSONObject().put("run",removed).put("expires",System.currentTimeMillis()+15*60*1000);JSONArray indoor=d.optJSONArray("indoor");if(indoor!=null){JSONArray retained=new JSONArray();for(int i=0;i<indoor.length();i++){JSONObject row=indoor.getJSONObject(i);if(id.equals("indoor:"+row.getString("id")))undo.put("indoor",row);else retained.put(row);}d.put("indoor",retained);}JSONObject matches=d.optJSONObject("matches");if(matches!=null&&matches.has(id)){undo.put("match",matches.getString(id));matches.remove(id);}d.put("undo",undo);V103Data.validate(d);commit(preferences.edit().putString("runs",keep.toString()).putString("v103",d.toString()));}catch(Exception e){throw new IllegalArgumentException(e);}}}
-  void undoDelete(){synchronized(LOCK){try{JSONObject d=v103(),u=d.optJSONObject("undo");if(u==null||u.getLong("expires")<System.currentTimeMillis())throw new IllegalStateException("The 15-minute undo window has ended");var r=u.getJSONObject("run");JSONArray rows=new JSONArray(preferences.getString("runs","[]"));if(completed(r.getString("id")))throw new IllegalStateException("Activity already restored");rows.put(r);JSONObject check=backupPreferences();check.put("runs",rows.toString());validatePreferences(check);if(u.has("match")){JSONObject matches=d.optJSONObject("matches");if(matches==null)matches=new JSONObject();for(String key:V1State.keys(matches))if(matches.optString(key).equals(u.getString("match")))throw new IllegalStateException("Unmatch the other activity from this workout before restoring this one");matches.put(r.getString("id"),u.getString("match"));d.put("matches",matches);}if(u.has("indoor")){JSONArray indoor=d.optJSONArray("indoor");if(indoor==null)indoor=new JSONArray();indoor.put(u.getJSONObject("indoor"));d.put("indoor",indoor);}d.remove("undo");V103Data.validate(d);commit(preferences.edit().putString("runs",rows.toString()).putString("v103",d.toString()));}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
+  void correctTotals(String id,double km,long seconds){synchronized(LOCK){try{if(!Double.isFinite(km)||km<=0||km>250||seconds<1||seconds>180000)throw new IllegalArgumentException("Check distance and duration");JSONArray records=new JSONArray(preferences.getString("runs","[]"));boolean found=false;for(int i=0;i<records.length();i++){JSONObject row=records.getJSONObject(i);if(row.getString("id").equals(id)){if(id.startsWith("indoor:"))row.put("source","Indoor · corrected totals");row.put("km",km).put("seconds",seconds).put("minutes",Math.max(1,seconds/60)).put("qualityKm",0).put("qualitySeconds",0).put("targetPace",0).put("benchmark",0);found=true;}}if(!found)throw new IllegalArgumentException("Activity no longer exists");JSONObject d=v103();JSONArray indoor=d.optJSONArray("indoor");if(indoor!=null)for(int i=0;i<indoor.length();i++){JSONObject row=indoor.getJSONObject(i);if(id.equals("indoor:"+row.getString("id")))row.put("km",km).put("seconds",seconds).put("distanceSource","Corrected totals");}V103Data.validate(d);commit(new PreferenceEdit(preferences).putString("runs",records.toString()).putString("v103",d.toString()));}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
+  void softDelete(String id){synchronized(LOCK){try{JSONArray rows=new JSONArray(preferences.getString("runs","[]")),keep=new JSONArray();JSONObject removed=null;for(int i=0;i<rows.length();i++){var row=rows.getJSONObject(i);if(row.getString("id").equals(id))removed=row;else keep.put(row);}if(removed==null)return;JSONObject d=v103(),undo=new JSONObject().put("run",removed).put("expires",System.currentTimeMillis()+15*60*1000);JSONArray indoor=d.optJSONArray("indoor");if(indoor!=null){JSONArray retained=new JSONArray();for(int i=0;i<indoor.length();i++){JSONObject row=indoor.getJSONObject(i);if(id.equals("indoor:"+row.getString("id")))undo.put("indoor",row);else retained.put(row);}d.put("indoor",retained);}JSONObject matches=d.optJSONObject("matches");if(matches!=null&&matches.has(id)){undo.put("match",matches.getString(id));matches.remove(id);}d.put("undo",undo);V103Data.validate(d);commit(new PreferenceEdit(preferences).putString("runs",keep.toString()).putString("v103",d.toString()));}catch(Exception e){throw new IllegalArgumentException(e);}}}
+  void undoDelete(){synchronized(LOCK){try{JSONObject d=v103(),u=d.optJSONObject("undo");if(u==null||u.getLong("expires")<System.currentTimeMillis())throw new IllegalStateException("The 15-minute undo window has ended");var r=u.getJSONObject("run");JSONArray rows=new JSONArray(preferences.getString("runs","[]"));if(completed(r.getString("id")))throw new IllegalStateException("Activity already restored");rows.put(r);JSONObject check=backupPreferences();check.put("runs",rows.toString());validatePreferences(check);if(u.has("match")){JSONObject matches=d.optJSONObject("matches");if(matches==null)matches=new JSONObject();for(String key:V1State.keys(matches))if(matches.optString(key).equals(u.getString("match")))throw new IllegalStateException("Unmatch the other activity from this workout before restoring this one");matches.put(r.getString("id"),u.getString("match"));d.put("matches",matches);}if(u.has("indoor")){JSONArray indoor=d.optJSONArray("indoor");if(indoor==null)indoor=new JSONArray();indoor.put(u.getJSONObject("indoor"));d.put("indoor",indoor);}d.remove("undo");V103Data.validate(d);commit(new PreferenceEdit(preferences).putString("runs",rows.toString()).putString("v103",d.toString()));}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
 
   void finishIndoor(JSONObject row){finishIndoor(row,0);}
-  void finishIndoor(JSONObject row,double calibration){synchronized(LOCK){try{JSONObject d=v103();JSONObject active=d.optJSONObject("activeIndoor");if(active==null||!active.getString("id").equals(row.getString("id"))||!active.getBoolean("paused"))throw new IllegalStateException("This session changed. Reopen its review before saving.");if(!active.getString("kind").equals(row.getString("kind"))||!active.getString("date").equals(row.getString("date")))throw new IllegalArgumentException("Session identity changed");if(calibration!=0){if(!Double.isFinite(calibration)||calibration<.2||calibration>(row.getString("kind").equals("Walk")?1.5:2)||row.optLong("phoneSteps")<100||!row.optString("distanceSource").equals("Machine entered"))throw new IllegalArgumentException("Invalid calibration evidence");JSONObject lengths=d.optJSONObject("stepLengths");if(lengths==null)lengths=new JSONObject();lengths.put(row.getString("kind"),calibration);d.put("stepLengths",lengths);}JSONArray history=d.optJSONArray("indoor");if(history==null)history=new JSONArray();history.put(row);d.put("indoor",history);if(row.optLong("startedAtWall")>0){JSONObject origins=d.optJSONObject("importOrigins");if(origins==null)origins=new JSONObject();String localId=row.getString("kind").equals("Run")?"indoor:"+row.getString("id"):row.getString("id");long begun=row.getLong("startedAtWall"),ended=row.getLong("endedAtWall");origins.put(localId,origin("OpenRun indoor",localId,ended>=begun?begun:0,ended>=begun?ended:0));d.put("importOrigins",origins);}d.remove("activeIndoor");V103Data.validate(d);JSONArray records=new JSONArray(preferences.getString("runs","[]"));if(row.getString("kind").equals("Run")&&!row.isNull("km")){String id="indoor:"+row.getString("id");if(completed(id))throw new IllegalArgumentException("Indoor session already saved");records.put(new JSONObject().put("id",id).put("date",row.getString("date")).put("km",row.getDouble("km")).put("minutes",Math.max(1,row.getLong("seconds")/60)).put("seconds",row.getLong("seconds")).put("rpe",row.getInt("effort")).put("fatigue",row.getInt("fatigue")).put("pain",row.getBoolean("pain")).put("source","Indoor · "+row.optString("distanceSource","Machine entered")).put("route","").put("hr",0).put("workoutType","Indoor run"));}var edit=preferences.edit().putString("v103",d.toString()).putString("runs",records.toString());if(row.getBoolean("pain"))edit.putBoolean("rest",true).putString("adaptReason","Pain reported during an indoor session. Review recovery before further training.");commit(edit);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
+  void finishIndoor(JSONObject row,double calibration){synchronized(LOCK){try{JSONObject d=v103();JSONObject active=d.optJSONObject("activeIndoor");if(active==null||!active.getString("id").equals(row.getString("id"))||!active.getBoolean("paused"))throw new IllegalStateException("This session changed. Reopen its review before saving.");if(!active.getString("kind").equals(row.getString("kind"))||!active.getString("date").equals(row.getString("date")))throw new IllegalArgumentException("Session identity changed");if(calibration!=0){if(!Double.isFinite(calibration)||calibration<.2||calibration>(row.getString("kind").equals("Walk")?1.5:2)||row.optLong("phoneSteps")<100||!row.optString("distanceSource").equals("Machine entered"))throw new IllegalArgumentException("Invalid calibration evidence");JSONObject lengths=d.optJSONObject("stepLengths");if(lengths==null)lengths=new JSONObject();lengths.put(row.getString("kind"),calibration);d.put("stepLengths",lengths);}JSONArray history=d.optJSONArray("indoor");if(history==null)history=new JSONArray();history.put(row);d.put("indoor",history);if(row.optLong("startedAtWall")>0){JSONObject origins=d.optJSONObject("importOrigins");if(origins==null)origins=new JSONObject();String localId=row.getString("kind").equals("Run")?"indoor:"+row.getString("id"):row.getString("id");long begun=row.getLong("startedAtWall"),ended=row.getLong("endedAtWall");origins.put(localId,origin("OpenRun indoor",localId,ended>=begun?begun:0,ended>=begun?ended:0));d.put("importOrigins",origins);}d.remove("activeIndoor");V103Data.validate(d);JSONArray records=new JSONArray(preferences.getString("runs","[]"));if(row.getString("kind").equals("Run")&&!row.isNull("km")){String id="indoor:"+row.getString("id");if(completed(id))throw new IllegalArgumentException("Indoor session already saved");records.put(new JSONObject().put("id",id).put("date",row.getString("date")).put("km",row.getDouble("km")).put("minutes",Math.max(1,row.getLong("seconds")/60)).put("seconds",row.getLong("seconds")).put("rpe",row.getInt("effort")).put("fatigue",row.getInt("fatigue")).put("pain",row.getBoolean("pain")).put("source","Indoor · "+row.optString("distanceSource","Machine entered")).put("route","").put("hr",0).put("workoutType","Indoor run"));}var edit=new PreferenceEdit(preferences).putString("v103",d.toString()).putString("runs",records.toString());if(row.getBoolean("pain"))edit.putBoolean("rest",true).putString("adaptReason","Pain reported during an indoor session. Review recovery before further training.");commit(edit);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
   void deleteIndoorTimeOnly(String id){synchronized(LOCK){if(runs().stream().anyMatch(r->r.sessionId().equals("indoor:"+id)))throw new IllegalStateException("Delete the saved running activity in Progress so it can be undone");try{JSONObject d=v103();JSONArray rows=d.optJSONArray("indoor"),keep=new JSONArray();if(rows!=null)for(int i=0;i<rows.length();i++)if(!rows.getJSONObject(i).getString("id").equals(id))keep.put(rows.getJSONObject(i));d.put("indoor",keep);v103(d);}catch(Exception e){throw new IllegalArgumentException(e);}}}
   void purgeUndo(Context context,boolean replace){synchronized(LOCK){try{JSONObject d=v103(),u=d.optJSONObject("undo");if(u==null||(!replace&&u.getLong("expires")>=System.currentTimeMillis()))return;String route=u.getJSONObject("run").optString("route");if(route.matches("route-[a-zA-Z0-9-]+\\.jsonl")&&runs().stream().noneMatch(r->r.routeFile().equals(route)))context.deleteFile(route);d.remove("undo");v103(d);}catch(Exception ignored){}}}
 
@@ -137,8 +143,7 @@ final class RunStore {
   void save(PlanEngine.Config c) { synchronized(LOCK) {
     JSONObject retained=options();retained.remove("mode");retained.remove("weekdays");retained.remove("longDay");
     commit(
-        preferences
-            .edit()
+        new PreferenceEdit(preferences)
             .putString("planId", UUID.randomUUID().toString())
             .putInt("weeks", c.weeks())
             .putInt("days", c.days())
@@ -161,7 +166,7 @@ final class RunStore {
     JSONObject options=options();options.remove("mode");options.remove("weekdays");options.remove("longDay");
     try{if(returning){var preference=OnboardingPlan.returning(c,p);JSONArray days=new JSONArray();for(var day:preference.weekdays())days.put(day.getValue());options.put("mode",preference.mode()).put("weekdays",days).put("longDay",preference.longDay().getValue());}validateOptions(options);
     var schedule=OnboardingPlan.sessions(c,p,returning);
-    commit(preferences.edit().putString("planId",UUID.randomUUID().toString()).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(schedule).toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"No adjustments applied."));
+    commit(new PreferenceEdit(preferences).putString("planId",UUID.randomUUID().toString()).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(schedule).toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"No adjustments applied."));
     }catch(JSONException e){throw new IllegalArgumentException(e);}
   }}
 
@@ -175,7 +180,7 @@ final class RunStore {
       String id=UUID.randomUUID().toString();JSONObject target=race==null?null:new JSONObject(race.toString()).put("planId",id),data=v103();if(target==null)data.remove("race");else data.put("race",target);V103Data.validate(data);validateOptions(options);
       if(options.getJSONArray("weekdays").length()!=c.days()||(target!=null&&(Math.abs(target.getDouble("km")-c.goalKm())>.001||!LocalDate.parse(target.getString("date")).equals(c.start().plusWeeks(c.weeks())))))throw new IllegalArgumentException("Race and training dates disagree");
       JSONObject candidate=new JSONObject().put("weeks",c.weeks()).put("days",c.days()).put("volume",c.weeklyKm()).put("goal",c.goalKm()).put("start",c.start().toString()).put("schedule",serializeSchedule(sessions).toString());validatePreferences(candidate);
-      commit(preferences.edit().putString("planId",id).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(sessions).toString()).putString("v103",data.toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"Plan created from reviewed running history."));
+      commit(new PreferenceEdit(preferences).putString("planId",id).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(sessions).toString()).putString("v103",data.toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"Plan created from reviewed running history."));
     }catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}
   }}
 
@@ -185,7 +190,7 @@ final class RunStore {
     if(config()==null)throw new IllegalStateException("Create a plan first.");
     if(!checkpoint().isEmpty())throw new IllegalStateException("Finish, recover or discard the pending run first.");
     var current=config();var next=new PlanEngine.Config(current.weeks(),current.days(),current.weeklyKm(),current.goalKm(),start);
-    var editor=preferences.edit().putString("planId",UUID.randomUUID().toString()).putString("start",start.toString()).remove("moves").remove("skips").remove("schedule");
+    var editor=new PreferenceEdit(preferences).putString("planId",UUID.randomUUID().toString()).putString("start",start.toString()).remove("moves").remove("skips").remove("schedule");
     if(options().has("weekdays"))editor.putString("schedule",serializeSchedule(preferred(next,options())).toString());
     commit(editor);
    }}
@@ -262,7 +267,7 @@ final class RunStore {
   }catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
   private void commitImport(JSONObject d,JSONObject row,boolean walk,JSONObject origin)throws Exception{
     JSONObject origins=d.optJSONObject("importOrigins");if(origins==null)origins=new JSONObject();origins.put(row.getString("id"),origin);d.put("importOrigins",origins);
-    var edit=preferences.edit();
+    var edit=new PreferenceEdit(preferences);
     if(walk){JSONArray rows=WalkData.outdoor(d);rows.put(row);d.put("walks",rows);}
     else{JSONArray rows=new JSONArray(preferences.getString("runs","[]"));rows.put(row);validatePreferences(new JSONObject().put("runs",rows.toString()));edit.putString("runs",rows.toString());}
     V103Data.validate(d);edit.putString("v103",d.toString());commit(edit);
@@ -322,19 +327,23 @@ final class RunStore {
     } catch (JSONException e) {
       throw new IllegalStateException(e);
     }
-    try{JSONObject d=v103();for(Run r:runs)captureGpsOrigin(d,r.sessionId());V103Data.validate(d);commit(preferences.edit().putString("runs",a.toString()).putString("v103",d.toString()));}catch(Exception e){throw new IllegalStateException("Activity could not be saved",e);}
+    try{JSONObject d=v103();for(Run r:runs)captureGpsOrigin(d,r.sessionId());V103Data.validate(d);commit(new PreferenceEdit(preferences).putString("runs",a.toString()).putString("v103",d.toString()));}catch(Exception e){throw new IllegalStateException("Activity could not be saved",e);}
   }
 
   void adapt(AdaptiveCoach.Advice advice) { synchronized(LOCK) {
-    if (resting() && !advice.rest()) return; // Only explicit recovery review may clear a hold.
-    commit(
-        preferences
-            .edit()
-            .putBoolean("rest", advice.rest())
-            .putFloat("adaptFactor", (float) advice.factor())
-            .putString("adaptFrom", LocalDate.now().plusDays(1).toString())
-            .putString("adaptReason", advice.reason()));
-   }}
+    if (resting() && !advice.rest()) return;
+    commit(adaptationEdit(advice),advice.rest()?"Recovery hold":"Training adaptation",advice.reason(),runningEvidence());
+  }}
+  private PreferenceEdit adaptationEdit(AdaptiveCoach.Advice advice) {
+    if(!Double.isFinite(advice.factor())||advice.factor()<0||advice.factor()>1)throw new IllegalArgumentException("Invalid workload adjustment");
+    if(!advice.rest()&&(!checkpoint().isEmpty()||indoorPending()))throw new IllegalStateException("Finish or recover the pending recording first.");
+    PreferenceEdit edit=new PreferenceEdit(preferences).putBoolean("rest",advice.rest()).putString("adaptReason",advice.reason());
+    // A hold pauses recording; it does not turn scheduled distances into zero-km workouts.
+    if(!advice.rest())edit.putFloat("adaptFactor",(float)advice.factor()).putString("adaptFrom",LocalDate.now().plusDays(1).toString());
+    PlanChanges.protectHistory(edit);
+    return edit;
+  }
+  String previewAdaptation(String fingerprint,AdaptiveCoach.Advice advice){synchronized(LOCK){requirePreview(fingerprint);return PlanChanges.describe(adaptationEdit(advice));}}
 
   boolean resting() {
     return preferences.getBoolean("rest", false);
@@ -344,16 +353,16 @@ final class RunStore {
     return preferences.getString("adaptReason", "No adjustments applied.");
   }
 
+  void resumeTraining(String fingerprint){synchronized(LOCK){requirePreview(fingerprint);if(!resting())throw new IllegalStateException("There is no training hold to review.");resumeTraining();}}
   void resumeTraining() { synchronized(LOCK) {
     commit(
-        preferences
-            .edit()
+        new PreferenceEdit(preferences)
             .putBoolean("rest", false)
             .putFloat("adaptFactor", .8f)
             .putString("adaptFrom", LocalDate.now().plusDays(1).toString())
             .putString(
                 "adaptReason",
-                "Training resumed at 80% of base distance for the next seven days."));
+                "Training resumed at 80% of base distance for the next seven days."),"Recovery review","You explicitly reviewed recovery and resumed training.","User-confirmed recovery review; 80% workload for the next seven days.");
    }}
 
   double factor(LocalDate date) {
@@ -370,11 +379,11 @@ final class RunStore {
   }
 
   void audio(boolean on) {
-    commit(preferences.edit().putBoolean("audio", on));
+    commit(new PreferenceEdit(preferences).putBoolean("audio", on));
   }
 
   void checkpoint(String json) { synchronized(LOCK) {
-    commit(preferences.edit().putString("active", json));
+    commit(new PreferenceEdit(preferences).putString("active", json));
    }}
 
   String checkpoint() { synchronized(LOCK) {
@@ -382,7 +391,7 @@ final class RunStore {
    }}
 
   void clearCheckpoint() {
-    commit(preferences.edit().remove("active"));
+    commit(new PreferenceEdit(preferences).remove("active"));
   }
 
   PaceProfile profile() {
@@ -394,8 +403,7 @@ final class RunStore {
 
   void profile(PaceProfile p) {
     commit(
-        preferences
-            .edit()
+        new PreferenceEdit(preferences)
             .putFloat("profileDistance", (float) p.distanceKm())
             .putLong("profileSeconds", p.seconds())
             .putBoolean("speedWork", p.speedWork()));
@@ -406,7 +414,7 @@ final class RunStore {
   }
 
   void paceAlerts(boolean value) {
-    commit(preferences.edit().putBoolean("paceAlerts", value));
+    commit(new PreferenceEdit(preferences).putBoolean("paceAlerts", value));
   }
 
   boolean skipped(String id) {
@@ -420,7 +428,7 @@ final class RunStore {
     } catch (JSONException e) {
       throw new IllegalStateException(e);
     }
-    commit(preferences.edit().putString("skips", values.toString()));
+    commit(new PreferenceEdit(preferences).putString("skips", values.toString()));
    }}
 
   private JSONObject object(String key) {
@@ -433,7 +441,7 @@ final class RunStore {
 
   JSONObject options(){ synchronized(LOCK) {return object("options"); }}
   void options(JSONObject value){ synchronized(LOCK) {
-    validateOptions(value);var editor=preferences.edit().putString("options",value.toString());JSONObject previous=options();
+    validateOptions(value);var editor=new PreferenceEdit(preferences).putString("options",value.toString());JSONObject previous=options();
     boolean changed=!value.optString("mode").equals(previous.optString("mode"))||!value.optString("weekdays").equals(previous.optString("weekdays"))||value.optInt("longDay")!=previous.optInt("longDay");
     if(changed&&value.has("weekdays")&&config()!=null){
       var c=config();var proposed=preferred(c,value);Map<String,PlanEngine.Session> prior=new HashMap<>();for(var session:generated(c))prior.put(session.id(),session);List<PlanEngine.Session> finalSchedule=new ArrayList<>();Set<LocalDate> occupied=new HashSet<>();JSONObject moves=object("moves");
@@ -487,11 +495,18 @@ final class RunStore {
       LocalDate target=LocalDate.parse(race.optString("date"));
       for(int i=0;i<out.size();i++){var session=out.get(i);long remaining=java.time.temporal.ChronoUnit.DAYS.between(session.date(),target);if(remaining>0&&remaining<=7&&!completed(planId()+":"+session.id())){double cap=remaining<=2?1.5:c.goalKm()<=10?2:4;if(session.km()>cap||ScheduleProposer.demanding(session.title()))out.set(i,new PlanEngine.Session(session.id(),session.date(),remaining<=2?"Optional easy shakeout":"Easy race-week run",Math.min(session.km(),cap),"Keep this race-week session conversational. Rest is welcome; no catch-up or hard effort."));}}
     }
+    JSONObject protectedTargets=object("protectedTargets");
+    for(int i=0;i<out.size();i++){var s=out.get(i);JSONObject saved=protectedTargets.optJSONObject(planId()+":"+s.id());if(saved!=null)out.set(i,new PlanEngine.Session(s.id(),LocalDate.parse(saved.optString("date")),saved.optString("title"),saved.optDouble("km"),saved.optString("instructions")));}
     out.sort(Comparator.comparing(PlanEngine.Session::date));
     return out;
   }
 
-  void move(String id, LocalDate date) { synchronized(LOCK) {
+  void move(String id,LocalDate date){synchronized(LOCK){commit(moveEdit(id,date),"Rescheduled workout","You chose a new workout date.","User-selected date; distance and date consequences reviewed before applying.");}}
+  String previewMove(String fingerprint,String id,LocalDate date){synchronized(LOCK){requirePreview(fingerprint);return PlanChanges.describe(moveEdit(id,date));}}
+  private PreferenceEdit moveEdit(String id,LocalDate date) {
+    if(!checkpoint().isEmpty()||indoorPending())throw new IllegalStateException("Finish or recover the pending recording first.");
+    var original=plannedSessions().stream().filter(s->(planId()+":"+s.id()).equals(id)).findFirst().orElseThrow(()->new IllegalArgumentException("Workout is no longer in this plan."));
+    if(original.date().isBefore(LocalDate.now()))throw new IllegalArgumentException("Past workouts cannot be rescheduled.");
     if (date.isBefore(LocalDate.now())
         || date.isBefore(config().start())
         || !date.isBefore(config().start().plusWeeks(config().weeks())))
@@ -509,8 +524,8 @@ final class RunStore {
     } catch (JSONException e) {
       throw new IllegalStateException(e);
     }
-    commit(preferences.edit().putString("moves", moves.toString()));
-   }}
+    return new PreferenceEdit(preferences).putString("moves",moves.toString());
+  }
 
   PaceInsights.Suggestion paceSuggestion() {
     if (resting() || factor(LocalDate.now()) < 1) return null;
@@ -547,7 +562,7 @@ final class RunStore {
       if (sessions.length() >= 10000) throw new IllegalStateException("Export and archive strength history first");
       sessions.put(new JSONObject().put("id", UUID.randomUUID().toString())
           .put("date", LocalDate.now().toString()).put("routine", routine));
-      commit(preferences.edit().putString("strength", sessions.toString()));
+      commit(new PreferenceEdit(preferences).putString("strength", sessions.toString()));
     } catch (JSONException e) { throw new IllegalArgumentException(e); }
    }}
 
@@ -565,9 +580,11 @@ final class RunStore {
   static final Set<String> LONG_KEYS = Set.of("profileSeconds");
   static final Set<String> BOOL_KEYS = Set.of("rest", "audio", "speedWork", "paceAlerts");
   static final Set<String> STRING_KEYS =
-      Set.of("start", "planId", "runs", "adaptFrom", "adaptReason", "moves", "skips", "strength", "options", "schedule", "v1", "v103", "cycling");
+      Set.of("start", "planId", "runs", "adaptFrom", "adaptReason", "moves", "skips", "strength", "options", "schedule", "v1", "v103", "cycling", "planChanges", "planRevision", "planEpoch", "protectedTargets");
 
   static void validatePreferences(JSONObject data) throws Exception {
+    if(data.has("protectedTargets"))PlanChanges.validateTargets(new JSONObject(data.getString("protectedTargets")));
+    if(data.has("planChanges"))PlanChanges.validate(new JSONArray(data.getString("planChanges")));
     if(data.has("cycling"))CyclingData.validate(new JSONObject(data.getString("cycling")));
     if(data.has("focusVersion")&&(data.getInt("focusVersion")<0||data.getInt("focusVersion")>1))throw new IllegalArgumentException("Unsupported focus migration version");
     if(data.has("v103"))V103Data.validate(new JSONObject(data.getString("v103")));
@@ -674,7 +691,7 @@ final class RunStore {
    }}
 
   private void writePreferences(JSONObject data) {
-    SharedPreferences.Editor e = preferences.edit().clear();
+    PreferenceEdit e = new PreferenceEdit(preferences).clear();
     try {
       for (Iterator<String> keys = data.keys(); keys.hasNext(); ) {
         String k = keys.next();
@@ -687,10 +704,44 @@ final class RunStore {
     } catch (JSONException error) {
       throw new IllegalArgumentException(error);
     }
-    commit(e);
+    e.putString("planEpoch",UUID.randomUUID().toString());
+    if (!e.commit()) throw new IllegalStateException("Could not restore. Please try again.");
   }
 
-  private void commit(SharedPreferences.Editor e) {
-    if (!e.commit()) throw new IllegalStateException("Could not save. Please try again.");
+  String runningEvidence() {
+    var recent=runs().stream().filter(r->!LocalDate.parse(r.date()).isBefore(LocalDate.now().minusDays(28))&&!LocalDate.parse(r.date()).isAfter(LocalDate.now())).collect(java.util.stream.Collectors.toList());
+    return String.format(Locale.ROOT,"Last 28 days: %d runs, %.1f km. Effort/fatigue only where reported; walking excluded.",recent.size(),recent.stream().mapToDouble(Run::km).sum());
+  }
+  JSONArray planChanges(){synchronized(LOCK){try{return new JSONArray(preferences.getString("planChanges","[]"));}catch(JSONException e){throw new IllegalStateException("Plan-change history cannot be read. Data has not been overwritten.",e);}}}
+  void adapt(String fingerprint,AdaptiveCoach.Advice advice){synchronized(LOCK){requirePreview(fingerprint);if(resting()&&!advice.rest())throw new IllegalStateException("Review recovery before changing training.");adapt(advice);}}
+  void move(String fingerprint,String id,LocalDate date){synchronized(LOCK){requirePreview(fingerprint);move(id,date);}}
+  private void requirePreview(String fingerprint){if(!proposalFingerprint().equals(fingerprint))throw new IllegalStateException("Your plan or evidence changed. Generate a new preview.");}
+  PlanChanges.Undo previewUndo(){synchronized(LOCK){return PlanChanges.previewUndo(new HashMap<>(preferences.getAll()));}}
+  void undoPlanChange(PlanChanges.Undo preview){synchronized(LOCK){
+    PlanChanges.Undo current=previewUndo();
+    if(!current.equals(preview))throw new IllegalStateException("Your plan changed. Review undo again.");
+    PreferenceEdit edit=new PreferenceEdit(preferences);
+    PlanChanges.restoreLatest(edit);
+    edit.putString("planRevision",UUID.randomUUID().toString());
+    PlanChanges.append(edit,"Undo","Undid the latest plan change after review.","Undo of "+preview.eventId()+". User reviewed the workout consequences.");
+    if(!edit.commit())throw new IllegalStateException("Could not save undo. Please try again.");
+  }}
+
+  private void commit(PreferenceEdit e) {
+    commit(e,"Plan settings","Training settings changed","User edited training settings.");
+  }
+  private void commit(PreferenceEdit e,String kind,String reason,String evidence) {
+    synchronized(LOCK) {
+      if(!e.before.equals(preferences.getAll()))throw new IllegalStateException("Saved data changed. Reopen and review this change.");
+      if(!PlanChanges.samePlan(e.before,e.after)) {
+        PlanChanges.protectHistory(e);
+        e.putString("planRevision",UUID.randomUUID().toString());
+        if(!Objects.equals(e.before.get("rest"),e.after.get("rest"))&&Boolean.TRUE.equals(e.after.get("rest"))){kind="Recovery hold";reason=(String)e.after.getOrDefault("adaptReason","Pain reported; training paused.");evidence="Reported pain. Recovery requires explicit review.";}
+        // Creation/replacement invalidates undo but never invents earlier adaptations.
+        if(new RunStore(PreferenceEdit.view(e.before)).planId().equals(new RunStore(PreferenceEdit.view(e.after)).planId()))
+          PlanChanges.append(e,kind,reason,evidence);
+      }
+      if (!e.commit()) throw new IllegalStateException("Could not save. Please try again.");
+    }
   }
 }

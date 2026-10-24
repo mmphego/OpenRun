@@ -1,4 +1,4 @@
-# OpenRun 1.4.4 — remaining gaps
+# OpenRun — remaining gaps
 
 - No physical S23/adb target was connected. The 59 host tests and inspected native renders do not prove hardware sensor sensitivity, audible screen-off delivery, battery life, Bluetooth/call handling or Samsung recovery. Use tests/s23/CHECKLIST.md.
 - Garmin automatic two-way account/workout sync still requires official partner approval, credentials/documentation and an activated HTTPS service. Activity-file import and compatible Bluetooth heart-rate sensors work separately; live provider/device compatibility is unverified here.
@@ -12,3 +12,5 @@
 - Running and walking remain the only active activity workspaces. Existing archived gym/cycling data is retained for backup compatibility.
 
 Upgrade without uninstalling. Save active sessions first. Export a local backup before restore experiments. New backup fields are not designed for older app versions.
+
+- Plan-change undo deliberately supports only the newest recorded eligible event. It is not arbitrary rollback or redo; an undo, recovery event, replacement plan or newer edit blocks older undo. Existing installations cannot reconstruct unrecorded changes. See [plan changes](docs/PLAN-CHANGES.md).
