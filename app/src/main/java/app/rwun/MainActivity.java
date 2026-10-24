@@ -267,6 +267,8 @@ public final class MainActivity extends Activity {
 
   private void beginPlan(){ensurePlanEditable();openRace("goal");}
 
+  private void planChanges(){refreshFeatures=true;startActivity(new Intent(this,PlanChangesActivity.class));}
+
   private void planHub(){
     LinearLayout hero=column();hero.setGravity(Gravity.CENTER);hero.setPadding(dp(10),dp(28),dp(10),dp(24));
     ImageView hand=new ImageView(this);hand.setImageDrawable(UiKit.icon(this,R.drawable.ic_waving_hand,palette.primary,40));hero.addView(hand,new LinearLayout.LayoutParams(dp(52),dp(52)));
@@ -275,6 +277,7 @@ public final class MainActivity extends Activity {
     planHubChoice("Start new plan",this::beginPlan);
     planHubChoice("Restart current plan",this::confirmRestart);
     planHubChoice("Continue plan",()->{planSchedule=true;render();});
+    content.addView(button("Plan changes",this::planChanges));
     if(store.resting())content.addView(text("Your training hold stays active when changing plans.",13,false));
     content.addView(button("Training preferences",()->openFeatures("plan")));
   }
@@ -399,6 +402,7 @@ public final class MainActivity extends Activity {
 
   private void coach() {
     content.addView(text("Your coach",30,true));
+    content.addView(button("Plan changes",this::planChanges));
     content.addView(text("Prepare. Run or walk. Reflect and improve.",15,false));
     LinearLayout personal=card();personal.addView(text("Your next-run lesson",21,true));personal.addView(text(CoachingMemory.lesson(store),16,false));
     row(personal,R.drawable.ic_directions_run,"Beginner sessions & personal progress","Timed run/walk, reviewed progression and reflections",()->openVoiceCoach("home"));
@@ -429,6 +433,7 @@ public final class MainActivity extends Activity {
 
   private void plan() {
     planOverview();
+    content.addView(button("Plan changes",this::planChanges));
     subpage="Schedule";header("Training schedule",()->{planSchedule=false;render();});
     LinearLayout weekBar=new LinearLayout(this);weekBar.setGravity(Gravity.CENTER_VERTICAL);weekBar.setPadding(0,dp(8),0,dp(8));
     ImageButton previous=UiKit.iconButton(this,palette,R.drawable.ic_chevron_left,"Previous week",()->{week=Math.max(0,week-1);render();});
@@ -554,14 +559,16 @@ public final class MainActivity extends Activity {
     if (config.start().plusWeeks(config.weeks()).minusDays(1).isBefore(LocalDate.now()))
       throw new IllegalStateException(
           "This plan has ended. Create a new plan to schedule future runs.");
+    String moveFingerprint=store.proposalFingerprint();
     LocalDate date = session.date();
     DatePickerDialog dialog =
         new DatePickerDialog(
             this,
             (picker, year, month, day) -> {
               try {
-                store.move(key(session), LocalDate.of(year, month + 1, day));
-                render();
+                LocalDate targetDate=LocalDate.of(year,month+1,day);
+                String consequences=store.previewMove(moveFingerprint,key(session),targetDate);
+                new AlertDialog.Builder(this).setTitle("Review workout move").setMessage(consequences+"\n\nCompleted activities are kept.").setNegativeButton("Keep date",null).setPositiveButton("Apply move",(d,w)->{try{store.move(moveFingerprint,key(session),targetDate);Reminders.schedule(this);WorkoutWidget.updateAll(this);render();}catch(Exception e){error(e);}}).show();
               } catch (Exception error) {
                 error(error);
               }
@@ -889,17 +896,19 @@ public final class MainActivity extends Activity {
                                         pain.isChecked(),
                                         target > 0 ? Math.min(3, km / target) : 1));
                         if (advice.rest()) {
-                          store.adapt(advice);
+                          if(!store.resting())store.adapt(advice);
                           new AlertDialog.Builder(this)
                               .setTitle("Training paused")
                               .setMessage(debrief+"\n\n"+advice.reason())
                               .setPositiveButton("OK", (a, b) -> render())
                               .show();
-                        } else
+                        } else {
+                          String adaptationFingerprint=store.proposalFingerprint();
+                          String consequences=store.previewAdaptation(adaptationFingerprint,advice);
                           new AlertDialog.Builder(this)
                               .setTitle("Review training adjustment")
                               .setMessage(
-                                  debrief+"\n\n"+advice.reason()
+                                  debrief+"\n\n"+advice.reason()+"\n\n"+consequences
                                       + "\n\n"
                                       + "Applies to tomorrow through the following six days. Past"
                                       + " workouts remain unchanged.")
@@ -907,10 +916,10 @@ public final class MainActivity extends Activity {
                               .setPositiveButton(
                                   "Apply",
                                   (a, b) -> {
-                                    store.adapt(advice);
-                                    render();
+                                    try{store.adapt(adaptationFingerprint,advice);Reminders.schedule(this);WorkoutWidget.updateAll(this);render();}catch(Exception e){error(e);}
                                   })
                               .show();
+                        }
                       } catch (Exception e) {
                         error(e);
                       }
@@ -1111,24 +1120,10 @@ public final class MainActivity extends Activity {
     row(data,R.drawable.ic_info,"Health data & privacy","Access, local storage and deletion",()->startActivity(new Intent(this,HealthPrivacyActivity.class)));
     content.addView(text("Adaptive training", 22, true));
     content.addView(text(store.adaptation(), 16, false));
-    if (store.resting())
-      content.addView(
-          button(
-              "Review and resume training",
-              () ->
-                  new AlertDialog.Builder(this)
-                      .setTitle("Resume training?")
-                      .setMessage(
-                          "Resume only when appropriate for your symptoms. The next seven days will"
-                              + " use 80% of base distance. OpenRun cannot assess injury readiness.")
-                      .setNegativeButton("Stay paused", null)
-                      .setPositiveButton(
-                          "Resume",
-                          (d, w) -> {
-                            store.resumeTraining();
-                            render();
-                          })
-                      .show()));
+    if(store.resting())content.addView(button("Review and resume training",()->{
+      String fingerprint=store.proposalFingerprint();
+      new AlertDialog.Builder(this).setTitle("Resume training?").setMessage("Resume only when appropriate for your symptoms. The next seven days will use 80% of base distance. OpenRun cannot assess injury readiness.").setNegativeButton("Stay paused",null).setPositiveButton("Resume",(d,w)->{try{store.resumeTraining(fingerprint);Reminders.schedule(this);WorkoutWidget.updateAll(this);render();}catch(Exception e){error(e);}}).show();
+    }));
     content.addView(button("Manage training plan",()->{tab="Plan";planSchedule=false;render();}));
     content.addView(
         text(
@@ -1220,7 +1215,11 @@ public final class MainActivity extends Activity {
   }
   private void weeklyReview(){
     var entries=store.runs().stream().map(r->new TrainingReview.Entry(LocalDate.parse(r.date()),r.km(),r.rpe(),r.fatigue(),!r.source().startsWith("Health Connect")&&!r.source().equals("Strava"))).collect(java.util.stream.Collectors.toList());var review=TrainingReview.review(entries,LocalDate.now());LinearLayout card=card();card.addView(text("Weekly training review",20,true));card.addView(text(review.reason(),14,false));
-    if(review.reduce()&&!store.resting())card.addView(button("Review workload reduction",()->new AlertDialog.Builder(this).setTitle("Reduce upcoming workload?").setMessage(review.reason()+"\n\nApplies to tomorrow through the following six days. No missed workouts are added.").setNegativeButton("Keep plan",null).setPositiveButton("Apply 20% reduction",(d,w)->{if(store.resting()){error(new IllegalStateException("Training is paused; review the hold first."));return;}store.adapt(new AdaptiveCoach.Advice(.8,false,review.reason()));render();}).show()));
+    if(review.reduce()&&!store.resting())card.addView(button("Review workload reduction",()->{
+      String fingerprint=store.proposalFingerprint();var advice=new AdaptiveCoach.Advice(.8,false,review.reason());
+      String consequences=store.previewAdaptation(fingerprint,advice);
+      new AlertDialog.Builder(this).setTitle("Reduce upcoming workload?").setMessage(review.reason()+"\n\n"+consequences+"\n\nNo missed workouts are added.").setNegativeButton("Keep plan",null).setPositiveButton("Apply 20% reduction",(d,w)->{try{store.adapt(fingerprint,advice);Reminders.schedule(this);WorkoutWidget.updateAll(this);render();}catch(Exception e){error(e);}}).show();
+    }));
   }
 
   private void recordAnalytics(){

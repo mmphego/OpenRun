@@ -31,3 +31,11 @@ The runner now also executes `GpsRecordingTest` against the actual Android servi
 reviewed stage changes/undo, pain holds, large fonts, saved-run reflection, indoor
 step continuity and controlled audio interruptions. Synthetic host renders do not
 validate physical TTS, Bluetooth/music/call routing, GPS or Samsung background behaviour.
+
+## Plan-change history
+
+`PlanChangesUiTest` exercises the actual Plan/Coach entry points, honest empty state,
+history/recreation, cancel/confirm undo, a hold arriving while undo is open, backup restore
+and preference listener observations of the atomic commit. It emits synthetic-data renders
+for empty/history/1.6x-font states under `app/build/reports/native-qa` in Gradle.
+These are Robolectric host renders, not installation, launch or S23 evidence.
