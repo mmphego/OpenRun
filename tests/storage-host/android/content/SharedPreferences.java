@@ -18,6 +18,11 @@ public interface SharedPreferences {
   boolean getBoolean(String key, boolean value);
 
   Editor edit();
+  default java.util.Set<String> getStringSet(String key,java.util.Set<String> value){throw new UnsupportedOperationException();}
+  interface OnSharedPreferenceChangeListener {void onSharedPreferenceChanged(SharedPreferences preferences,String key);}
+  default void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener){}
+  default void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener){}
+
 
   interface Editor {
     Editor clear();

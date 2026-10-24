@@ -9,14 +9,27 @@
 - Keep feature data separate from backups, exports, analytics and AI explanations. Retain only the latest check-in with seven-day expiry and deletion controls.
 - See [feature behavior and device acceptance](docs/DAILY-HEALTH.md). No background location or venue inference is added.
 
-## Unreleased — Automated APK releases
+
+
+## 1.7.0 — Plan-change history and safe undo candidate
+
+- Add Plan changes from Plan and Coach, showing applied timestamps, reasons, evidence and actual before/after workout dates, distances and skipped state.
+- Show the resulting workout type and changed effort guidance in previews and undo, including restored harder sessions.
+- Stage previews without writes; reject confirmations after plan, activity evidence, recovery or recording state changes.
+- Save plan edits and append-only history in one preference transaction. Preserve past/completed planned targets when recalculating workload.
+- Review and undo only the newest eligible event; append a linked undo event. Reject past/completed/matched workouts, pending recordings, changed plans, collisions and inconsistent imported consequences.
+- Keep pain holds and recovery review explicit. Undo never clears or reverses a hold or recovery review.
+- Include validated history in portable/encrypted backups without changing the Rwun discriminator. Existing installs and older backups start with empty history.
+- Version 1.7.0 / versionCode 26. Signed release workflow and third-party notices are unchanged; project licensing and physical-device acceptance remain unresolved.
+
+### Automated APK releases (included from main)
 
 - Build and publish a signed APK after main merges, with unique build tags and increasing Android version codes.
 - Attach versioned APKs and SHA-256 checksums; identify the exact APK in generated release notes.
 - Keep PR debug artifacts versioned and signing isolated from untrusted PR checks.
 
 
-## Unreleased — Progress presentation
+### Progress presentation (included from main)
 
 - Group running history by month, sort activities by recording date/time and show distance, duration and average pace in compact cards.
 - Replace truncated filters and Android package names with labelled controls and readable activity sources.

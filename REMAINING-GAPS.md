@@ -13,3 +13,5 @@
 - Running and walking remain the only active activity workspaces. Existing archived gym/cycling data is retained for backup compatibility.
 
 Upgrade without uninstalling. Save active sessions first. Export a local backup before restore experiments. New backup fields are not designed for older app versions.
+
+- Plan-change undo deliberately supports only the newest recorded eligible event. It is not arbitrary rollback or redo; an undo, recovery event, replacement plan or newer edit blocks older undo. Existing installations cannot reconstruct unrecorded changes. See [plan changes](docs/PLAN-CHANGES.md).

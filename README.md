@@ -15,7 +15,7 @@ A native Android running and walking app with original branding and code, offlin
 | Training | Goal/race-date plans, weekly scheduling, run/walk phases, pace estimates and reviewed adaptations | Original rules; qualified coach review remains outstanding. No automatic pain-hold clearance. |
 | Outdoor recording | GPS routes, splits, pause/resume, recording diagnostics, recovery checkpoints and audio coaching | Physical-device/background accuracy still needs acceptance testing. |
 | Indoor walking | Timer, optional phone-step distance estimate, calibration and movement reminders | Not a treadmill connection. Phone sensor availability and placement matter. |
-| Progress and data | Local history, activity file import/export and encrypted portable backup | Protect exports: they can contain routes and health data. |
+| Progress and data | Local activity and plan-change history, reviewed safe undo, activity file import/export and encrypted portable backup | Protect exports: they can contain routes and health data. |
 | Races | Top Events and Bield adapters, provider-aware merging, Room database, incremental content upserts, source links and saved races | Coverage depends on providers. Unknown facts stay unknown. RunSignup is disabled until operator approval/proxy configuration. |
 | Background updates | One JobScheduler job on each foreground session, debounced across navigation; in-process guard plus expiring DB lease | Android decides execution timing. Network failures retain cached races. No startup network wait. |
 | Health Connect | Separate read/write consent; recent run/walk import and reviewed original outdoor/indoor recording exports | Android 14+; optional average HR read, no routes or imported-activity re-export. Device acceptance pending. |
@@ -26,7 +26,7 @@ A native Android running and walking app with original branding and code, offlin
 
 The app was previously named Rwun. Its Android package ID `app.rwun`, storage keys and backup formats are retained for compatibility; the display name and distribution name are OpenRun.
 
-The current source candidate is **OpenRun 1.7.0 / versionCode 26**, adding [daily movement and recovery](docs/DAILY-HEALTH.md) alongside [Health Connect reading and writing](docs/HEALTH-CONNECT.md) to the recovered 1.5.0 implementation. A compatible APK upgrade requires the same signing certificate as the installed app.
+The current source candidate is **OpenRun 1.7.0 / versionCode 26**, adding [daily movement and recovery](docs/DAILY-HEALTH.md) alongside [plan-change history and safe undo](docs/PLAN-CHANGES.md) and [Health Connect reading and writing](docs/HEALTH-CONNECT.md) to the recovered 1.5.0 implementation. A compatible APK upgrade requires the same signing certificate as the installed app.
 
 The current focus is **running and walking**. Historical cycling and strength support code remains in the source to preserve completed work; it is outside the active product roadmap.
 

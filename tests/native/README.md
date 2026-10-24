@@ -26,3 +26,11 @@ The runner uses the retained Gradle wrapper for host-only test dependencies. `RW
 ## GPS recorder regression (1.4.2)
 
 The runner now also executes `GpsRecordingTest` against the actual Android service. Its ten methods cover delayed and fresh 2 km sequences, provider timestamp boundaries, duplicate callbacks, pause/resume, accuracy/jump/gap protection, a visible zero-distance warning and a known-distance walk save. These are controlled Android-framework host tests, not a physical GPS measurement or a Samsung background-delivery test.
+
+## Plan-change history
+
+`PlanChangesUiTest` exercises the actual Plan/Coach entry points, honest empty state,
+history/recreation, cancel/confirm undo, a hold arriving while undo is open, backup restore
+and preference listener observations of the atomic commit. It emits synthetic-data renders
+for empty/history/1.6x-font states under `app/build/reports/native-qa` in Gradle.
+These are Robolectric host renders, not installation, launch or S23 evidence.
