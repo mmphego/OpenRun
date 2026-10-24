@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — Progress presentation
+
+- Group running history by month, sort activities by recording date/time and show distance, duration and average pace in compact cards.
+- Replace truncated filters and Android package names with labelled controls and readable activity sources.
+- Open activities into a dedicated detail view with available metrics, an offline route preview and an optional inline OpenStreetMap with pan/zoom.
+- Keep review, correction, matching, sharing, export and deletion in activity details; retain Health Connect 1.6.0's reviewed original-activity export flow.
+- Preserve selected activity and filters across Android recreation. Use two metric columns at larger accessibility font sizes.
+- Missing routes and unsupported metrics remain explicitly unavailable; this change does not add route, cadence or calorie imports.
+
+
 ## 1.6.0 — Health Connect candidate
 
 - Added a dedicated Health Connect screen with independent read and write consent, activity previews and access management.

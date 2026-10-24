@@ -10,6 +10,10 @@ Run JUnitCore `app.rwun.NativePlanningTest` with `-Drwun.evidence=/absolute/outp
 
 Physical acceptance remains in `../s23/CHECKLIST.md`.
 
+`ProgressUiTest` covers chronological monthly history, readable source names, month filtering,
+detail/back navigation across recreation, saved-route previews and large-font layouts.
+Its images use synthetic activity fixtures, not personal routes or health records.
+
 Automated reproduction after the standalone APK build:
 
 ```sh

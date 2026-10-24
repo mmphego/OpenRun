@@ -36,20 +36,36 @@ final class RouteView extends View {
       maxY = Math.max(maxY, p.lat());
     }
     double spanX = Math.max(.00001, maxX - minX), spanY = Math.max(.00001, maxY - minY);
-    double scale = Math.min((getWidth() - 40) / spanX, (getHeight() - 40) / spanY);
+    float density = getResources().getDisplayMetrics().density;
+    float padding = 20 * density;
+    double scale = Math.max(0, Math.min((getWidth() - padding * 2) / spanX, (getHeight() - padding * 2) / spanY));
+    double left = (getWidth() - (maxX - minX) * scale) / 2;
+    double bottom = (getHeight() + (maxY - minY) * scale) / 2;
     paint.setColor(new UiKit.Palette(true).primary);
     paint.setStyle(Paint.Style.STROKE);
-    paint.setStrokeWidth(6);
+    paint.setStrokeWidth(3 * density);
+    paint.setStrokeCap(Paint.Cap.ROUND);
+    paint.setStrokeJoin(Paint.Join.ROUND);
     path.reset();
     int segment = -1;
     for (var p : points) {
-      float x = (float) (20 + (p.lon() * cos - minX) * scale),
-          y = (float) (getHeight() - 20 - (p.lat() - minY) * scale);
+      float x = (float) (left + (p.lon() * cos - minX) * scale),
+          y = (float) (bottom - (p.lat() - minY) * scale);
       if (segment != p.segment()) {
         path.moveTo(x, y);
         segment = p.segment();
       } else path.lineTo(x, y);
     }
     canvas.drawPath(path, paint);
+    paint.setStyle(Paint.Style.FILL);
+    for (int index : new int[]{0, points.size() - 1}) {
+      var p = points.get(index);
+      float x = (float) (left + (p.lon() * cos - minX) * scale);
+      float y = (float) (bottom - (p.lat() - minY) * scale);
+      paint.setColor(new UiKit.Palette(true).background);
+      canvas.drawCircle(x, y, 6 * density, paint);
+      paint.setColor(index == 0 ? new UiKit.Palette(true).primary : Color.WHITE);
+      canvas.drawCircle(x, y, 4 * density, paint);
+    }
   }
 }
