@@ -124,6 +124,10 @@ public class HealthConnectTest {
         saveIndoor(1d);String before=store.backupPreferences().toString();AtomicInteger calls=new AtomicInteger();var p=HealthWritePlan.find(app,store,"indoor:owned");
         fails(HealthExport.write(app,p.id(),p.fingerprint(),(v,n)->{calls.incrementAndGet();return CompletableFuture.completedFuture(null);}));assertEquals(0,calls.get());assertEquals(before,store.backupPreferences().toString());
     }
+    @Test public void timeOnlyRewriteCannotSilentlyLeaveOldExportedDistance()throws Exception{
+        Shadows.shadowOf(app).grantPermissions(HealthExport.PERMISSIONS);saveIndoor(1d);var first=HealthWritePlan.find(app,store,"indoor:owned");AtomicInteger writes=new AtomicInteger();HealthExport.Writer writer=(p,v)->{writes.incrementAndGet();return CompletableFuture.completedFuture(null);};
+        HealthExport.write(app,first.id(),first.fingerprint(),writer).get(5,TimeUnit.SECONDS);settle();saveIndoor(null);var timeOnly=HealthWritePlan.find(app,store,first.id());fails(HealthExport.write(app,timeOnly.id(),timeOnly.fingerprint(),writer));settle();assertEquals(1,writes.get());
+    }
     void saveIndoor(Double km)throws Exception{
         long start=Instant.now().minusSeconds(1200).truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toEpochMilli();
         JSONObject row=new JSONObject().put("id","owned").put("date",LocalDate.now().toString()).put("kind","Walk").put("seconds",600).put("km",km==null?JSONObject.NULL:km).put("effort",3).put("fatigue",2).put("pain",false).put("distanceSource",km==null?"Time only":"Machine entered").put("startedAtWall",start).put("endedAtWall",start+900000);
