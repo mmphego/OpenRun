@@ -5,7 +5,8 @@
 | Running plan, feedback, other activities | App-private local preferences | User-exported backup; encrypted snapshot to configured service |
 | GPS route and timestamps | App-private local route file | Explicit GPX export, Strava upload or encrypted backup |
 | Bluetooth heart rate | Recording session and optional local average | Selected recorded-run exports/backups; inspect enabled integration |
-| Health Connect exercise/distance/optional HR | Permission-gated local import | Local history/backups; no automatic Strava forwarding |
+| Health Connect exercise/distance/optional HR | Permission-gated recent run/walk import | Local history/backups; no automatic Strava forwarding |
+| Original OpenRun exercise/distance | Separate write consent + per-activity review | On-device Health Connect; stable IDs, no routes/HR samples, no imported-activity echo |
 | Local usage event counts | Off by default; app-private, rolling 90 days | Only explicit plain-text summary sharing; excluded from backups |
 | Beta feedback | Form in memory | User previews text and selects a sharing app; no support endpoint |
 | Activity card | User-selected document destination | Explicit image share; distance/time and optional date only |

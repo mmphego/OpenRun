@@ -1,8 +1,6 @@
 package app.rwun;
 
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.OutcomeReceiver;
 import android.health.connect.*;
 import android.health.connect.datatypes.*;
@@ -12,104 +10,88 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Official Android 14+ framework API. Read-only, foreground import; never fabricates distance. */
+/** Bounded, read-only import. Each publisher's distance stays associated with its own sessions. */
 final class HealthSync {
-  static final String HEART_RATE="android.permission.health.READ_HEART_RATE";
-  static final String[] PERMISSIONS={"android.permission.health.READ_EXERCISE","android.permission.health.READ_DISTANCE"};
-  private static final AtomicBoolean BUSY=new AtomicBoolean();
-  private static <T> CompletableFuture<T> failed(Throwable error){CompletableFuture<T> future=new CompletableFuture<>();future.completeExceptionally(error);return future;}
-  static boolean granted(Context c) {
-    if(Build.VERSION.SDK_INT<34)return false;
-    for(String p:PERMISSIONS)if(c.checkSelfPermission(p)!=PackageManager.PERMISSION_GRANTED)return false;
-    return true;
+ static final String HEART_RATE="android.permission.health.READ_HEART_RATE";
+ static final String[] PERMISSIONS={"android.permission.health.READ_EXERCISE","android.permission.health.READ_DISTANCE"};
+ private static final AtomicBoolean BUSY=new AtomicBoolean();
+ static boolean granted(Context c){return HealthAccess.granted(c,PERMISSIONS);}
+ static String status(Context c){return HealthAccess.status(c);}
+ static boolean busy(){return BUSY.get();}
+ static <T> CompletableFuture<T> failed(Throwable e){CompletableFuture<T> f=new CompletableFuture<>();f.completeExceptionally(e);return f;}
+ static CompletableFuture<String> sync(Context c,RunStore store){
+  if(android.os.Build.VERSION.SDK_INT<34||!HealthAccess.available(c)||!granted(c))return failed(new SecurityException("Grant exercise and distance read access first."));
+  try{return sync(store,c.getPackageName(),HealthAccess.granted(c,HEART_RATE),new Api34.Source(c));}
+  catch(Exception e){return failed(e);}
+ }
+ record Page(List<ExerciseSessionRecord> records,long next){}
+ interface Source {
+  CompletableFuture<Page> page(Instant start,Instant end,long token);
+  CompletableFuture<Double> distance(ExerciseSessionRecord session);
+  CompletableFuture<Integer> heartRate(ExerciseSessionRecord session);
+ }
+ /** Injectable source keeps platform I/O separate from import policy and local persistence. */
+ @android.annotation.TargetApi(34)
+ static CompletableFuture<String> sync(RunStore store,String ownPackage,boolean heartRate,Source source){
+  if(!BUSY.compareAndSet(false,true))return failed(new IllegalStateException("An import is already in progress."));
+  CompletableFuture<String> result=new CompletableFuture<>();ExecutorService executor=Executors.newSingleThreadExecutor();
+  result.whenComplete((value,error)->{BUSY.set(false);executor.shutdown();});HealthTransfer.bound(result);
+  new Importer(store,ownPackage,heartRate,source,result,executor).page(-1);return result;
+ }
+ @android.annotation.TargetApi(34)
+ private static final class Importer {
+  final RunStore store;final String own;final boolean hr;final Source source;final CompletableFuture<String> result;final Executor executor;
+  final Instant end=Instant.now(),start=end.minus(Duration.ofDays(30));final Set<Long> tokens=new HashSet<>();
+  int pages,added,duplicates,skipped,review;
+  Importer(RunStore s,String p,boolean h,Source src,CompletableFuture<String> r,Executor e){store=s;own=p;hr=h;source=src;result=r;executor=e;}
+  void page(long token){
+   if(result.isDone())return;
+   if(++pages>100||!tokens.add(token)){result.completeExceptionally(new IllegalStateException("Health Connect pagination stopped safely. Saved activities are kept; retry later."));return;}
+   try{source.page(start,end,token).whenCompleteAsync((page,error)->{
+    if(result.isDone())return;if(error!=null){result.completeExceptionally(error);return;}
+    if(page==null||page.records()==null||page.records().size()>100){result.completeExceptionally(new IllegalStateException("Health Connect returned an invalid page."));return;}
+    session(page.records(),0,page.next());
+   },executor);}catch(Exception e){result.completeExceptionally(e);}
   }
-  static String status(Context c) {
-    if(Build.VERSION.SDK_INT<34)return "Requires Android 14 or newer in this version";
-    if(granted(c))return "Read access granted";
-    int count=0;for(String p:PERMISSIONS)if(c.checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED)count++;
-    return count==0?"Not connected":"Partial access · exercise and distance required";
+  void session(List<ExerciseSessionRecord> records,int index,long next){
+   if(result.isDone())return;
+   if(index==records.size()){if(next!=-1){page(next);return;}result.complete("Imported "+added+" runs/walks · "+duplicates+" already saved · "+skipped+" skipped · "+review+" held for duplicate review.");return;}
+   ExerciseSessionRecord s=records.get(index);int type=s.getExerciseType();boolean walk=type==ExerciseSessionType.EXERCISE_SESSION_TYPE_WALKING;
+   String provider=s.getMetadata().getDataOrigin().getPackageName(),external=s.getMetadata().getId();
+   if((!walk&&type!=ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING&&type!=ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING_TREADMILL)||provider.equals(own)){skipped++;session(records,index+1,next);return;}
+   String id=(walk?"walk:health:":"health:")+external;
+   long seconds=Duration.between(s.getStartTime(),s.getEndTime()).getSeconds();
+   if(external.isEmpty()||id.length()>180||provider.isEmpty()||seconds<1||seconds>180000||s.getEndTime().isAfter(end)||s.getStartTime().isBefore(start)){skipped++;session(records,index+1,next);return;}
+   if(store.completed(id)){duplicates++;session(records,index+1,next);return;}
+   try{source.distance(s).whenCompleteAsync((km,error)->{
+    if(result.isDone())return;if(error!=null){result.completeExceptionally(error);return;}
+    double value=km==null?0:km;
+    if(!Double.isFinite(value)||value<0||value>250||!walk&&value==0){skipped++;session(records,index+1,next);return;}
+    if(hr){try{source.heartRate(s).whenCompleteAsync((bpm,optionalError)->save(s,id,value,seconds,optionalError==null&&bpm!=null?bpm:0,()->session(records,index+1,next)),executor);}catch(Exception optionalError){save(s,id,value,seconds,0,()->session(records,index+1,next));}}
+    else save(s,id,value,seconds,0,()->session(records,index+1,next));
+   },executor);}catch(Exception e){result.completeExceptionally(e);}
   }
-  static boolean busy(){return BUSY.get();}
-  static CompletableFuture<String> sync(Context context, RunStore store) {
-    if(Build.VERSION.SDK_INT<34||!granted(context))return failed(new SecurityException("Grant exercise and distance access first."));
-    if(!BUSY.compareAndSet(false,true))return failed(new IllegalStateException("An import is already in progress."));
-    CompletableFuture<String> result=new CompletableFuture<>();
-    ExecutorService executor=Executors.newSingleThreadExecutor();
-    try {
-      Api34.start(context,store,result,executor);
-    }catch(Exception e){result.completeExceptionally(e);}
-    result.whenComplete((value,error)->{BUSY.set(false);executor.shutdown();});
-    return result;
+  void save(ExerciseSessionRecord s,String id,double km,long seconds,int bpm,Runnable after){
+   if(result.isDone())return;
+   try{boolean walk=s.getExerciseType()==ExerciseSessionType.EXERCISE_SESSION_TYPE_WALKING;String provider=s.getMetadata().getDataOrigin().getPackageName();
+    String date=s.getStartTime().atZone(s.getStartZoneOffset()==null?ZoneId.systemDefault():s.getStartZoneOffset()).toLocalDate().toString();
+    var run=new RunStore.Run(id,date,km,(int)Math.max(1,seconds/60),walk?0:5,2,false,"Health Connect · "+provider,"",bpm>0&&bpm<250?bpm:0,seconds);
+    var outcome=store.importActivity(run,walk,RunStore.origin(provider,s.getMetadata().getId(),s.getStartTime().toEpochMilli(),s.getEndTime().toEpochMilli()));
+    if(outcome==RunStore.ImportResult.ADDED)added++;else if(outcome==RunStore.ImportResult.REVIEW)review++;else duplicates++;
+    after.run();
+   }catch(Exception e){result.completeExceptionally(e);}
   }
-  @android.annotation.TargetApi(34)
-  private static final class Api34 {
-    static void start(Context context,RunStore store,CompletableFuture<String> result,Executor executor){
-      HealthConnectManager manager=context.getSystemService(HealthConnectManager.class);
-      if(manager==null)throw new IllegalStateException("Health Connect is unavailable. Check system updates and Health Connect settings.");
-      new Importer(manager,executor,store,context.getPackageName(),result,context.checkSelfPermission(HEART_RATE)==PackageManager.PERMISSION_GRANTED).page(-1);
-    }
+ }
+ @android.annotation.TargetApi(34)
+ static final class Api34 {
+  static TimeInstantRangeFilter range(Instant start,Instant end){return new TimeInstantRangeFilter.Builder().setStartTime(start).setEndTime(end).build();}
+  static AggregateRecordsRequest<Length> distanceRequest(ExerciseSessionRecord s){return new AggregateRecordsRequest.Builder<Length>(range(s.getStartTime(),s.getEndTime())).addAggregationType(DistanceRecord.DISTANCE_TOTAL).addDataOriginsFilter(s.getMetadata().getDataOrigin()).build();}
+  static final class Source implements HealthSync.Source {
+   final HealthConnectManager manager;final Executor callback;
+   Source(Context c){manager=c.getSystemService(HealthConnectManager.class);callback=c.getMainExecutor();if(manager==null)throw new IllegalStateException("Health Connect is unavailable.");}
+   public CompletableFuture<Page> page(Instant start,Instant end,long token){CompletableFuture<Page> f=new CompletableFuture<>();var b=new ReadRecordsRequestUsingFilters.Builder<>(ExerciseSessionRecord.class).setTimeRangeFilter(range(start,end)).setPageSize(100).setAscending(true);if(token!=-1)b.setPageToken(token);try{manager.readRecords(b.build(),callback,new OutcomeReceiver<ReadRecordsResponse<ExerciseSessionRecord>,HealthConnectException>(){public void onResult(ReadRecordsResponse<ExerciseSessionRecord> r){f.complete(new Page(r.getRecords(),r.getNextPageToken()));}public void onError(HealthConnectException e){f.completeExceptionally(e);}});}catch(Exception e){f.completeExceptionally(e);}return f;}
+   public CompletableFuture<Double> distance(ExerciseSessionRecord s){CompletableFuture<Double> f=new CompletableFuture<>();try{manager.aggregate(distanceRequest(s),callback,new OutcomeReceiver<AggregateRecordsResponse<Length>,HealthConnectException>(){public void onResult(AggregateRecordsResponse<Length> r){Length length=r.get(DistanceRecord.DISTANCE_TOTAL);f.complete(length==null?null:length.getInMeters()/1000);}public void onError(HealthConnectException e){f.completeExceptionally(e);}});}catch(Exception e){f.completeExceptionally(e);}return f;}
+   public CompletableFuture<Integer> heartRate(ExerciseSessionRecord s){CompletableFuture<Integer> f=new CompletableFuture<>();var request=new AggregateRecordsRequest.Builder<Long>(range(s.getStartTime(),s.getEndTime())).addAggregationType(HeartRateRecord.BPM_AVG).addDataOriginsFilter(s.getMetadata().getDataOrigin()).build();try{manager.aggregate(request,callback,new OutcomeReceiver<AggregateRecordsResponse<Long>,HealthConnectException>(){public void onResult(AggregateRecordsResponse<Long> r){Long bpm=r.get(HeartRateRecord.BPM_AVG);f.complete(bpm==null?0:bpm.intValue());}public void onError(HealthConnectException e){f.completeExceptionally(e);}});}catch(Exception e){f.completeExceptionally(e);}return f;}
   }
-  @android.annotation.TargetApi(34)
-  private static final class Importer {
-    final HealthConnectManager manager;final Executor executor;final RunStore store;final String ownPackage;
-    final CompletableFuture<String> result;final boolean heartRate;final Instant end=Instant.now(),start=end.minus(Duration.ofDays(30));
-    int added,duplicates,skipped,pages,review;
-    Importer(HealthConnectManager m,Executor e,RunStore s,String own,CompletableFuture<String> r,boolean hr){manager=m;executor=e;store=s;ownPackage=own;result=r;heartRate=hr;}
-    void page(long token) {
-      if(++pages>100){result.completeExceptionally(new IllegalStateException("Import limit reached. Some activities may already be saved; retry safely."));return;}
-      var builder=new ReadRecordsRequestUsingFilters.Builder<>(ExerciseSessionRecord.class).setTimeRangeFilter(range(start,end)).setPageSize(100).setAscending(true);
-      if(token!=-1)builder.setPageToken(token);
-      try{manager.readRecords(builder.build(),executor,new OutcomeReceiver<ReadRecordsResponse<ExerciseSessionRecord>,HealthConnectException>(){
-        public void onResult(ReadRecordsResponse<ExerciseSessionRecord> response){session(response.getRecords(),0,response.getNextPageToken());}
-        public void onError(HealthConnectException e){result.completeExceptionally(e);}
-      });}catch(Exception e){result.completeExceptionally(e);}
-    }
-    void session(List<ExerciseSessionRecord> list,int index,long next) {
-      if(result.isDone())return;
-      if(index==list.size()){
-        if(next!=-1){page(next);return;}
-        result.complete("Imported "+added+" running/walking activities · "+duplicates+" already saved · "+skipped+" skipped · "+review+" held for duplicate review in Progress.");return;
-      }
-      ExerciseSessionRecord s=list.get(index);
-      int type=s.getExerciseType();
-      boolean walk=isWalking(type);
-      if((!walk&&type!=ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING&&type!=ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING_TREADMILL)||s.getMetadata().getDataOrigin().getPackageName().equals(ownPackage)){session(list,index+1,next);return;}
-      String id=(walk?"walk:health:":"health:")+s.getMetadata().getId();
-      if(store.completed(id)){duplicates++;session(list,index+1,next);return;}
-      long seconds=Duration.between(s.getStartTime(),s.getEndTime()).getSeconds();
-      if(seconds<1||seconds>180000||s.getEndTime().isAfter(end)){skipped++;session(list,index+1,next);return;}
-      // Only distance from the same publisher and time window; do not mix multiple apps' totals.
-      var request=new AggregateRecordsRequest.Builder<Length>(range(s.getStartTime(),s.getEndTime())).addAggregationType(DistanceRecord.DISTANCE_TOTAL).addDataOriginsFilter(s.getMetadata().getDataOrigin()).build();
-      try{manager.aggregate(request,executor,new OutcomeReceiver<AggregateRecordsResponse<Length>,HealthConnectException>(){
-        public void onResult(AggregateRecordsResponse<Length> response){
-          try{
-            Length distance=response.get(DistanceRecord.DISTANCE_TOTAL);
-            double km=distance==null?0:distance.getInMeters()/1000;
-            if(!Double.isFinite(km)||km<0||(!walk&&km==0)||km>250){skipped++;}
-            else if(store.completed(id)){duplicates++;}
-            else {
-              Runnable after=()->session(list,index+1,next);
-              if(heartRate){var hrRequest=new AggregateRecordsRequest.Builder<Long>(range(s.getStartTime(),s.getEndTime())).addAggregationType(HeartRateRecord.BPM_AVG).addDataOriginsFilter(s.getMetadata().getDataOrigin()).build();try{manager.aggregate(hrRequest,executor,new OutcomeReceiver<AggregateRecordsResponse<Long>,HealthConnectException>(){public void onResult(AggregateRecordsResponse<Long> hr){Long bpm=hr.get(HeartRateRecord.BPM_AVG);save(s,id,km,seconds,bpm==null?0:bpm.intValue(),after);}public void onError(HealthConnectException e){save(s,id,km,seconds,0,after);}});}catch(Exception optionalDenied){save(s,id,km,seconds,0,after);}return;}
-              save(s,id,km,seconds,0,after);return;
-            }
-            session(list,index+1,next);
-          }catch(Exception e){result.completeExceptionally(e);}
-        }
-        public void onError(HealthConnectException e){result.completeExceptionally(e);}
-      });}catch(Exception e){result.completeExceptionally(e);}
-    }
-    void save(ExerciseSessionRecord session,String id,double km,long seconds,int bpm,Runnable after){
-      if(result.isDone())return;
-      try{
-        boolean walk=isWalking(session.getExerciseType());String provider=session.getMetadata().getDataOrigin().getPackageName();
-        String date=session.getStartTime().atZone(session.getStartZoneOffset()==null?ZoneId.systemDefault():session.getStartZoneOffset()).toLocalDate().toString();
-        RunStore.Run run=new RunStore.Run(id,date,km,(int)Math.max(1,seconds/60),walk?0:5,2,false,"Health Connect · "+provider,"",bpm>0&&bpm<250?bpm:0,seconds);
-        var outcome=store.importActivity(run,walk,RunStore.origin(provider,session.getMetadata().getId(),session.getStartTime().toEpochMilli(),session.getEndTime().toEpochMilli()));
-        if(outcome==RunStore.ImportResult.ADDED)added++;else if(outcome==RunStore.ImportResult.REVIEW)review++;else duplicates++;
-        after.run();
-      }catch(Exception e){result.completeExceptionally(e);}
-    }
-    static boolean isWalking(int type){return type==ExerciseSessionType.EXERCISE_SESSION_TYPE_WALKING;}
-    static TimeInstantRangeFilter range(Instant start,Instant end){return new TimeInstantRangeFilter.Builder().setStartTime(start).setEndTime(end).build();}
-  }
+ }
 }

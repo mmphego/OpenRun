@@ -36,6 +36,7 @@
   </activity-alias>
   <service android:name=".RaceSyncJob" android:exported="true" android:permission="android.permission.BIND_JOB_SERVICE"/>
   <activity android:name=".RaceDiscoveryActivity" android:exported="false"/>
+  <activity android:name=".HealthConnectActivity" android:exported="false"/>
   <activity android:name=".ImportReviewActivity" android:exported="false"/>
   <activity android:name=".IndoorActivity" android:exported="false"/>
   <activity android:name=".OfflineCoachActivity" android:exported="false"/>

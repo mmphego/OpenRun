@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0 — Health Connect candidate
+
+- Added a dedicated Health Connect screen with independent read and write consent, activity previews and access management.
+- Read recent running/walking sessions with same-publisher distance and optional average heart rate; retain duplicate review, bounded pagination, partial-import safety and cancellation.
+- Write original GPS runs/walks and timestamped indoor sessions using stable record IDs and content-aware version increments; unknown distance stays time-only. Imported activities are excluded from export.
+- Added permission, native record mapping, concurrency, failure, upgrade-safe ID and UI tests. Health Connect service/device acceptance is still pending.
+
+
 ## 1.5.0 — OpenRun candidate
 
 - Reconciled the recovered Rwun 1.5.0 race discovery, provider and planning implementation with the published OpenRun build and CI fixes.
