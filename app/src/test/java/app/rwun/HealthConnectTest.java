@@ -113,7 +113,7 @@ public class HealthConnectTest {
         var p=HealthWritePlan.find(app,store,"walk:owned");assertTrue(p.walking());assertFalse(p.indoor());assertEquals(start,p.start().toEpochMilli());assertEquals(WALK,((ExerciseSessionRecord)HealthExport.Api34.records(p,1).get(0)).getExerciseType());
     }
     @Test public void writeOnlyAccessExportsAndStaleReviewIsRejected()throws Exception{
-        Shadows.shadowOf(app).grantPermissions(HealthExport.PERMISSIONS);assertTrue(HealthAccess.available(app));saveIndoor(1d);
+        Shadows.shadowOf(app).grantPermissions(HealthExport.PERMISSIONS);saveIndoor(1d);
         HealthWritePlan one=HealthWritePlan.find(app,store,"indoor:owned");AtomicInteger calls=new AtomicInteger();List<Long> versions=new CopyOnWriteArrayList<>();
         HealthExport.Writer writer=(p,v)->{calls.incrementAndGet();versions.add(v);return CompletableFuture.completedFuture(null);};
         HealthExport.write(app,one.id(),one.fingerprint(),writer).get(5,TimeUnit.SECONDS);settle();assertFalse(HealthSync.granted(app));

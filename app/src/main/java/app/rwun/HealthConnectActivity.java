@@ -12,7 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** Explicit read/write entry point. Platform permission grants alone never initiate a write. */
-public final class HealthConnectActivity extends Activity {
+public class HealthConnectActivity extends Activity {
     private static final int READ=201, WRITE=202, HEART_RATE=203, BACKGROUND=204;
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private final UiKit.Palette palette=new UiKit.Palette(true);
@@ -28,15 +28,16 @@ public final class HealthConnectActivity extends Activity {
     @Override protected void onResume(){super.onResume();if(body!=null)show();}
     @Override protected void onSaveInstanceState(Bundle saved){super.onSaveInstanceState(saved);saved.putString("message",message);saved.putString("pendingId",pendingId);saved.putString("pendingFingerprint",pendingFingerprint);}
     @Override protected void onDestroy(){generation++;worker.shutdownNow();super.onDestroy();}
+    protected boolean healthAvailable(){return HealthAccess.available(this);}
     private boolean closed(){return isDestroyed()||isFinishing();}
     private void text(String label,int size){body.addView(UiKit.label(this,label,size,palette.ink,size>=18));}
     private Button action(String label,Runnable click){Button b=UiKit.action(this,palette,label,click);body.addView(b);return b;}
     private void show(){
         body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);int pad=UiKit.dp(this,20);body.setPadding(pad,pad,pad,pad);body.setBackgroundColor(palette.background);
         ScrollView scroll=new ScrollView(this);scroll.addView(body);scroll.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(i.getSystemWindowInsetLeft(),i.getSystemWindowInsetTop(),i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i.consumeSystemWindowInsets();});setContentView(scroll);
-        action("Back",this::finish);text("Health Connect",24);text(HealthAccess.status(this),14);
+        action("Back",this::finish);text("Health Connect",24);text(HealthAccess.status(this,healthAvailable()),14);
         text("Read activities",20);text("Import runs and walks from the last 30 days. Imports stay on this phone; possible duplicates require review.",14);
-        if(HealthAccess.available(this)){
+        if(healthAvailable()){
             if(!HealthSync.granted(this))action("Allow reading activities",()->new AlertDialog.Builder(this).setTitle("Read recent activities?")
                     .setMessage("Read exercise sessions and distance. Optional heart-rate access is separate. Importing does not write or delete Health Connect data.")
                     .setNegativeButton("Cancel",null).setPositiveButton("Continue",(d,w)->requestPermissions(HealthSync.PERMISSIONS,READ)).show());
@@ -53,7 +54,7 @@ public final class HealthConnectActivity extends Activity {
             action("Disable background reads",()->{HealthJob.schedule(this,false);message="Background reads disabled.";show();});
         }
         text("Write activities",20);text("Choose an original outdoor or indoor run/walk, then review the session and distance before writing. Imported activities are excluded.",14);
-        if(HealthAccess.available(this)){
+        if(healthAvailable()){
             if(!HealthExport.granted(this))action("Allow writing activities",()->{
                 pendingId="";pendingFingerprint="";
                 new AlertDialog.Builder(this).setTitle("Allow activity exports?").setMessage("Exercise and distance write access does not enable reading. Granting permission sends nothing; you still choose and review each recording.")

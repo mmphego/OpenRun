@@ -9,13 +9,14 @@ import static org.junit.Assert.*;
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class HealthConnectUiTest {
+ public static class AvailableHealthActivity extends HealthConnectActivity { @Override protected boolean healthAvailable(){return true;} }
  @Test public void readAndWriteControlsAreVisibleWithoutConnectingAnAccount()throws Exception{
-  try(var c=Robolectric.buildActivity(HealthConnectActivity.class).setup().visible()){
+  try(var c=Robolectric.buildActivity(AvailableHealthActivity.class).setup().visible()){
    assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read activities"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Write activities"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Choose activity to write"));NativePlanningTest.shot(c.get(),"23-health-connect-read-write");
   }
  }
  @Test public void grantingWriteAccessDoesNotAutomaticallyExport()throws Exception{
-  try(var c=Robolectric.buildActivity(HealthConnectActivity.class).setup().visible()){
+  try(var c=Robolectric.buildActivity(AvailableHealthActivity.class).setup().visible()){
    NativePlanningTest.click(c.get(),"Allow writing activities");AlertDialog dialog=(AlertDialog)org.robolectric.shadows.ShadowDialog.getLatestDialog();assertNotNull(dialog);dialog.getButton(-1).performClick();assertFalse(HealthExport.busy());
   }
  }
