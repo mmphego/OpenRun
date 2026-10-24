@@ -13,25 +13,19 @@ Create these GitHub **repository Actions Secrets**:
 | `ANDROID_KEY_ALIAS` | Alias inside that keystore |
 | `ANDROID_KEY_PASSWORD` | Key password |
 
-These secrets are not available in this prepared checkout. Release workflow preflight fails explicitly when any is missing; it never publishes an unsigned or debug-signed APK. PR/default-branch CI has no secret references. The release job uses a trusted version tag in the upstream repository only. Restrict tag creation/workflow edits to trusted maintainers; use repository rules and protected environments if your account supports them.
+These secrets are required for automatic publication. Missing secrets fail the release job explicitly; it never substitutes a debug or unsigned APK. PR checks have no signing secrets. Only trusted pushes to upstream `main` or version tags can run the signing workflow. Protect `main` and workflow edits.
 
-No personal access token is needed for the release: only its publish step receives the workflow `GITHUB_TOKEN` with `contents: write`.
+## Automatic releases after merge
 
-## Version and tag
+Every push to `main` runs the signed release workflow, including merged PRs. It runs the full host, Android lint/unit/APK and Python checks before signing. Releases use the committed `versionName` and a deterministic Android `versionCode` of `100000 + git rev-list --count HEAD`. Full Git history is required. This keeps successive main builds upgradeable without version-bump commits or conflicts with parallel feature PRs. Local builds retain the committed versionCode; use the Actions APK for signed upgrades. Do not rewrite main history. A later manual code must exceed the installed automatic code.
 
-1. Increment `versionCode` and `versionName` in `app/build.gradle`; update the changelog and remove release blockers only with evidence.
-2. Run `bash scripts/check.sh`, then install and test the exact candidate on a device. Complete [S23 acceptance](../tests/s23/CHECKLIST.md). Store only sanitised evidence.
-3. Push the reviewed commit to `main`. Confirm CI is green.
-4. Tag the matching version and push without force:
+Each main build gets a unique tag `v<versionName>-build.<versionCode>`, a signed `OpenRun-<versionName>-<versionCode>.apk`, and a SHA-256 file. Release notes identify the actual APK version/code and download filename, with GitHub-generated merged PR/commit notes. The release is staged as a draft, assets uploaded, then published as Latest. Signing and ZIP alignment are verified. These are automated builds; device acceptance and licensing status remain separate.
 
-```bash
-git tag -a v1.7.0 -m "OpenRun 1.7.0"
-git push origin v1.7.0
-```
+The workflow serializes releases without cancelling active signing runs. GitHub concurrency may coalesce pending pushes during a burst; the newest pending main build includes preceding merges. Published assets are never overwritten on reruns. Failed drafts can be repaired by rerunning the same commit; only draft assets can be replaced. A workflow-created tag does not trigger a second workflow with `GITHUB_TOKEN`.
 
-The workflow verifies a semantic `vMAJOR.MINOR.PATCH` tag, exact versionName match and membership in `main`, runs host/unit/lint/service checks, builds the release with the committed wrapper, verifies the signature, and stages `OpenRun-<version>.apk` plus `OpenRun-<version>.apk.sha256`. It creates a draft GitHub Release, attaches both files and only then publishes it. Existing releases are not overwritten.
+Optional maintainer tags `vMAJOR.MINOR.PATCH` still work: the tag must match the committed versionName and point to a commit on main. Use new versions for changed source; never move published tags. Do not publish an old main commit as Latest. Update CHANGELOG.md for product changes. No manual tag or version bump is needed for automatic build releases.
 
-Missing secrets, failed checks or bad tag provenance stop publication. Repair the cause before retrying; do not move a published version tag or silently replace its binary. Issue a new version for changed source. Release reports retain for 7 days; signed release assets remain on the Release.
+Get the newest APK from [Latest release](https://github.com/mmphego/OpenRun/releases/latest). Signing secrets must be configured before the first merge. Test and report artifacts are retained for 7 days; signed release assets persist.
 
 ## Local signing
 

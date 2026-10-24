@@ -8,6 +8,8 @@ Only committed changes are recorded: adaptations from workout feedback/recent ru
 reviewed weekly adjustments, workout moves and training setting changes. Each event has a
 stable ID, wall-clock timestamp, plain-language reason, supporting evidence summary and
 actual affected workout targets before/after (date, km, title, instructions and skipped state).
+Previews and undo show both workout types and changed effort guidance, including any
+harder workout restored by undo.
 Pain holds and explicit recovery reviews are visible too; neither is undoable.
 A clock correction can change displayed timestamps; stored event order determines the newest event.
 

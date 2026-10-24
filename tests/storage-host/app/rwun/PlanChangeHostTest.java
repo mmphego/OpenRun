@@ -89,6 +89,17 @@ public final class PlanChangeHostTest {
     setup();context.getSharedPreferences("rwun",0).edit().remove("rest").commit();
     store.adapt(store.proposalFingerprint(),new AdaptiveCoach.Advice(.8,false,"Legacy plan without a stored hold flag"));
     store.undoPlanChange(store.previewUndo());check(!store.resting()&&store.factor(first().date())==1,"missing legacy false hold flag does not block safe undo");
+    JSONObject harder=new JSONObject().put("title","Intervals").put("date",LocalDate.now().plusDays(1).toString()).put("km",5).put("instructions","Run the repetitions at controlled hard effort.").put("skipped",false);
+    JSONObject easier=new JSONObject(harder.toString()).put("title","Easy recovery run").put("km",4).put("instructions","Keep it conversational; walk breaks are welcome.");
+    JSONArray effortChanges=new JSONArray().put(new JSONObject().put("before",harder).put("after",easier));
+    String forward=PlanChanges.summary(effortChanges,false),inverse=PlanChanges.summary(effortChanges,true);
+    check(forward.contains("Intervals → Easy recovery run"),"preview identifies resulting easier workout type");
+    check(forward.contains("5.0 km →")&&forward.contains("4.0 km"),"preview retains clear date/distance comparisons");
+    check(forward.contains("Guidance before: Run the repetitions")&&forward.contains("Guidance after: Keep it conversational"),"preview explains changed effort instructions");
+    check(inverse.contains("Easy recovery run → Intervals")&&inverse.contains("Guidance after: Run the repetitions"),"undo explicitly reveals harder restored effort");
+    easier.put("title","Intervals").put("km",5);
+    String guidanceOnly=PlanChanges.summary(effortChanges,false);
+    check(guidanceOnly.contains("Guidance after: Keep it conversational"),"instruction-only change is visible despite identical date/distance/type");
     System.out.println("Plan-change history: "+assertions+" assertions passed");
   }
 }

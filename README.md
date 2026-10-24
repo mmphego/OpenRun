@@ -56,7 +56,7 @@ Device captures of the current build are a [starter contribution](CONTRIBUTING.m
 3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.7.0.apk`.
 4. Grant recording permissions when needed. Use an installed offline TTS voice for offline audio coaching.
 
-For an interim developer build, open a successful [CI run](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml), download its `OpenRun-debug-apk-<commit>` artifact, unzip and install `app-debug.apk`. Artifact download may require GitHub sign-in; retention is 14 days. Debug builds are for testing and may have different signing certificates. **Export a backup before uninstalling an incompatible old build**; uninstalling erases app data.
+For an interim developer build, open a successful [CI run](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml), download its versioned `OpenRun-<version>-<code>-<commit>-debug.apk` artifact, unzip and install the APK. Artifact download may require GitHub sign-in; retention is 14 days. Debug builds are for testing and may have different signing certificates. **Export a backup before uninstalling an incompatible old build**; uninstalling erases app data.
 
 ## Develop from a clean clone
 
@@ -120,7 +120,7 @@ python3 -m unittest discover -s tests/device -p 'test_*.py' -v
 
 Host regressions compile/run the existing Java test programs; the runner downloads two checksum-pinned test-only JARs and emits logs/JUnit XML under `build/reports/host`. Gradle tests include the recovered `tests/native` suites, Room upserts, both schema-1 migration paths, cross-provider merging, saved choices and database leases through Robolectric. Each test class runs in a fresh worker process; the live-provider test is skipped by default. Native UI renders are host evidence, not emulator or S23 acceptance. Android Lint is the current static analysis gate; no separate formatter or static analyser is claimed. Device QA utilities and the physical acceptance checklist are under [tests/device](tests/device/README.md) and [tests/s23](tests/s23/CHECKLIST.md).
 
-CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It verifies both debug APK signatures and ZIP alignment before uploading the app APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Tag releases have a separate signing job and publish only after tests, signature verification and checksum generation. [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
+CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It verifies both debug APK signatures and ZIP alignment before uploading the app APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Pushes to main (including PR merges) and version tags run the separate signed release workflow after full checks. Each main build publishes a versioned APK, checksum and generated release notes to [Latest release](https://github.com/mmphego/OpenRun/releases/latest), provided signing secrets are configured. See [release setup and versioning](docs/RELEASING.md). [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
 
 ## Collaborate
 

@@ -9,7 +9,7 @@ android {
         applicationId 'app.rwun'
         minSdk 26
         targetSdk 36
-        versionCode 26
+        versionCode Integer.parseInt(System.getenv('OPENRUN_VERSION_CODE') ?: '26')
         versionName '1.7.0'
         testInstrumentationRunner 'app.rwun.SmokeInstrumentation'
         javaCompileOptions { annotationProcessorOptions { arguments += ["room.schemaLocation": "$projectDir/schemas".toString()] } }

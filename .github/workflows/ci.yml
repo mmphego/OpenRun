@@ -56,12 +56,26 @@ jobs:
             "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
             "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 "$apk"
           done
+      - name: Package versioned debug APK
+        id: apk
+        run: |
+          python3 - <<'PYCODE'
+          import json, os, shutil
+          from pathlib import Path
+          root = Path('app/build/outputs/apk/debug')
+          element, = json.loads((root / 'output-metadata.json').read_text())['elements']
+          name = f"OpenRun-{element['versionName']}-{element['versionCode']}-{os.environ['GITHUB_SHA'][:7]}-debug.apk"
+          Path('build/ci-artifacts').mkdir(parents=True, exist_ok=True)
+          shutil.copy2(root / element['outputFile'], Path('build/ci-artifacts') / name)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print(f"name={name}", file=output)
+          PYCODE
       - name: Upload debug APK
         if: ${{ success() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: OpenRun-debug-apk-${{ github.sha }}
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ${{ steps.apk.outputs.name }}
+          path: build/ci-artifacts/*.apk
           if-no-files-found: error
           retention-days: 14
       - name: Upload test and lint reports

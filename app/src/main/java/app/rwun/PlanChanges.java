@@ -130,7 +130,12 @@ final class PlanChanges {
     StringBuilder text=new StringBuilder();
     try {for(int i=0;i<changes.length();i++) {
       JSONObject row=changes.getJSONObject(i),a=row.optJSONObject(reverse?"after":"before"),b=row.optJSONObject(reverse?"before":"after");
-      text.append(a==null?"Workout":a.optString("title","Workout")).append('\n').append(label(a)).append(" → ").append(label(b)).append('\n');
+      String beforeTitle=a==null?"Workout":a.optString("title","Workout"),afterTitle=b==null?"Workout":b.optString("title","Workout");
+      text.append(beforeTitle);
+      if(!beforeTitle.equals(afterTitle))text.append(" → ").append(afterTitle);
+      text.append('\n').append(label(a)).append(" → ").append(label(b)).append('\n');
+      String beforeGuidance=a==null?"":a.optString("instructions"),afterGuidance=b==null?"":b.optString("instructions");
+      if(!beforeGuidance.equals(afterGuidance))text.append("Guidance before: ").append(beforeGuidance.isBlank()?"None recorded":beforeGuidance).append('\n').append("Guidance after: ").append(afterGuidance.isBlank()?"None recorded":afterGuidance).append('\n');
     }}catch(JSONException e){throw new IllegalStateException(e);}return text.toString().trim();
   }
   private static String label(JSONObject row){return row==null?"Not scheduled":String.format(Locale.ROOT,"%s · %.1f km%s",row.optString("date"),row.optDouble("km"),row.optBoolean("skipped")?" · skipped":"");}

@@ -61,6 +61,23 @@ public class PlanChangesUiTest {
     String events=store.planChanges().toString();ByteArrayOutputStream bytes=new ByteArrayOutputStream();BackupManager.exportTo(app,store,bytes);prefs.edit().clear().commit();BackupManager.restoreFrom(app,new RunStore(app),new ByteArrayInputStream(bytes.toByteArray()));assertEquals(events,new RunStore(app).planChanges().toString());
     store.undoPlanChange(store.previewUndo());assertEquals(2,store.planChanges().length());
   }
+  @Test public void reviewRevealsEasierTypeAndHarderUndo()throws Exception{
+    store.save(new PlanEngine.Config(8,3,24,5,LocalDate.now().plusDays(1)));
+    store.profile(new PaceProfile(5,1800,true));
+    var hard=store.plannedSessions().stream().filter(w->w.title().equals("Intervals")).findFirst().orElseThrow();
+    var changes=java.util.List.of(new ScheduleProposer.Change(hard.id(),hard.date(),hard.date(),"Easy recovery run",hard.km()*.8,false,"A lighter week was requested."));
+    String fingerprint=store.proposalFingerprint(),preview=store.previewProposal(fingerprint,changes,"");
+    assertTrue(preview.contains("Intervals → Easy recovery run"));assertTrue(preview.contains("Guidance after:"));
+    store.applyProposal(fingerprint,changes);
+    try(var controller=Robolectric.buildActivity(PlanChangesActivity.class).setup().visible()){
+      String history=ProgressUiTest.all(controller.get().getWindow().getDecorView());
+      assertTrue(history.contains("Intervals → Easy recovery run"));assertTrue(history.contains("Guidance after:"));
+      NativePlanningTest.shot(controller.get(),"plan-changes-effort");
+      NativePlanningTest.click(controller.get(),"Review undo of latest change");
+      AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();String inverse=ProgressUiTest.all(dialog.getWindow().getDecorView());
+      assertTrue(inverse.contains("Easy recovery run → Intervals"));assertTrue(inverse.contains("Guidance after: "+hard.instructions()));dialog.dismiss();
+    }
+  }
   @Test public void largeFontHistoryIsScrollableAndDoesNotLoseChanges()throws Exception{
     move();RuntimeEnvironment.setFontScale(1.6f);try(var controller=Robolectric.buildActivity(PlanChangesActivity.class).setup().visible()){
       NativePlanningTest.shot(controller.get(),"plan-changes-large-font");assertNotNull(NativePlanningTest.find(controller.get().getWindow().getDecorView(),"Review undo of latest change"));assertEquals(1,store.planChanges().length());
