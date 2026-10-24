@@ -43,7 +43,7 @@ public final class DailyHealthJob extends JobService {
                 BUSY.set(false);return CompletableFuture.completedFuture(null);
             }
             Instant to=now.toInstant(),from=to.minusSeconds(cfg.inactivityMinutes()*60L);
-            result=source.movement(from,to).orTimeout(40,TimeUnit.SECONDS).handle((sample,error)->{
+            result=source.movement(from,to).handle((sample,error)->{
                 synchronized(DailyHealthStore.LOCK){
                     if(!running.getAsBoolean()||revision!=store.revision()||!hasAccess.getAsBoolean()||!Reminders.allowed(context))return null;
                     ZonedDateTime checked=clock.get();var state=store.evaluate(checked,error==null?sample:null,suppressed(context));
