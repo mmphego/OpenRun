@@ -46,6 +46,6 @@ final class RunDashboard extends LinearLayout {
     gps.setText(tracker==null?"Outdoor GPS · walking pad sessions use phone steps or machine distance.":tracker.status());
     gps.setTextColor(active&&tracker.distanceNeedsAttention()?colors.danger:colors.muted);
     String nextCue=active?tracker.lastCue():"";if(!android.text.TextUtils.equals(cue.getText(),nextCue))cue.setText(nextCue);cue.setVisibility(active?VISIBLE:GONE);
-    voice.setText(!audio?"Audio cues off":tracker!=null&&tracker.voiceReady()?"Audio coaching ready":"Audio unavailable · check voice settings");
+    voice.setText(tracker==null?"Audio unavailable · check voice settings":tracker.voiceStatus());
   }
 }

@@ -58,6 +58,7 @@ public final class MainActivity extends Activity {
       new ServiceConnection() {
         public void onServiceConnected(ComponentName name, IBinder service) {
           tracker = ((TrackingService.LocalBinder) service).service();
+          consumeCoachStart();
           if (tab.equals("Run")) render();
         }
 
@@ -103,7 +104,9 @@ public final class MainActivity extends Activity {
   }
 
   private void acceptDestination(Intent intent){String destination=intent.getStringExtra("destination");if(destination!=null&&List.of("Run","Plan","Today","Profile","Calendar","Progress","Coach").contains(destination)){tab=destination;creatingPlan=false;if(destination.equals("Plan"))planSchedule=true;intent.removeExtra("destination");}}
-  @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);acceptDestination(intent);render();}
+  @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);acceptDestination(intent);render();if(tracker!=null)consumeCoachStart();}
+  private void consumeCoachStart(){String id=getIntent().getStringExtra("coachStart");if(id==null)return;getIntent().removeExtra("coachStart");try{if(BeginnerProgramme.stageFromId(id)!=CoachingMemory.stage(store))throw new IllegalStateException("Beginner session changed; review it again.");prepareStart(id,0);}catch(RuntimeException e){error(e);}}
+  private void openVoiceCoach(String screen){refreshFeatures=true;startActivity(new Intent(this,VoiceCoachActivity.class).putExtra("screen",screen));}
   private void openV1(String screen){refreshFeatures=true;startActivity(new Intent(this,V1Activity.class).putExtra("screen",screen));}
 
   @Override
@@ -382,7 +385,7 @@ public final class MainActivity extends Activity {
   }
 
   private void showCoachBriefing(PlanEngine.Session session) {
-    String briefing=CoachGuide.briefing(session.title(),store.resting(),store.profile().seconds()>0);
+    String briefing=CoachingMemory.briefing(store,session.title());
     new AlertDialog.Builder(this).setTitle("Your workout briefing").setMessage(briefing+"\n\n"+CoachGuide.PROVENANCE).setPositiveButton("Done",null).setNeutralButton("Listen",(d,w)->{if(tracker!=null){Toast.makeText(this,tracker.coachBriefing(briefing),Toast.LENGTH_LONG).show();}else Toast.makeText(this,"Audio service is connecting. Try again shortly.",Toast.LENGTH_LONG).show();}).show();
   }
 
@@ -390,17 +393,20 @@ public final class MainActivity extends Activity {
     LinearLayout c=card();c.addView(text("YOUR COACH",11,true));
     PlanEngine.Session next=nextCoachedSession();
     c.addView(text(next==null?"Make your next session count":next.title()+" · coach briefing",20,true));
-    c.addView(text(next==null?"Running guidance, walking support and recovery advice in one place.":CoachGuide.briefing(next.title(),store.resting(),store.profile().seconds()>0),15,false));
+    c.addView(text(next==null?"Running guidance, walking support and recovery advice in one place.":CoachingMemory.briefing(store,next.title()),15,false));
     row(c,R.drawable.ic_volume_up,"Open Coach","Workout guidance, audio and training review",()->{tab="Coach";render();});
   }
 
   private void coach() {
     content.addView(text("Your coach",30,true));
     content.addView(text("Prepare. Run or walk. Reflect and improve.",15,false));
+    LinearLayout personal=card();personal.addView(text("Your next-run lesson",21,true));personal.addView(text(CoachingMemory.lesson(store),16,false));
+    row(personal,R.drawable.ic_directions_run,"Beginner sessions & personal progress","Timed run/walk, reviewed progression and reflections",()->openVoiceCoach("home"));
+    row(personal,R.drawable.ic_volume_up,"Voice preferences","Detail, effort checks and optional heart-rate reminders",()->openVoiceCoach("settings"));
     if(store.resting()){LinearLayout hold=card();hold.addView(text("Training is paused",20,true));hold.addView(text(store.adaptation(),15,false));}
     if(config!=null){
       PlanEngine.Session next=nextCoachedSession();
-      if(next!=null){LinearLayout briefing=card();briefing.addView(text("NEXT WORKOUT",11,true));briefing.addView(text(next.title(),24,true));briefing.addView(text(PlanEngine.distance(next.km())+" · "+next.date().format(DateTimeFormatter.ofPattern("EEE, d MMM")),15,false));briefing.addView(text(CoachGuide.briefing(next.title(),store.resting(),store.profile().seconds()>0),16,false));row(briefing,R.drawable.ic_volume_up,"Listen to briefing","Spoken guidance using your phone voice",()->showCoachBriefing(next));row(briefing,R.drawable.ic_directions_run,"Open workout","Steps, target effort and recording",()->detail(next));}
+      if(next!=null){LinearLayout briefing=card();briefing.addView(text("NEXT WORKOUT",11,true));briefing.addView(text(next.title(),24,true));briefing.addView(text(PlanEngine.distance(next.km())+" · "+next.date().format(DateTimeFormatter.ofPattern("EEE, d MMM")),15,false));briefing.addView(text(CoachingMemory.briefing(store,next.title()),16,false));row(briefing,R.drawable.ic_volume_up,"Listen to briefing","Spoken guidance using your phone voice",()->showCoachBriefing(next));row(briefing,R.drawable.ic_directions_run,"Open workout","Steps, target effort and recording",()->detail(next));}
       LinearLayout review=card();review.addView(text("Your training review",21,true));review.addView(text(store.adaptation(),15,false));row(review,R.drawable.ic_monitoring,"Review a saved workout","Recorded effort, fatigue and session details",()->openTraining("review"));row(review,R.drawable.ic_info,"How are you feeling?","Optional check-in before training",()->openTraining("checkin"));
     }else{LinearLayout start=card();start.addView(text("Build your running plan",21,true));start.addView(text("Choose a goal to get session briefings and weekly training guidance.",15,false));row(start,R.drawable.ic_assignment,"Create my plan","Your goal, experience and available days",()->{tab="Plan";creatingPlan=false;render();});}
     if(config!=null){content.addView(button("Adapt plan from recent running",()->openRace("review")));weeklyReview();}
@@ -683,6 +689,7 @@ public final class MainActivity extends Activity {
                     recording::saved,
                     r);
               }));
+      content.addView(button("Repeat current instruction",()->tracker.repeatCue()));
       content.addView(button("GPS recording details",()->new AlertDialog.Builder(this).setTitle("GPS recording details").setMessage(tracker.gpsDetails()).setPositiveButton("Done",null).show()));
       content.addView(button("Connect wearable heart rate", this::wearable));
       content.addView(
@@ -812,13 +819,16 @@ public final class MainActivity extends Activity {
     Spinner fatigue = spinner("1", "2", "3", "4", "5");
     fatigue.setSelection(1);
     form.addView(fatigue);
+    form.addView(text("Was the session manageable?",15,true));Spinner manageable=spinner("Not answered","Yes","No");form.addView(manageable);
+    form.addView(text("Were the voice cues helpful?",15,true));Spinner helpful=spinner("Not answered","Yes","No");form.addView(helpful);
     CheckBox pain = new CheckBox(this);
     pain.setText(R.string.pain_feedback);
     form.addView(pain);
+    ScrollView reviewScroll=new ScrollView(this);reviewScroll.addView(form);
     AlertDialog dialog =
         new AlertDialog.Builder(this)
             .setTitle("How did it feel?")
-            .setView(form)
+            .setView(reviewScroll)
             .setNegativeButton(
                 "Cancel",
                 (cancel, which) -> {
@@ -854,19 +864,20 @@ public final class MainActivity extends Activity {
                                 savedRoute,
                                 hr,
                                 seconds,
-                                metrics == null ? "Unstructured" : metrics.workoutType(),
+                                metrics == null ? recoveredWorkoutType(id) : metrics.workoutType(),
                                 metrics == null ? 0 : metrics.qualityKm(),
                                 metrics == null ? 0 : metrics.qualitySeconds(),
                                 metrics == null ? 0 : metrics.targetPace(),
                                 metrics == null ? 0 : metrics.benchmark());
-                        if(id.startsWith("walk:"))store.addWalk(savedRecord);else store.add(savedRecord);
+                        JSONObject reflection=store.recordingReview(id,manageable.getSelectedItemPosition()==0?null:manageable.getSelectedItemPosition()==1,helpful.getSelectedItemPosition()==0?null:helpful.getSelectedItemPosition()==1);
+                        if(id.startsWith("walk:"))store.addWalk(savedRecord,reflection);else store.add(savedRecord,reflection);
                         if(!id.startsWith("walk:"))store.event("run_saved");
                         if (after != null) after.run();
                         dialog.dismiss();
                         tab = "Progress";
                         render();
                         if(id.startsWith("walk:")){walkProgress=true;performance=false;render();Reminders.schedule(this);new AlertDialog.Builder(this).setTitle("Walk saved").setMessage((savedDistance>0?"Your walking time and distance are saved separately from running. ":"Your walking time is saved. No distance was measured; use Correct walking distance if you know it. ")+(pain.isChecked()?"Your training hold is active.":"Your running plan is unchanged.")).setPositiveButton("Done",null).show();return;}
-                        String debrief=CoachGuide.debrief(km,seconds,effort,tired,pain.isChecked(),true,store.resting());
+                        String debrief=CoachingMemory.debrief(store);
                         if (!date.equals(LocalDate.now().toString())) {new AlertDialog.Builder(this).setTitle("Run reflection").setMessage(debrief).setPositiveButton("Done",null).show();return;}
                         if(store.resting()&&!pain.isChecked()) {new AlertDialog.Builder(this).setTitle("Training hold remains").setMessage(debrief).setPositiveButton("Done",null).show();return;}
                         AdaptiveCoach.Advice advice =
@@ -907,6 +918,7 @@ public final class MainActivity extends Activity {
     dialog.show();
   }
 
+  private String recoveredWorkoutType(String id){try{JSONObject cp=new JSONObject(store.checkpoint());return id.equals(cp.optString("id"))?cp.optString("workoutType","Unstructured"):"Unstructured";}catch(Exception ignored){return "Unstructured";}}
   private void correctWalkDistance(JSONObject walk){
     LinearLayout form=column();form.setPadding(dp(20),dp(10),dp(20),0);
     form.addView(text("Enter a distance you know from the machine or another measurement. Recorded time and actual route points stay unchanged. The distance will be labelled manual.",14,false));
@@ -1044,6 +1056,7 @@ public final class MainActivity extends Activity {
     ProgressViews.metrics(this,palette,content,new String[]{"Avg heart rate","Effort","Cadence"},new String[]{run.avgHr()>0?run.avgHr()+" bpm":"—",imported?"—":run.rpe()+" /10","—"},false);
     content.addView(ProgressViews.label(this,(imported?"Time and pace use elapsed duration. ":"")+"A dash means the metric was not recorded. Cadence, elevation gain and calories are not available in the saved activity data.",12,palette.muted,false));
     LinearLayout actions=card();
+    actions.addView(button("Reflect on saved runs",()->openVoiceCoach("reflect")));
     actions.addView(button("Review, correct & match workout",()->{refreshFeatures=true;startActivity(new Intent(this,TrainingActivity.class).putExtra("screen","review").putExtra("id",run.sessionId()));}));
     actions.addView(button("Share activity card",()->{refreshFeatures=true;startActivity(new Intent(this,V1Activity.class).putExtra("screen","share").putExtra("id",run.sessionId()));}));
     if(!run.routeFile().isEmpty()){
@@ -1087,6 +1100,7 @@ public final class MainActivity extends Activity {
     LinearLayout preferences=card();row(preferences,R.drawable.ic_calendar_month,"Programme & training days","Weekdays, long run and plan type",()->openFeatures("plan"));
     row(preferences,R.drawable.ic_monitoring,"Pace profile & targets","Recent race result and workout targets",this::paceProfile);
     Switch audio=new Switch(this);audio.setText(R.string.spoken_cues);audio.setTextColor(ink);audio.setMinHeight(dp(56));audio.setChecked(store.audio());audio.setOnCheckedChangeListener((b,on)->store.audio(on));preferences.addView(audio);
+    row(preferences,R.drawable.ic_volume_up,"Voice preferences","Detail, effort checks and heart-rate reminders",()->openVoiceCoach("settings"));
     row(preferences,R.drawable.ic_volume_up,"Test audio coach","Hear a sample cue",()->{if(tracker!=null)tracker.testVoice();});
     Switch alerts=new Switch(this);alerts.setText(R.string.pace_alerts);alerts.setTextColor(ink);alerts.setMinHeight(dp(56));alerts.setChecked(store.paceAlerts());alerts.setOnCheckedChangeListener((b,on)->store.paceAlerts(on));preferences.addView(alerts);
     section("LEARN & SUPPORT");LinearLayout learning=card();row(learning,R.drawable.ic_info,"Coaching library","Running, walking and recovery",()->openFeatures("help"));

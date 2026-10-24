@@ -6,6 +6,7 @@ import org.json.*;
 final class IndoorCoaching {
  static final long MAX_AUDIO_SECONDS=12*60*60;
  static WorkoutFactory.Workout definition(RunStore store,JSONObject a){
+  int stage=BeginnerProgramme.stageFromId(a.optString("planned"));if(stage>=0)return BeginnerProgramme.workout(stage);
   for(var s:store.plannedSessions())if((store.planId()+":"+s.id()).equals(a.optString("planned")))return WorkoutFactory.create(s,store.profile());
   return null;
  }

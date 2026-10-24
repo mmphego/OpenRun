@@ -11,21 +11,25 @@ public final class WorkoutEngine {
   private double startMetres, qualityMetres;
   private long qualitySeconds;
   private boolean started;
+  private int paceSegments;private long paceAnchorSeconds;private double firstMainPace,lastMainPace,paceSum,paceSquares;
 
   public WorkoutEngine(WorkoutFactory.Workout workout) {
     this.workout = workout;
   }
 
-  public List<String> update(long seconds, double metres, double pace) {
-    List<String> output = new ArrayList<>();
+  public record Event(String text,SpeechQueue.Kind kind){}
+  public List<String> update(long seconds,double metres,double pace){List<String> out=new ArrayList<>();for(Event e:updateEvents(seconds,metres,pace))out.add(e.text());return out;}
+  public List<Event> updateEvents(long seconds,double metres,double pace){
+    List<Event> output = new ArrayList<>();
     if (complete()) return output;
     if (!started) {
       started = true;
       startSeconds = seconds;
       startMetres = metres;
-      output.add(announce());
+      output.add(new Event(announce(),SpeechQueue.Kind.PHASE));
     }
     var step = step();
+    if(index==1&&workout.steps().size()<=3&&step.zone()==PaceProfile.Zone.EASY&&step.seconds()==0){int km=(int)((metres-startMetres)/1000);if(km>paceSegments){long elapsed=seconds-startSeconds;if(km==paceSegments+1&&elapsed>paceAnchorSeconds){double split=elapsed-paceAnchorSeconds;if(paceSegments==0)firstMainPace=split;lastMainPace=split;paceSum+=split;paceSquares+=split*split;}else{firstMainPace=0;lastMainPace=0;}paceSegments=km;paceAnchorSeconds=elapsed;}}
     boolean finished =
         step.metres() > 0 && metres - startMetres >= step.metres()
             || step.seconds() > 0 && seconds - startSeconds >= step.seconds();
@@ -38,15 +42,14 @@ public final class WorkoutEngine {
       startSeconds = seconds;
       startMetres = metres;
       outsideSince = -1;
-      output.add(complete() ? "Workout complete. Finish and save when ready." : announce());
+      output.add(new Event(complete()?"Workout complete. Finish and save when ready.":announce(),SpeechQueue.Kind.PHASE));
     }
     int km = (int) (metres / 1000);
     if (km > lastKm) {
       long delta = seconds - lastSplitSeconds;
       if (km == lastKm + 1 && delta > 0)
-        output.add(
-            "Kilometre " + km + ". Split pace approximately " + spoken(delta) + " per kilometre.");
-      else output.add(km + " kilometres recorded.");
+        output.add(new Event("Kilometre "+km+". Split pace approximately "+spoken(delta)+" per kilometre.",SpeechQueue.Kind.SPLIT));
+      else output.add(new Event(km+" kilometres recorded.",SpeechQueue.Kind.SPLIT));
       lastKm = km;
       lastSplitSeconds = seconds;
     }
@@ -60,11 +63,11 @@ public final class WorkoutEngine {
       if (tooFast || tooSlow) {
         if (outsideSince < 0) outsideSince = seconds;
         if (seconds - outsideSince >= 15 && seconds - lastAlert >= 30) {
-          output.add(
+          output.add(new Event(
               tooFast
                   ? "Ease back slightly. You are quicker than this step's target."
                   : "If comfortable, run a little quicker toward your target pace. Effort comes"
-                      + " first.");
+                      + " first.",SpeechQueue.Kind.PACE));
           lastAlert = seconds;
           outsideSince = -1;
         }
@@ -73,11 +76,17 @@ public final class WorkoutEngine {
     return output;
   }
 
+  int paceSegments(){return firstMainPace>0&&lastMainPace>0?paceSegments:0;}
+  double firstMainPace(){return firstMainPace;}double lastMainPace(){return lastMainPace;}
+  double paceVariation(){if(paceSegments()<2||paceSum<=0)return 0;double mean=paceSum/paceSegments;return Math.sqrt(Math.max(0,paceSquares/paceSegments-mean*mean))/mean;}
+  String announcement(){return complete()?"Workout complete. Finish and save when ready.":announce();}
+  double remainingMetres(double metres){return step().metres()>0?Math.max(0,step().metres()-(metres-startMetres)):0;}
+  boolean finalEasyDistance(){return !complete()&&index==workout.steps().size()-2&&step().zone()==PaceProfile.Zone.EASY&&step().metres()>0;}
   private String announce() {
     var s = step();
     return s.title()
         + ". "
-        + s.target()
+        + (s.seconds()>0?s.seconds()/60+" minutes "+s.seconds()%60+" seconds":s.target())
         + ". "
         + (s.pace().defined() ? "Target " + s.pace().label() : "Use a comfortable effort.");
   }
