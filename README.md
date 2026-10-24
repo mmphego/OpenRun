@@ -20,13 +20,14 @@ A native Android running and walking app with original branding and code, offlin
 | Races | Top Events and Bield adapters, provider-aware merging, Room database, incremental content upserts, source links and saved races | Coverage depends on providers. Unknown facts stay unknown. RunSignup is disabled until operator approval/proxy configuration. |
 | Background updates | One JobScheduler job on each foreground session, debounced across navigation; in-process guard plus expiring DB lease | Android decides execution timing. Network failures retain cached races. No startup network wait. |
 | Health Connect | Separate read/write consent; recent run/walk import and reviewed original outdoor/indoor recording exports | Android 14+; optional average HR read, no routes or imported-activity re-export. Device acceptance pending. |
+| Daily movement & recovery | Working-hour step-based reminders, 60+ minute intervals, 3+ minute walks, private check-ins and optional sleep/RHR context | Opt-in Android 14+ Health Connect background steps; missing/stale data suppresses alerts. Manual check-ins work offline on Android 8+. Device acceptance pending. |
 | Optional integrations | Bluetooth heart-rate; self-hosted account/backup/Strava service | Permissions, compatible hardware/provider and operator configuration required; live service validation incomplete. |
 | Optional AI explanations | Local LiteRT-LM adapter and consent-based server explanation endpoint | Gemma weights are not shipped; model terms, hardware and configuration apply. AI does not change workouts. |
 | Garmin account sync | **Not implemented** | Official partner approval, credentials and integration work required. File import is separate. |
 
 The app was previously named Rwun. Its Android package ID `app.rwun`, storage keys and backup formats are retained for compatibility; the display name and distribution name are OpenRun.
 
-The current source candidate is **OpenRun 1.7.0 / versionCode 26**, adding [plan-change history and safe undo](docs/PLAN-CHANGES.md) on top of Health Connect and the Progress redesign. A compatible APK upgrade requires the same signing certificate as the installed app.
+The current source candidate is **OpenRun 1.7.0 / versionCode 26**, adding [daily movement and recovery](docs/DAILY-HEALTH.md) alongside [plan-change history and safe undo](docs/PLAN-CHANGES.md) and [Health Connect reading and writing](docs/HEALTH-CONNECT.md) to the recovered 1.5.0 implementation. A compatible APK upgrade requires the same signing certificate as the installed app.
 
 The current focus is **running and walking**. Historical cycling and strength support code remains in the source to preserve completed work; it is outside the active product roadmap.
 

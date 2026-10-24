@@ -27,7 +27,10 @@ optional; time-only running reflections are included without inventing GPS or di
 Indoor completion is self-reported. GPS does not prove continuous running. Existing
 checkpoints retain outdoor stage, workout type and completion receipts after interruption.
 
-The start review includes fatigue and pain. Saving pain saves a recovery hold with the
+When private recovery check-ins are enabled, their existing review replaces the quick
+coaching check-in, without copying private answers into coaching backups or AI context.
+Returning from that review retains the selected beginner workout. Otherwise,
+the start review includes fatigue and pain. Saving pain saves a recovery hold with the
 check-in. Activity, reflection and any running pain hold are saved in one preferences
 commit. A new hold pauses an active outdoor recording; starting/resuming remains blocked.
 Only the existing explicit recovery-review flow can clear a hold.

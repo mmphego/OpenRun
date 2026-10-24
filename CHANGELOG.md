@@ -8,6 +8,16 @@
 - Prioritise/expire speech across phases and interruptions; save running feedback and pain holds atomically.
 - See [behaviour, storage and acceptance limits](docs/VOICE-COACH.md). Qualified training review and physical-device audio acceptance remain outstanding.
 
+## 1.7.0 — Daily movement and recovery candidate
+
+- Add opt-in Health Connect step checks during configurable working days/hours, intervals from 60 minutes and walking breaks from three minutes.
+- Keep missing/stale steps unknown; suppress reminders during holds or pending recordings. Add snooze, already-moved, skip-today, repeat limits and durable preferences.
+- Offer optional pre-session sleep, fatigue, soreness, illness, alcohol and pain check-ins with explainable suggestions. Training changes require review; holds cannot be cleared by a check-in.
+- Read optional sleep-window and same-source resting-heart-rate context locally without claiming live Garmin access, alcohol detection or physiological readiness.
+- Keep feature data separate from backups, exports, analytics and AI explanations. Retain only the latest check-in with seven-day expiry and deletion controls.
+- See [feature behavior and device acceptance](docs/DAILY-HEALTH.md). No background location or venue inference is added.
+
+
 
 ## 1.7.0 — Plan-change history and safe undo candidate
 

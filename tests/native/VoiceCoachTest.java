@@ -5,7 +5,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=35,qualifiers="w393dp-h852dp-mdpi",manifest=Config.NONE) @GraphicsMode(GraphicsMode.Mode.NATIVE) @LooperMode(LooperMode.Mode.PAUSED)
 public class VoiceCoachTest {
  Application app;RunStore store;
- @Before public void setup(){app=RuntimeEnvironment.getApplication();app.getSharedPreferences("rwun",0).edit().clear().commit();android.provider.Settings.Global.putInt(app.getContentResolver(),android.provider.Settings.Global.BOOT_COUNT,1);store=new RunStore(app);}
+ @Before public void setup(){app=RuntimeEnvironment.getApplication();app.getSharedPreferences("rwun",0).edit().clear().commit();app.getSharedPreferences(DailyHealthStore.FILE,0).edit().clear().commit();android.provider.Settings.Global.putInt(app.getContentResolver(),android.provider.Settings.Global.BOOT_COUNT,1);store=new RunStore(app);}
  org.robolectric.android.controller.ActivityController<VoiceCoachActivity> open(String page){return Robolectric.buildActivity(VoiceCoachActivity.class,new Intent().putExtra("screen",page)).setup().visible();}
  void click(Activity a,String label){NativePlanningTest.click(a,label);}
  void idle(){Shadows.shadowOf(Looper.getMainLooper()).idle();}
@@ -32,6 +32,19 @@ public class VoiceCoachTest {
    dialog.getButton(-1).performClick();idle();assertNull(IndoorState.active(app));assertTrue(store.runs().isEmpty());
    var evidence=CoachingMemory.entries(store);assertEquals(1,evidence.size());assertEquals(0,evidence.get(0).stage());assertTrue(evidence.get(0).complete());assertEquals(Boolean.TRUE,evidence.get(0).manageable());assertEquals(0,evidence.get(0).km(),0);
   }
+ }
+
+ void privateRecovery(){var d=DailyHealthRules.defaults();new DailyHealthStore(app).settings(new DailyHealthRules.Settings(false,true,d.days(),d.startMinute(),d.endMinute(),d.inactivityMinutes(),d.breakMinutes()),Instant.now());}
+ @Test public void privateRecoveryDoesNotDuplicateOrExportCoachCheckin(){privateRecovery();try(var a=open("home")){click(a.get(),"Review & start beginner session");AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();assertNull(NativePlanningTest.find(dialog.getWindow().getDecorView(),"Fatigue today · 1 fresh, 5 exhausted"));dialog.getButton(-1).performClick();idle();assertFalse(CoachingMemory.data(store).has("checkin"));assertEquals(MainActivity.class.getName(),Shadows.shadowOf(a.get()).getNextStartedActivity().getComponent().getClassName());}}
+ @Test public void privateRecoveryReturnKeepsBeginnerWorkoutIntent()throws Exception{
+  privateRecovery();permissions();store.audio(false);var voice=Robolectric.buildService(TrackingService.class).create();
+  Shadows.shadowOf(app).setComponentNameAndServiceForBindService(new ComponentName(app,TrackingService.class),voice.get().onBind(new Intent()));
+  try(var a=Robolectric.buildActivity(MainActivity.class,new Intent().putExtra("destination","Run").putExtra("coachStart","beginner:0:private-return")).setup().visible()){
+   idle();assertFalse(voice.get().active());assertNotNull(NativePlanningTest.find(a.get().getWindow().getDecorView(),"Continue beginner session"));
+   new DailyHealthStore(app).saveCheckin(new DailyHealthRules.Checkin(Instant.now(),null,2,1,DailyHealthRules.Answer.UNKNOWN,DailyHealthRules.Answer.UNKNOWN,false));
+   ((AlertDialog)ShadowDialog.getLatestDialog()).dismiss();click(a.get(),"Continue beginner session");
+   Intent started=null,next;while((next=Shadows.shadowOf(app).getNextStartedService())!=null){if(next.getComponent()!=null&&TrackingService.class.getName().equals(next.getComponent().getClassName())&&"START".equals(next.getAction())){started=next;break;}}assertNotNull("Expected a recorder START after returning from private recovery",started);assertEquals("beginner:0:private-return",started.getStringExtra("id"));assertFalse(CoachingMemory.data(store).has("checkin"));
+  }finally{voice.get().discard();voice.destroy();}
  }
 
 }
