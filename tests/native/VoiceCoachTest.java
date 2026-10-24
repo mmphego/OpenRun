@@ -5,7 +5,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=35,qualifiers="w393dp-h852dp-mdpi",manifest=Config.NONE) @GraphicsMode(GraphicsMode.Mode.NATIVE) @LooperMode(LooperMode.Mode.PAUSED)
 public class VoiceCoachTest {
  Application app;RunStore store;
- @Before public void setup(){app=RuntimeEnvironment.getApplication();app.getSharedPreferences("rwun",0).edit().clear().commit();store=new RunStore(app);}
+ @Before public void setup(){app=RuntimeEnvironment.getApplication();app.getSharedPreferences("rwun",0).edit().clear().commit();android.provider.Settings.Global.putInt(app.getContentResolver(),android.provider.Settings.Global.BOOT_COUNT,1);store=new RunStore(app);}
  org.robolectric.android.controller.ActivityController<VoiceCoachActivity> open(String page){return Robolectric.buildActivity(VoiceCoachActivity.class,new Intent().putExtra("screen",page)).setup().visible();}
  void click(Activity a,String label){NativePlanningTest.click(a,label);}
  void idle(){Shadows.shadowOf(Looper.getMainLooper()).idle();}
