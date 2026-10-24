@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Automated APK releases
+
+- Build and publish a signed APK after main merges, with unique build tags and increasing Android version codes.
+- Attach versioned APKs and SHA-256 checksums; identify the exact APK in generated release notes.
+- Keep PR debug artifacts versioned and signing isolated from untrusted PR checks.
+
+
 ## Unreleased — Progress presentation
 
 - Group running history by month, sort activities by recording date/time and show distance, duration and average pace in compact cards.
