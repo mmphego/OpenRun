@@ -13,7 +13,7 @@ import java.util.*;
 /** Native preferences and explanations. Health answers remain outside exports and AI prompts. */
 public final class DailyHealthActivity extends Activity {
     private final UiKit.Palette palette=new UiKit.Palette(true);
-    private DailyHealthStore store;private LinearLayout body;private TextView status;
+    private DailyHealthStore store;private LinearLayout body,footer;private TextView status;
     private String screen="home";private Bundle draft=new Bundle();private int generation;
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);store=new DailyHealthStore(this);screen=getIntent().getStringExtra("screen");if(screen==null)screen="home";
@@ -31,7 +31,7 @@ public final class DailyHealthActivity extends Activity {
         bar.addView(UiKit.iconButton(this,palette,R.drawable.ic_arrow_back,"Back",()->{if(screen.equals("home"))finish();else navigate("home");}),new LinearLayout.LayoutParams(dp(48),dp(48)));
         bar.addView(UiKit.label(this,"Movement & recovery",19,palette.ink,true),new LinearLayout.LayoutParams(0,-2,1));root.addView(bar);
         ScrollView scroll=new ScrollView(this);body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(20),dp(8),dp(20),dp(28));scroll.addView(body);
-        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);status=text("",14);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));footer=new LinearLayout(this);footer.setOrientation(LinearLayout.VERTICAL);footer.setVisibility(screen.equals("checkin")?View.VISIBLE:View.GONE);footer.setPadding(dp(20),dp(8),dp(20),dp(12));root.addView(footer,new LinearLayout.LayoutParams(-1,-2));setContentView(root);status=text("",14);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);status.setVisibility(View.GONE);status.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int b,int c){}public void onTextChanged(CharSequence s,int a,int b,int c){status.setVisibility(s.length()==0?View.GONE:View.VISIBLE);}public void afterTextChanged(android.text.Editable e){}});
         try{switch(screen){case "movement"->movement();case "checkin"->checkin();case "advice"->advice();case "privacy"->privacy();default->home();}}
         catch(RuntimeException error){status.setText(UserErrors.message(error));if(!screen.equals("privacy"))action("Review feature data",()->navigate("privacy"));}
     }
@@ -87,17 +87,67 @@ public final class DailyHealthActivity extends Activity {
         action("Open notification settings",()->startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getPackageName())));
         action("Planned workout & legacy reminders",()->startActivity(new Intent(this,TrainingActivity.class).putExtra("screen","reminders")));
     }
+    /** Visible, mutually exclusive chips retain the same domain indices as the former spinners. */
+    private java.util.function.IntSupplier checkinChoices(String title,String[] labels){
+        text(title,17);
+        RadioButton[] buttons=new RadioButton[labels.length];
+        int columns=getResources().getConfiguration().fontScale>=1.4f?2:3;
+        for(int start=0;start<labels.length;start+=columns){
+            LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setBaselineAligned(false);
+            for(int offset=0;offset<columns&&start+offset<labels.length;offset++){
+                int index=start+offset;RadioButton chip=new RadioButton(this);buttons[index]=chip;
+                chip.setButtonDrawable((android.graphics.drawable.Drawable)null);chip.setText(labels[index]);chip.setTextSize(14);
+                chip.setGravity(Gravity.CENTER);chip.setPadding(dp(6),dp(10),dp(6),dp(10));chip.setMinHeight(dp(56));
+                chip.setContentDescription(title+", "+labels[index].replace("\n"," "));
+                LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,-2,1);params.setMargins(dp(3),dp(3),dp(3),dp(3));row.addView(chip,params);
+                chip.setOnClickListener(v->{draft.putInt(title,index);styleChoices(buttons,index);UiKit.feedback(chip);});
+            }
+            body.addView(row);
+        }
+        styleChoices(buttons,draft.getInt(title,0));return ()->draft.getInt(title,0);
+    }
+    private void styleChoices(RadioButton[] buttons,int selected){
+        for(int i=0;i<buttons.length;i++)if(buttons[i]!=null){boolean checked=i==selected;RadioButton chip=buttons[i];
+            chip.setChecked(checked);chip.setTextColor(checked?palette.onPrimary:palette.ink);
+            var background=UiKit.shape(this,checked?palette.primary:palette.background,12);
+            background.setStroke(dp(1),checked?palette.primary:palette.outline);chip.setBackground(background);
+        }
+    }
+    private LinearLayout beginCheckinCard(String title,String detail){
+        LinearLayout previous=body,card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(14),dp(14),dp(14),dp(14));card.setBackground(UiKit.shape(this,palette.surface,18));
+        LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.setMargins(0,dp(8),0,dp(8));previous.addView(card,params);body=card;
+        text(title,20);if(!detail.isEmpty())text(detail,14);return previous;
+    }
     private void checkin(){
-        text("How are you feeling?",26);text("Optional answers help you choose today's effort. Leave anything unknown. No readiness score is calculated and your plan stays unchanged.",15);
-        EditText sleep=input("Hours slept · optional","",true);List<String> scale=List.of("Unknown","1 · Low","2","3","4","5 · High");
-        Spinner fatigue=choice("Fatigue",scale),soreness=choice("Muscle soreness",scale),alcohol=choice("Alcohol yesterday evening",List.of("Unknown / skip","No","Yes")),illness=choice("Feeling unwell",List.of("Unknown","No","Yes"));
-        CheckBox pain=check("Pain or injury symptoms",false),prompt=check("Offer a check-in before new sessions",store.settings().checkin());
-        action("Save and review recovery",()->{
-            String hours=sleep.getText().toString().trim();var value=new DailyHealthRules.Checkin(Instant.now(),hours.isEmpty()?null:Double.parseDouble(hours),fatigue.getSelectedItemPosition(),soreness.getSelectedItemPosition(),DailyHealthRules.Answer.values()[alcohol.getSelectedItemPosition()],DailyHealthRules.Answer.values()[illness.getSelectedItemPosition()],pain.isChecked());
+        text("How are you feeling?",26);text("A quick check-in for today's effort. Every answer is optional.",15);
+        LinearLayout page=beginCheckinCard("Rest & energy","Choose what feels closest. Skip anything you don't know.");
+        EditText sleep=input("Hours slept · optional","",true);sleep.setHint("e.g. 7.5 hours");sleep.setPadding(dp(12),dp(10),dp(12),dp(10));sleep.setBackground(UiKit.shape(this,palette.background,12));
+        var fatigue=checkinChoices("Fatigue",new String[]{"Skip","1 · Fresh","2 · Light","3 · Moderate","4 · High","5 · Exhausted"});
+        body=page;page=beginCheckinCard("Body & recovery","");
+        var soreness=checkinChoices("Muscle soreness",new String[]{"Skip","1 · Minimal","2 · Mild","3 · Moderate","4 · High","5 · Severe"});
+        var illness=checkinChoices("Feeling unwell",new String[]{"Skip","No","Yes"});
+        CheckBox pain=check("Pain or injury symptoms",false);
+        TextView painHint=text("Pain deserves a recovery review before training.",14);painHint.setTextColor(palette.danger);painHint.setVisibility(pain.isChecked()?View.VISIBLE:View.GONE);
+        pain.setOnCheckedChangeListener((button,value)->{draft.putBoolean("Pain or injury symptoms",value);painHint.setVisibility(value?View.VISIBLE:View.GONE);});
+        body=page;page=beginCheckinCard("Last evening","Only share what you're comfortable with.");
+        var alcohol=checkinChoices("Alcohol yesterday evening",new String[]{"Skip","No","Yes"});
+        body=page;
+        CheckBox prompt=check("Offer a check-in before new sessions",store.settings().checkin());
+        text("Your plan stays unchanged. This check-in cannot clear a training hold.",14);
+        action(draft.getBoolean("watchExpanded",false)?"Hide watch context & privacy":"Watch context & privacy",()->{draft.putBoolean("watchExpanded",!draft.getBoolean("watchExpanded",false));show();});
+        if(draft.getBoolean("watchExpanded",false)){
+            text("Only your latest saved check-in is retained, for up to seven days. Answers are excluded from backups, activity exports and AI explanations.",14);recoveryContext();
+        }
+        Button save=UiKit.action(this,palette,"Save and review recovery",()->{try{
+            String hours=sleep.getText().toString().trim();Double slept=null;
+            if(!hours.isEmpty()){try{slept=Double.parseDouble(hours.replace(',','.'));}catch(NumberFormatException invalid){sleep.setError("Enter hours from 0 to 16, or leave blank.");sleep.requestFocus();return;}}
+            if(slept!=null&&(!Double.isFinite(slept)||slept<0||slept>16)){sleep.setError("Enter hours from 0 to 16, or leave blank.");sleep.requestFocus();return;}
+            var value=new DailyHealthRules.Checkin(Instant.now(),slept,fatigue.getAsInt(),soreness.getAsInt(),DailyHealthRules.Answer.values()[alcohol.getAsInt()],DailyHealthRules.Answer.values()[illness.getAsInt()],pain.isChecked());
             store.saveCheckin(value);var cfg=store.settings();if(prompt.isChecked()!=cfg.checkin())store.settings(new DailyHealthRules.Settings(cfg.movement(),prompt.isChecked(),cfg.days(),cfg.startMinute(),cfg.endMinute(),cfg.inactivityMinutes(),cfg.breakMinutes()),Instant.now());
             DailyHealthJob.schedule(this);navigate("advice");
-        });
-        action("Continue without saving",this::finish);text("Only your latest saved check-in is retained, for up to seven days. A new check-in replaces it. Answers are excluded from backups, activity exports and AI explanations.",14);recoveryContext();
+        }catch(RuntimeException error){status.setText(UserErrors.message(error));}});
+        save.setBackground(UiKit.shape(this,palette.primary,16));save.setTextColor(palette.onPrimary);save.setCompoundDrawablesRelative(null,null,null,null);footer.addView(save);
+        Button skip=UiKit.action(this,palette,"Continue without saving",this::finish);skip.setBackgroundColor(android.graphics.Color.TRANSPARENT);skip.setCompoundDrawablesRelative(null,null,null,null);footer.addView(skip);
     }
     private void recoveryContext(){
         text("Optional watch context",21);text("Garmin data is usable only when Garmin Connect publishes it to Health Connect. Sync can be delayed. Direct Garmin account sync and HRV readiness are not implemented.",14);

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Recovery check-in experience
+
+- Replace check-in dropdowns with visible, mutually exclusive choices grouped into rest, body and evening cards.
+- Keep review/save and skip actions visible below the scrolling form, with inline sleep validation and expandable watch/privacy details.
+- Preserve optional unknown answers, unsaved drafts across recreation, private storage and explicit training-hold review.
+
+
 ## 1.7.1 — Patch candidate
 
 - Advance the APK display version to 1.7.1, retaining automatic build codes and `v1.7.1-build.<code>` release tags. Local/standalone versionCode advances to 27.

@@ -40,6 +40,38 @@ public class DailyHealthUiTest {
         try(var controller=open("checkin")){NativePlanningTest.shot(controller.get(),"daily-health-checkin-large-font");NativePlanningTest.click(controller.get(),"Save and review recovery");assertNotNull(NativePlanningTest.find(controller.get().getWindow().getDecorView(),"Recovery information is incomplete"));NativePlanningTest.shot(controller.get(),"daily-health-unknown-review-large-font");}
         finally{RuntimeEnvironment.setFontScale(1f);}
     }
+    @Test public void visibleChoicesKeepDraftAcrossRotationAndSaveDomainValues(){
+        try(var controller=open("checkin")){
+            var activity=controller.get();
+            NativePlanningTest.edit(activity,"Hours slept · optional").setText("7.5");
+            NativePlanningTest.click(activity,"4 · High");
+            ((CheckBox)NativePlanningTest.find(activity.getWindow().getDecorView(),"Pain or injury symptoms")).setChecked(true);
+            assertNull(new DailyHealthStore(context).checkin(Instant.now()));
+            controller.recreate();activity=controller.get();
+            assertEquals("7.5",NativePlanningTest.edit(activity,"Hours slept · optional").getText().toString());
+            assertTrue(((RadioButton)NativePlanningTest.find(activity.getWindow().getDecorView(),"4 · High")).isChecked());
+            NativePlanningTest.click(activity,"Save and review recovery");
+            var saved=new DailyHealthStore(context).checkin(Instant.now());
+            assertEquals(4,saved.fatigue());assertEquals(0,saved.soreness());assertEquals(7.5,saved.sleepHours(),0.01);assertTrue(saved.pain());
+            assertEquals(DailyHealthRules.Answer.UNKNOWN,saved.alcohol());
+        }
+    }
+    @Test public void sleepErrorsAreInlineAndDoNotSave(){
+        try(var controller=open("checkin")){
+            var field=NativePlanningTest.edit(controller.get(),"Hours slept · optional");field.setText("20");
+            NativePlanningTest.click(controller.get(),"Save and review recovery");
+            assertNotNull(field.getError());assertNull(new DailyHealthStore(context).checkin(Instant.now()));
+        }
+    }
+    @Test public void expandingWatchDetailsKeepsUnsavedAnswers(){
+        try(var controller=open("checkin")){
+            NativePlanningTest.edit(controller.get(),"Hours slept · optional").setText("6");
+            NativePlanningTest.click(controller.get(),"Watch context & privacy");
+            assertEquals("6",NativePlanningTest.edit(controller.get(),"Hours slept · optional").getText().toString());
+            assertNotNull(NativePlanningTest.find(controller.get().getWindow().getDecorView(),"Optional watch context"));
+            assertNull(new DailyHealthStore(context).checkin(Instant.now()));
+        }
+    }
     @Test public void optionalPromptDoesNotStartRecorderByOpeningCheckin(){
         DailyHealthStore store=new DailyHealthStore(context);var d=DailyHealthRules.defaults();store.settings(new DailyHealthRules.Settings(false,true,d.days(),d.startMinute(),d.endMinute(),60,3),Instant.now());
         try(var controller=open("home")){
