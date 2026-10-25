@@ -32,7 +32,7 @@ final class HealthSummary {
         CompletableFuture<String> read(){
             List<CompletableFuture<String>> readings=new ArrayList<>();
             if(allowed(2))readings.add(aggregate(StepsRecord.STEPS_COUNT_TOTAL).thenApply(v->"Steps today: "+(v==null?"unavailable":v)).exceptionally(e->"Steps: unavailable."));
-            if(allowed(3))readings.add(aggregate(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL).thenApply(v->"Active calories today: "+(v==null?"unavailable":String.format(Locale.ROOT,"%.0f kcal",v.getInKilocalories()))).exceptionally(e->"Active calories: unavailable."));
+            if(allowed(3))readings.add(aggregate(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL).thenApply(v->"Active calories today: "+(v==null?"unavailable":String.format(Locale.ROOT,"%.0f kcal",v.getInCalories()/1000d))).exceptionally(e->"Active calories: unavailable."));
             if(allowed(1))readings.add(aggregate(HeartRateRecord.BPM_AVG).thenApply(v->"Average heart rate today: "+(v==null?"unavailable":v+" bpm")).exceptionally(e->"Heart rate: unavailable."));
             if(allowed(4)||allowed(5))readings.add(DailyHealthSource.create(context).recovery(now,ZoneId.systemDefault(),allowed(4),allowed(5)));
             if(readings.isEmpty())return CompletableFuture.completedFuture("");
