@@ -52,10 +52,23 @@ public class HealthConnectUiTest {
   Shadows.shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(HealthSync.PERMISSIONS);
   try(var c=Robolectric.buildActivity(SlowReadActivity.class).setup().visible()){
    NativePlanningTest.click(c.get(),"Read selected data now");
-   NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read selected data now").performClick();
+   NativePlanningTest.find(c.get().getWindow().getDecorView(),"Reading selected data…").performClick();
    assertEquals(1,c.get().calls);
    ((android.widget.Switch)NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read from Health Connect")).setChecked(false);
    assertTrue(c.get().pending.isCancelled());
+  }
+ }
+ @Test public void readShowsImmediateFeedbackAndActivityResultBeforeSummary(){
+  Shadows.shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(HealthSync.PERMISSIONS);
+  try(var c=Robolectric.buildActivity(SlowReadActivity.class).setup().visible()){
+   NativePlanningTest.click(c.get(),"Read selected data now");
+   assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Reading selected data…"));
+   c.get().pending.complete("Imported 1 Garmin run");
+   Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+   assertTrue(((android.widget.TextView)NativePlanningTest.find(c.get().getWindow().getDecorView(),"Imported 1 Garmin run\n\nReading daily summary…")).getText().toString().contains("Imported 1 Garmin run"));
+   c.get().summary.complete("Steps: unavailable.");
+   Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+   assertTrue(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read selected data now").isEnabled());
   }
  }
  @Test public void explicitDailyHealthOptInSelectsMetricWithoutClearingReadPause(){

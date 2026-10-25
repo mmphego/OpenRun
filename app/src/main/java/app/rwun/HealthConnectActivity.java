@@ -20,6 +20,7 @@ public class HealthConnectActivity extends Activity {
     private String message="", pendingId="", pendingFingerprint="";
     private int generation,readGeneration;
     private boolean reading;
+    private String activityReadResult="", summaryReadResult="";
     private java.util.concurrent.CompletableFuture<String> activeRead;
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -38,6 +39,7 @@ public class HealthConnectActivity extends Activity {
         body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);int pad=UiKit.dp(this,20);body.setPadding(pad,pad,pad,pad);body.setBackgroundColor(palette.background);
         ScrollView scroll=new ScrollView(this);scroll.addView(body);scroll.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(i.getSystemWindowInsetLeft(),i.getSystemWindowInsetTop(),i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i.consumeSystemWindowInsets();});setContentView(scroll);
         action("Back",this::finish);text("Health Connect",24);text(HealthAccess.status(this,healthAvailable()),14);
+        if(!message.isEmpty()){text("Health Connect result",18);text(message,14);}
         text("Read activities",20);
         text("Choose what OpenRun can read. Runs and walks import locally with duplicate review; other selected readings show a daily summary.",14);
         if(healthAvailable()){
@@ -50,7 +52,8 @@ public class HealthConnectActivity extends Activity {
             });
             text(HealthPreferences.summary(this),13);
             action("Choose data to read",this::chooseReadData);
-            action(HealthSync.busy()?"Import in progress…":"Read selected data now",this::read).setEnabled(HealthPreferences.anyReadGranted(this)&&!HealthSync.busy()&&!reading);
+            action(reading||HealthSync.busy()?"Reading selected data…":"Read selected data now",this::read).setEnabled(!HealthSync.busy()&&!reading);
+            if(!HealthPreferences.anyReadGranted(this))text("Choose data to read and allow access before importing.",14);
             if(HealthAccess.backgroundSupported(this)){
                 boolean scheduled=getSystemService(android.app.job.JobScheduler.class).getPendingJob(81)!=null;
                 toggle("Background activity imports",scheduled,enabled->{
@@ -78,7 +81,7 @@ public class HealthConnectActivity extends Activity {
         }
         text("Supported writes: activity sessions and recorded distance only. Time-only activities create no distance record. OpenRun does not export calories or health samples it has not recorded.",13);
         text("Turning a toggle off pauses that direction in OpenRun. To revoke Android permissions, open Health Connect access below. Routes, steps, calories and heart-rate samples are never exported.",13);
-        if(!message.isEmpty())text(message,14);
+
         action("Manage Health Connect access",()->SettingsNavigator.openHealth(a->{try{startActivity(new Intent(a));return true;}catch(android.content.ActivityNotFoundException|SecurityException missing){return false;}}));
         action("Health data & privacy",()->startActivity(new Intent(this,HealthPrivacyActivity.class)));
         if(new RunStore(this).pendingImports().length()>0)action("Review possible duplicates",()->startActivity(new Intent(this,ImportReviewActivity.class)));
@@ -106,20 +109,44 @@ public class HealthConnectActivity extends Activity {
     protected java.util.concurrent.CompletableFuture<String> importActivities(){return HealthSync.sync(getApplicationContext(),new RunStore(this));}
     private void read(){
         if(reading||HealthSync.busy())return;
+        if(!HealthPreferences.anyReadGranted(this)){
+            message="Choose data to read and allow access before importing.";show();return;
+        }
         reading=true;
-        int ticket=++readGeneration;message="Reading selected data…";show();
-        java.util.concurrent.CompletableFuture<String> activities=HealthSync.granted(this)?importActivities():
-            java.util.concurrent.CompletableFuture.completedFuture("");
+        int ticket=++readGeneration;
+        activityReadResult="Reading activities…";summaryReadResult="Reading daily summary…";
+        message=activityReadResult+"\n\n"+summaryReadResult;show();
+        java.util.concurrent.CompletableFuture<String> activities;
+        try{activities=HealthSync.granted(this)?importActivities():
+            java.util.concurrent.CompletableFuture.completedFuture("Activity import is not allowed. Select runs, walks & distance and grant both permissions.");}
+        catch(Exception error){activities=HealthSync.failed(error);}
         activeRead=activities;
-        var summary=readSummary();
-        activities.handle((value,error)->error==null?value:"Activity import stopped. Saved activities are kept. "+UserErrors.message(error))
-            .thenCombine(summary.exceptionally(error->"Selected health summary unavailable. "+UserErrors.message(error)),(a,b)->a+(a.isEmpty()||b.isEmpty()?"":"\n\n")+b)
+        // Publish the activity outcome immediately; daily summaries must not hide it.
+        activities.whenComplete((value,error)->runOnUiThread(()->{
+            if(closed()||ticket!=readGeneration)return;
+            activityReadResult=error==null?value:"Activity import stopped. Saved activities are kept. "+UserErrors.message(error);
+            readResult();
+        }));
+        java.util.concurrent.CompletableFuture<String> summary;
+        try{summary=readSummary();}catch(Exception error){summary=HealthSync.failed(error);}
+        summary=summary.orTimeout(30,java.util.concurrent.TimeUnit.SECONDS);
+        summary.whenComplete((value,error)->runOnUiThread(()->{
+            if(closed()||ticket!=readGeneration)return;
+            summaryReadResult=error==null?value:"Selected health summary unavailable. "+UserErrors.message(error);
+            readResult();
+        }));
+        java.util.concurrent.CompletableFuture.allOf(activities.handle((v,e)->null),summary.handle((v,e)->null))
             .whenComplete((value,error)->runOnUiThread(()->{
                 if(closed()||ticket!=readGeneration)return;
-                reading=false;
-                message=error==null?(value.isEmpty()?"No selected data is currently allowed.":value):UserErrors.message(error);show();
+                reading=false;readResult();
             }));
     }
+    private void readResult(){
+        message=activityReadResult+(activityReadResult.isEmpty()||summaryReadResult.isEmpty()?"":"\n\n")+summaryReadResult;
+        if(message.isEmpty())message="No selected data is currently allowed.";
+        show();
+    }
+
     private void choose(){
         int ticket=++generation;message="Loading original recordings…";show();
         worker.execute(()->{

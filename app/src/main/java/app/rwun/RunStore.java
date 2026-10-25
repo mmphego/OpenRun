@@ -318,6 +318,7 @@ final class RunStore {
                 .put("id", r.sessionId())
                 .put("date", r.date())
                 .put("km", r.km())
+                .put("distanceKnown", r.km()>0)
                 .put("minutes", r.minutes())
                 .put("rpe", r.rpe())
                 .put("fatigue", r.fatigue())
@@ -667,7 +668,8 @@ final class RunStore {
       if (id.isEmpty()
           || !ids.add(id)
           || !Double.isFinite(r.getDouble("km"))
-          || r.getDouble("km") <= 0
+          || r.getDouble("km") < 0
+          || (r.getDouble("km") == 0 && !(id.startsWith("health:") && r.has("distanceKnown") && !r.getBoolean("distanceKnown")))
           || r.getDouble("km") > 250
           || r.getInt("minutes") < 1
           || r.getInt("minutes") > 3000

@@ -46,7 +46,7 @@ final class HealthSync {
   final java.util.function.BooleanSupplier allowed;
   final RunStore store;final String own;final boolean hr;final Source source;final CompletableFuture<String> result;final Executor executor;
   final Instant end=Instant.now(),start=end.minus(Duration.ofDays(30));final Set<Long> tokens=new HashSet<>();
-  int pages,added,duplicates,skipped,review;
+  int pages,added,duplicates,skipped,review,seen,timeOnly;
   Importer(RunStore s,String p,boolean h,Source src,CompletableFuture<String> r,Executor e,java.util.function.BooleanSupplier allowed){store=s;own=p;hr=h;source=src;result=r;executor=e;this.allowed=allowed;}
   boolean active(){if(result.isDone())return false;if(!allowed.getAsBoolean()){result.completeExceptionally(new SecurityException("Reading paused or activity access changed. Saved activities are kept."));return false;}return true;}
   void page(long token){
@@ -60,8 +60,8 @@ final class HealthSync {
   }
   void session(List<ExerciseSessionRecord> records,int index,long next){
    if(!active())return;
-   if(index==records.size()){if(next!=-1){page(next);return;}result.complete("Imported "+added+" runs/walks · "+duplicates+" already saved · "+skipped+" skipped · "+review+" held for duplicate review.");return;}
-   ExerciseSessionRecord s=records.get(index);int type=s.getExerciseType();boolean walk=type==ExerciseSessionType.EXERCISE_SESSION_TYPE_WALKING;
+   if(index==records.size()){if(next!=-1){page(next);return;}result.complete("Imported "+added+" runs/walks · "+duplicates+" already saved · "+skipped+" skipped · "+review+" held for duplicate review. "+timeOnly+" imported without distance. Checked "+seen+" sessions from the last 30 days. "+(seen==0?"No exercise sessions were returned. Check that your source app writes exercise sessions to Health Connect; steps alone do not create activities.":"Open Progress for saved runs or Walking for saved walks; possible duplicates need review."));return;}
+   seen++;ExerciseSessionRecord s=records.get(index);int type=s.getExerciseType();boolean walk=type==ExerciseSessionType.EXERCISE_SESSION_TYPE_WALKING;
    String provider=s.getMetadata().getDataOrigin().getPackageName(),external=s.getMetadata().getId();
    if((!walk&&type!=ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING&&type!=ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING_TREADMILL)||provider.equals(own)){skipped++;session(records,index+1,next);return;}
    String id=(walk?"walk:health:":"health:")+external;
@@ -71,7 +71,7 @@ final class HealthSync {
    try{source.distance(s).whenCompleteAsync((km,error)->{
     if(!active())return;if(error!=null){result.completeExceptionally(error);return;}
     double value=km==null?0:km;
-    if(!Double.isFinite(value)||value<0||value>250||!walk&&value==0){skipped++;session(records,index+1,next);return;}
+    if(!Double.isFinite(value)||value<0||value>250){skipped++;session(records,index+1,next);return;}
     if(hr){try{source.heartRate(s).whenCompleteAsync((bpm,optionalError)->save(s,id,value,seconds,optionalError==null&&bpm!=null?bpm:0,()->session(records,index+1,next)),executor);}catch(Exception optionalError){save(s,id,value,seconds,0,()->session(records,index+1,next));}}
     else save(s,id,value,seconds,0,()->session(records,index+1,next));
    },executor);}catch(Exception e){result.completeExceptionally(e);}
@@ -82,7 +82,7 @@ final class HealthSync {
     String date=s.getStartTime().atZone(s.getStartZoneOffset()==null?ZoneId.systemDefault():s.getStartZoneOffset()).toLocalDate().toString();
     var run=new RunStore.Run(id,date,km,(int)Math.max(1,seconds/60),walk?0:5,2,false,"Health Connect · "+provider,"",bpm>0&&bpm<250?bpm:0,seconds);
     var outcome=store.importActivity(run,walk,RunStore.origin(provider,s.getMetadata().getId(),s.getStartTime().toEpochMilli(),s.getEndTime().toEpochMilli()));
-    if(outcome==RunStore.ImportResult.ADDED)added++;else if(outcome==RunStore.ImportResult.REVIEW)review++;else duplicates++;
+    if(outcome==RunStore.ImportResult.ADDED){added++;if(km==0)timeOnly++;}else if(outcome==RunStore.ImportResult.REVIEW)review++;else duplicates++;
     after.run();
    }catch(Exception e){result.completeExceptionally(e);}
   }

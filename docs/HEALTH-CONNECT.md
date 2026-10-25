@@ -38,3 +38,9 @@ Run `bash scripts/check.sh`. `HealthConnectTest` exercises real Android record b
 Before a production release, use a real device to test separate read-only/write-only grants, partial denial/revocation, a known external run/walk import, an OpenRun run and walking-pad export, time-only export, corrected-distance re-export, duplicate prevention, background permission support and in-place upgrade with the intended signing certificate. No production release is published by this branch.
 
 Official references: [read data](https://developer.android.com/health-and-fitness/health-connect/read-data), [write/upsert data](https://developer.android.com/health-and-fitness/health-connect/write-data), [framework permissions](https://developer.android.com/reference/android/health/connect/HealthPermissions), [metadata/version conflict rules](https://developer.android.com/reference/android/health/connect/datatypes/Metadata.Builder).
+
+### Import troubleshooting
+
+Read results appear at the top of the Health Connect screen, including counts and the 30-day window. Runs with missing publisher-matched distance are kept as time-only activities in Progress, with distance unavailable and no pace. Walks appear in Walking. Steps, calories and daily summaries do not create exercise sessions; the source app must write exercise sessions to Health Connect. Pending possible duplicates require review. No matching sessions is distinct from a permission or service error.
+
+The Read button immediately displays a busy state. Activity outcomes appear independently of daily summaries; a slow summary cannot hide an import result. Summary reads time out after 30 seconds. Missing activity grants produce an explicit instruction rather than a disabled, unexplained read action.
