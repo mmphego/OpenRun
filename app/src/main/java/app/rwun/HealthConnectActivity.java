@@ -18,7 +18,7 @@ public class HealthConnectActivity extends Activity {
     private final UiKit.Palette palette=new UiKit.Palette(true);
     private LinearLayout body;
     private String message="", pendingId="", pendingFingerprint="";
-    private int generation;
+    private int generation,readGeneration;
     private boolean reading;
     private java.util.concurrent.CompletableFuture<String> activeRead;
     @Override public void onCreate(Bundle saved) {
@@ -29,7 +29,7 @@ public class HealthConnectActivity extends Activity {
     }
     @Override protected void onResume(){super.onResume();if(body!=null)show();}
     @Override protected void onSaveInstanceState(Bundle saved){super.onSaveInstanceState(saved);saved.putString("message",message);saved.putString("pendingId",pendingId);saved.putString("pendingFingerprint",pendingFingerprint);}
-    @Override protected void onDestroy(){generation++;worker.shutdownNow();super.onDestroy();}
+    @Override protected void onDestroy(){generation++;readGeneration++;worker.shutdownNow();super.onDestroy();}
     protected boolean healthAvailable(){return HealthAccess.available(this);}
     private boolean closed(){return isDestroyed()||isFinishing();}
     private void text(String label,int size){body.addView(UiKit.label(this,label,size,palette.ink,size>=18));}
@@ -45,7 +45,7 @@ public class HealthConnectActivity extends Activity {
                 if(enabled)chooseReadData();else{
                     HealthPreferences.enabled(this,false,false);HealthJob.schedule(this,false);
                     if(activeRead!=null)activeRead.cancel(false);reading=false;
-                    generation++;message="Reading paused in OpenRun. Saved activities are kept. System grants remain until changed in Health Connect.";show();
+                    readGeneration++;message="Reading paused in OpenRun. Saved activities are kept. System grants remain until changed in Health Connect.";show();
                 }
             });
             text(HealthPreferences.summary(this),13);
@@ -95,7 +95,7 @@ public class HealthConnectActivity extends Activity {
             .setMultiChoiceItems(HealthPreferences.LABELS,selected,(d,index,checked)->selected[index]=checked)
             .setNegativeButton("Cancel",(d,w)->show()).setPositiveButton("Allow selected data",(d,w)->{
                 boolean any=false;for(boolean choice:selected)any|=choice;
-                if(activeRead!=null)activeRead.cancel(false);reading=false;generation++;
+                if(activeRead!=null)activeRead.cancel(false);reading=false;readGeneration++;
                 HealthPreferences.select(this,selected);HealthPreferences.enabled(this,false,any);
                 if(!selected[0]||!any)HealthJob.schedule(this,false);
                 if(!any){message="No read data selected. Reading paused.";show();return;}
@@ -107,7 +107,7 @@ public class HealthConnectActivity extends Activity {
     private void read(){
         if(reading||HealthSync.busy())return;
         reading=true;
-        int ticket=++generation;message="Reading selected data…";show();
+        int ticket=++readGeneration;message="Reading selected data…";show();
         java.util.concurrent.CompletableFuture<String> activities=HealthSync.granted(this)?importActivities():
             java.util.concurrent.CompletableFuture.completedFuture("");
         activeRead=activities;
@@ -115,7 +115,7 @@ public class HealthConnectActivity extends Activity {
         activities.handle((value,error)->error==null?value:"Activity import stopped. Saved activities are kept. "+UserErrors.message(error))
             .thenCombine(summary.exceptionally(error->"Selected health summary unavailable. "+UserErrors.message(error)),(a,b)->a+(a.isEmpty()||b.isEmpty()?"":"\n\n")+b)
             .whenComplete((value,error)->runOnUiThread(()->{
-                if(closed()||ticket!=generation)return;
+                if(closed()||ticket!=readGeneration)return;
                 reading=false;
                 message=error==null?(value.isEmpty()?"No selected data is currently allowed.":value):UserErrors.message(error);show();
             }));

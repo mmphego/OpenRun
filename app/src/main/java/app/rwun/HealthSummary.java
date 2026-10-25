@@ -12,7 +12,7 @@ import java.util.concurrent.*;
 final class HealthSummary {
     static CompletableFuture<String> read(Context c){
         if(!HealthAccess.available(c)||!HealthPreferences.enabled(c,false))return HealthSync.failed(new SecurityException("Enable reading first."));
-        return new Api34(c).read();
+        try{return new Api34(c).read();}catch(Exception error){return HealthSync.failed(error);}
     }
     @android.annotation.TargetApi(34)
     private static final class Api34 {
