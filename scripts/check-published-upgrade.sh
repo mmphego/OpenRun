@@ -18,5 +18,11 @@ fi
 mkdir -p build/reports/upgrade
 python3 scripts/verify-apk-upgrade.py "${previous[0]}" "${candidate[0]}" "$ANDROID_HOME/build-tools/35.0.0" > build/reports/upgrade/identity.json
 mkdir -p build/upgrade
-cp "${previous[0]}" build/upgrade/baseline.apk
-printf 'Verified package, certificate and increasing versionCode against %s\n' "$prior"
+if python3 -c 'import json,sys; sys.exit(not json.load(open("build/reports/upgrade/identity.json"))["fresh_install_required"])'; then
+  # Test clean install and same-key reinstall, not a fictitious legacy upgrade.
+  cp "${candidate[0]}" build/upgrade/baseline.apk
+  echo 'One-time signing transition: fresh install required; testing new baseline reinstall.'
+else
+  cp "${previous[0]}" build/upgrade/baseline.apk
+fi
+printf 'Release identity policy checked against %s\n' "$prior"

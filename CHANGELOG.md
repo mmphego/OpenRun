@@ -1,5 +1,9 @@
 # Changelog
 
+## Signing transition
+
+- Allow the owner-approved one-time fresh installation from the exact legacy build 100048 to the permanent signing key. Future releases retain strict signing and upgrade checks.
+
 ## Unreleased
 
 - Guard foreground Health Connect reads with the Android 14 minimum before using newer timeout APIs; fixes the lint failure blocking APK workflows.

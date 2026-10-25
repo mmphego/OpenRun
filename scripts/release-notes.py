@@ -22,4 +22,12 @@ if variant == "debug":
 print(f"\nVerify the download with `sha256sum -c {apk.name}.sha256`. "
       "Updates require the same signing certificate; back up your data before installing.")
 print("\nAutomated build checks do not establish physical-device acceptance.")
+identity = Path('build/reports/upgrade/identity.json')
+if identity.exists() and json.loads(identity.read_text()).get('fresh_install_required'):
+    print("\n## One-time fresh installation required\n\n"
+          "This release establishes the permanent signing key. It cannot update old "
+          "temporary-key installations. If you accept losing local data, uninstall the old "
+          "app once and install this release. Export anything you want to retain first. "
+          "Future release APKs use this same permanent key and must pass upgrade checks. "
+          "This build tests a fresh install and same-key reinstall, not migration from the old APK.")
 print("\n## Included changes\n")
