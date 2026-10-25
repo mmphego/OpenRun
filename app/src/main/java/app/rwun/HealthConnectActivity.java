@@ -108,6 +108,9 @@ public class HealthConnectActivity extends Activity {
     protected java.util.concurrent.CompletableFuture<String> readSummary(){return HealthSummary.read(getApplicationContext());}
     protected java.util.concurrent.CompletableFuture<String> importActivities(){return HealthSync.sync(getApplicationContext(),new RunStore(this));}
     private void read(){
+        if(android.os.Build.VERSION.SDK_INT<34){
+            message="Health Connect reading requires Android 14 or newer.";show();return;
+        }
         if(reading||HealthSync.busy())return;
         if(!HealthPreferences.anyReadGranted(this)){
             message="Choose data to read and allow access before importing.";show();return;

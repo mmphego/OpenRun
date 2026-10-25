@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Guard foreground Health Connect reads with the Android 14 minimum before using newer timeout APIs; fixes the lint failure blocking APK workflows.
+
 - Show immediate Health Connect read feedback and publish activity outcomes independently of slower daily summaries. Preserve time-only markers when rewriting history and review timestamp-matched duplicates with unknown distance.
 
 - Preserve Health Connect runs with missing distance as time-only history; show unavailable distance and keep repeat-import protection.
