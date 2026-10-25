@@ -61,6 +61,7 @@ public final class DailyHealthActivity extends Activity {
         action("Configure movement breaks",()->navigate("movement"));
         note("Before your next session",cfg.checkin()?"An optional recovery check-in is offered before new sessions. Your plan changes only after review.":"Check-ins are available here. Enable the pre-session prompt in movement preferences or when saving a check-in.");
         action("Pre-run recovery check-in",()->navigate("checkin"));if(store.checkin(Instant.now())!=null)action("Review latest check-in",()->navigate("advice"));
+        action("Health Connect data controls",()->startActivity(new Intent(this,HealthConnectActivity.class)));
         action("Data, permissions & deletion",()->navigate("privacy"));text("Training holds remain in effect. Wellness guidance is not medical assessment or clearance to exercise.",14);
     }
     private void movement(){
@@ -137,7 +138,7 @@ public final class DailyHealthActivity extends Activity {
         action("Delete movement & recovery data",()->new AlertDialog.Builder(this).setTitle("Delete this feature's data?").setMessage("Reminders and pre-session prompts turn off. Your check-in and preferences are deleted. Workout history and Health Connect records are kept.")
                 .setNegativeButton("Keep data",null).setPositiveButton("Delete",(dialog,which)->{store.clear();DailyHealthJob.schedule(this);cancelReminder();navigate("home");}).show());
     }
-    private void requestHealth(String permission,int code){if(!HealthAccess.available(this))throw new IllegalStateException("Health Connect is unavailable. Update Android or use the manual check-in.");requestPermissions(new String[]{permission},code);}
+    private void requestHealth(String permission,int code){if(!HealthAccess.available(this))throw new IllegalStateException("Health Connect is unavailable. Update Android or use the manual check-in.");HealthPreferences.selectPermission(this,permission);if(!HealthPreferences.enabled(this,false))throw new IllegalStateException("Health Connect reading is paused. Enable Read from Health Connect in Health Connect data controls first.");requestPermissions(new String[]{permission},code);}
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);DailyHealthJob.schedule(this);show();status.setText("Permission request finished. Only granted access is used; the manual check-in remains available.");}
     private void cancelReminder(){getSystemService(NotificationManager.class).cancel(DailyHealthJob.NOTIFICATION_ID);}
     private void disableLegacyMovement(){synchronized(RunStore.LOCK){RunStore training=new RunStore(this);var data=training.v103();var reminders=data.optJSONObject("reminders");if(reminders!=null)try{reminders.put("movement",false);training.v103(data);}catch(org.json.JSONException e){throw new IllegalStateException(e);}}}
