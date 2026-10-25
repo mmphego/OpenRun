@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.2 — Stable APK signing candidate
+
+- Stop publishing APKs signed with a different random key on each runner. Require a persistent distribution key and pinned certificate.
+- Add a maintainer setup script that saves private signing material locally and configures GitHub secrets without committing it.
+- Reject missing signing configuration and certificate mismatches before publication; document the one-time migration limitation for older debug installations.
+
+
 ## Unreleased — Recovery check-in experience
 
 - Replace check-in dropdowns with visible, mutually exclusive choices grouped into rest, body and evening cards.
