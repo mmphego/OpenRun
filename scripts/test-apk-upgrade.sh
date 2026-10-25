@@ -29,4 +29,4 @@ for phase in seed verify; do
   adb -s emulator-5554 shell am instrument -w -e upgradePhase "$phase" app.rwun.test/app.rwun.SmokeInstrumentation | tee "build/reports/upgrade/$phase.txt"
   grep -q 'INSTRUMENTATION_RESULT: upgradeCheck=passed' "build/reports/upgrade/$phase.txt"
 done
-printf 'Published APK updated in place; synthetic activity, route, hold, preferences, ledger and SQLite sentinel retained.\n'
+printf 'Selected baseline installed and reinstalled in place; synthetic activity, route, hold, preferences, ledger and SQLite sentinel retained.\n'

@@ -1,5 +1,24 @@
 # Build and publish a release
 
+## Approved one-time signing transition (25 October 2026)
+
+The owner accepted starting fresh once after loss of the temporary runner key.
+The release guard permits this only for the exact published build 100048 APK
+(SHA-256 `d17b23794947f8672efe762e4ee6587d355221180c3aa73323f919a6c361f510`)
+and the permanent certificate pinned in `scripts/verify-apk-upgrade.py`.
+This narrowly scoped exception supersedes the legacy recovery-only policy below.
+It does not claim an in-place upgrade or retain old local data. Release notes
+explicitly instruct consenting users to uninstall once and install the new release.
+Wait for a successful release before removing the old app.
+
+The transition emulator test installs the new candidate, seeds synthetic data,
+and verifies same-key reinstall retention. Subsequent releases compare against
+the new published baseline and run the normal in-place upgrade acceptance test.
+Unknown baseline binaries, package changes, non-increasing versions and any future
+signing-key change remain blocked. Do not change or regenerate the permanent key.
+Keep its encrypted offline backup; GitHub secrets alone are not a recovery backup.
+
+
 ## GitHub APK distribution
 
 No Google Play account, service account, package upload or Play deployment is used. Every main build publishes an installable APK directly on GitHub Releases after checks. Publication requires one persistent private signing key. Runner-generated debug keys are never published because successive runners produce incompatible certificates. PR/debug artifacts remain test builds, separate from distribution. Google Play is not involved.
