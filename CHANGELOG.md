@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Health Connect controls
+
+- Replace repeated allow/enable/disable buttons with independent Read and Write switches and one background-import switch.
+- Offer a selective read chooser for activities/distance, heart rate, steps, active calories, sleep and resting heart rate, with on-demand summaries.
+- Preserve reviewed original-activity exports, duplicate review and local data when paused. Unsupported write metrics are explained rather than invented.
+
+
 ## Unreleased — GitHub APK distribution fix
 
 - Publish a labelled debug-signed APK to GitHub Releases when no private signing secrets exist; no Google Play setup is required.

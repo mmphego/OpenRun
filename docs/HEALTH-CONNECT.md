@@ -1,8 +1,14 @@
-# Health Connect — OpenRun 1.6.0 candidate
+# Health Connect
 
 The integration uses the official Android 14+ framework API, retaining Java and Android Views. Android 8–13 can still use core OpenRun features; this integration does not include the older standalone Health Connect app adapter.
 
-Open **Profile → Connected apps & devices → Health Connect**. Read and write access are independent. Granting a permission alone does not import or export a recording.
+Open **Profile → Connected apps & devices → Health Connect**. Two master switches control **Read from Health Connect** and **Write to Health Connect** independently. Enabling either opens a data chooser and Android permission request; it does not transfer an activity. The switches reflect actual allowed data, including partial denial and permissions revoked outside OpenRun.
+
+The read chooser offers runs/walks with distance, heart rate, steps, active calories, sleep and resting heart rate. Only selected permissions are requested; deselection and the Read switch gate all OpenRun Health Connect adapters, including Movement & recovery. Previously granted choices remain selected on upgrade. Runs and distance remain paired for safe activity imports. Use **Read selected data now** to import activities and display permitted daily aggregates. Steps and active calories are today-to-now totals; heart rate is the available today-to-now average; sleep/resting HR use the existing bounded recovery context. Missing data remains unavailable. These summaries are not persisted or converted into workouts.
+
+Writing supports one selectable group: original run/walk sessions and recorded distance. It continues to require choosing and reviewing each activity. Steps, calories, sleep and heart-rate sample exports are intentionally unavailable: OpenRun does not retain the original samples needed to write them reliably. No values are fabricated.
+
+Turning a master switch off pauses that direction locally, without deleting imports or system records or revoking the other direction. Read-off cancels an active screen import and stops background activity imports. A write already submitted to the platform may finish. **Manage Health Connect access** opens Android controls for actual system permission revocation. Background activity import uses one separate switch, still requires explicit supported background permission and never writes. Other summaries remain foreground-only.
 
 | Direction | Included | Behaviour |
 | --- | --- | --- |

@@ -19,6 +19,7 @@ public class HealthConnectActivity extends Activity {
     private LinearLayout body;
     private String message="", pendingId="", pendingFingerprint="";
     private int generation;
+    private java.util.concurrent.CompletableFuture<String> activeRead;
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
         if(saved!=null){message=saved.getString("message","");pendingId=saved.getString("pendingId","");pendingFingerprint=saved.getString("pendingFingerprint","");}
@@ -36,43 +37,82 @@ public class HealthConnectActivity extends Activity {
         body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);int pad=UiKit.dp(this,20);body.setPadding(pad,pad,pad,pad);body.setBackgroundColor(palette.background);
         ScrollView scroll=new ScrollView(this);scroll.addView(body);scroll.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(i.getSystemWindowInsetLeft(),i.getSystemWindowInsetTop(),i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i.consumeSystemWindowInsets();});setContentView(scroll);
         action("Back",this::finish);text("Health Connect",24);text(HealthAccess.status(this,healthAvailable()),14);
-        text("Read activities",20);text("Import runs and walks from the last 30 days. Imports stay on this phone; possible duplicates require review.",14);
+        text("Read activities",20);
+        text("Choose what OpenRun can read. Runs and walks import locally with duplicate review; other selected readings show a daily summary.",14);
         if(healthAvailable()){
-            if(!HealthSync.granted(this))action("Allow reading activities",()->new AlertDialog.Builder(this).setTitle("Read recent activities?")
-                    .setMessage("Read exercise sessions and distance. Optional heart-rate access is separate. Importing does not write or delete Health Connect data.")
-                    .setNegativeButton("Cancel",null).setPositiveButton("Continue",(d,w)->requestPermissions(HealthSync.PERMISSIONS,READ)).show());
-            action(HealthSync.busy()?"Import in progress…":"Read recent activities",this::read).setEnabled(HealthSync.granted(this)&&!HealthSync.busy());
-            action(HealthAccess.granted(this,HealthSync.HEART_RATE)?"Heart-rate import allowed":"Allow heart-rate import (optional)",()->requestPermissions(new String[]{HealthSync.HEART_RATE},HEART_RATE));
-            if(HealthAccess.backgroundSupported(this)){
-                text("Background reads: "+(getSystemService(android.app.job.JobScheduler.class).getPendingJob(81)!=null?"scheduled":"off"),13);
-                action("Enable background reads",()->{
-                    if(!HealthSync.granted(this)){message="Allow exercise and distance reads first.";show();return;}
-                    new AlertDialog.Builder(this).setTitle("Allow background import?").setMessage("Android may import recent runs and walks about every six hours. Timing depends on the system. Writing stays manual.")
-                            .setNegativeButton("Cancel",null).setPositiveButton("Continue",(d,w)->requestPermissions(new String[]{HealthJob.BACKGROUND},BACKGROUND)).show();
-                });
-            }else text("Background reads are unavailable on this Health Connect version. Foreground import remains available.",13);
-            action("Disable background reads",()->{HealthJob.schedule(this,false);message="Background reads disabled.";show();});
-        }
-        text("Write activities",20);text("Choose an original outdoor or indoor run/walk, then review the session and distance before writing. Imported activities are excluded.",14);
-        if(healthAvailable()){
-            if(!HealthExport.granted(this))action("Allow writing activities",()->{
-                pendingId="";pendingFingerprint="";
-                new AlertDialog.Builder(this).setTitle("Allow activity exports?").setMessage("Exercise and distance write access does not enable reading. Granting permission sends nothing; you still choose and review each recording.")
-                        .setNegativeButton("Cancel",null).setPositiveButton("Continue",(d,w)->requestPermissions(HealthExport.PERMISSIONS,WRITE)).show();
+            toggle("Read from Health Connect",HealthPreferences.anyReadGranted(this),enabled->{
+                if(enabled)chooseReadData();else{
+                    HealthPreferences.enabled(this,false,false);HealthJob.schedule(this,false);
+                    if(activeRead!=null)activeRead.cancel(false);
+                    generation++;message="Reading paused in OpenRun. Saved activities are kept. System grants remain until changed in Health Connect.";show();
+                }
             });
-            action(HealthExport.busy()?"Write in progress…":"Choose activity to write",this::choose).setEnabled(!HealthExport.busy());
+            text(HealthPreferences.summary(this),13);
+            action("Choose data to read",this::chooseReadData);
+            action(HealthSync.busy()?"Import in progress…":"Read selected data now",this::read).setEnabled(HealthPreferences.anyReadGranted(this)&&!HealthSync.busy());
+            if(HealthAccess.backgroundSupported(this)){
+                boolean scheduled=getSystemService(android.app.job.JobScheduler.class).getPendingJob(81)!=null;
+                toggle("Background activity imports",scheduled,enabled->{
+                    if(!enabled){HealthJob.schedule(this,false);show();return;}
+                    if(!HealthSync.granted(this)){message="Select and allow runs, walks & distance before enabling background imports.";show();return;}
+                    new AlertDialog.Builder(this).setTitle("Allow background import?").setMessage("Import recent runs and walks about every six hours. Other health summaries stay foreground-only. Android controls timing.")
+                        .setNegativeButton("Cancel",(d,w)->show()).setPositiveButton("Continue",(d,w)->requestPermissions(new String[]{HealthJob.BACKGROUND},BACKGROUND)).setOnCancelListener(d->show()).show();
+                });
+            }else text("Background imports are unavailable on this Health Connect version.",13);
         }
-        text("Writing uses stable record IDs, including when a distance is corrected. No GPS route, steps, heart-rate samples or feedback are exported. Time-only recordings create no distance record.",13);
+        text("Write activities",20);
+        text("Only original OpenRun runs and walks can be written. Each activity is reviewed before export; enabling access sends nothing.",14);
+        if(healthAvailable()){
+            toggle("Write to Health Connect",HealthExport.granted(this),enabled->{
+                pendingId="";pendingFingerprint="";
+                if(!enabled){HealthPreferences.enabled(this,true,false);message="Future writes paused. A write already sent may finish. Existing Health Connect records are kept.";show();return;}
+                new AlertDialog.Builder(this).setTitle("Choose data to write")
+
+                    .setMultiChoiceItems(new String[]{"Runs, walks & recorded distance"},new boolean[]{true},(d,w,checked)->((AlertDialog)d).getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(checked))
+                    .setNegativeButton("Cancel",(d,w)->show()).setPositiveButton("Allow selected data",(d,w)->{
+                        HealthPreferences.enabled(this,true,true);requestPermissions(HealthExport.PERMISSIONS,WRITE);
+                    }).setOnCancelListener(d->show()).show();
+            });
+            action(HealthExport.busy()?"Write in progress…":"Choose activity to write",this::choose).setEnabled(HealthExport.granted(this)&&!HealthExport.busy());
+        }
+        text("Supported writes: activity sessions and recorded distance only. Time-only activities create no distance record. OpenRun does not export calories or health samples it has not recorded.",13);
+        text("Turning a toggle off pauses that direction in OpenRun. To revoke Android permissions, open Health Connect access below. Routes, steps, calories and heart-rate samples are never exported.",13);
         if(!message.isEmpty())text(message,14);
         action("Manage Health Connect access",()->SettingsNavigator.openHealth(a->{try{startActivity(new Intent(a));return true;}catch(android.content.ActivityNotFoundException|SecurityException missing){return false;}}));
         action("Health data & privacy",()->startActivity(new Intent(this,HealthPrivacyActivity.class)));
         if(new RunStore(this).pendingImports().length()>0)action("Review possible duplicates",()->startActivity(new Intent(this,ImportReviewActivity.class)));
     }
+    private void toggle(String label,boolean checked,java.util.function.Consumer<Boolean> change){
+        Switch control=new Switch(this);control.setText(label);control.setTextSize(17);control.setTextColor(palette.ink);
+        control.setMinHeight(UiKit.dp(this,56));control.setPadding(0,UiKit.dp(this,8),0,UiKit.dp(this,8));
+        control.setChecked(checked);control.setOnCheckedChangeListener((button,value)->change.accept(value));body.addView(control);
+    }
+    private void chooseReadData(){
+        boolean[] selected=new boolean[HealthPreferences.LABELS.length];
+        for(int i=0;i<selected.length;i++)selected[i]=HealthPreferences.selected(this,i);
+        new AlertDialog.Builder(this).setTitle("Choose data to read")
+            .setMultiChoiceItems(HealthPreferences.LABELS,selected,(d,index,checked)->selected[index]=checked)
+            .setNegativeButton("Cancel",(d,w)->show()).setPositiveButton("Allow selected data",(d,w)->{
+                boolean any=false;for(boolean choice:selected)any|=choice;
+                if(activeRead!=null)activeRead.cancel(false);generation++;
+                HealthPreferences.select(this,selected);HealthPreferences.enabled(this,false,any);
+                if(!selected[0]||!any)HealthJob.schedule(this,false);
+                if(!any){message="No read data selected. Reading paused.";show();return;}
+                requestPermissions(HealthPreferences.requested(this),READ);
+            }).setOnCancelListener(d->show()).show();
+    }
     private void read(){
-        message="Reading recent activities…";show();
-        HealthSync.sync(getApplicationContext(),new RunStore(this)).whenComplete((value,error)->runOnUiThread(()->{
-            if(closed())return;message=error==null?value:"Read stopped. "+UserErrors.message(error)+" Already saved activities are kept.";show();
-        }));show();
+        int ticket=++generation;message="Reading selected data…";show();
+        java.util.concurrent.CompletableFuture<String> activities=HealthSync.granted(this)?HealthSync.sync(getApplicationContext(),new RunStore(this)):
+            java.util.concurrent.CompletableFuture.completedFuture("");
+        activeRead=activities;
+        var summary=HealthSummary.read(getApplicationContext());
+        activities.handle((value,error)->error==null?value:"Activity import stopped. Saved activities are kept. "+UserErrors.message(error))
+            .thenCombine(summary.exceptionally(error->"Selected health summary unavailable. "+UserErrors.message(error)),(a,b)->a+(a.isEmpty()||b.isEmpty()?"":"\n\n")+b)
+            .whenComplete((value,error)->runOnUiThread(()->{
+                if(closed()||ticket!=generation)return;
+                message=error==null?(value.isEmpty()?"No selected data is currently allowed.":value):UserErrors.message(error);show();
+            }));
     }
     private void choose(){
         int ticket=++generation;message="Loading original recordings…";show();
@@ -94,7 +134,8 @@ public class HealthConnectActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Write this activity?").setMessage(plan.summary()).setNegativeButton("Cancel",null)
                 .setPositiveButton("Write activity",(d,w)->{
                     pendingId=plan.id();pendingFingerprint=plan.fingerprint();
-                    if(!HealthExport.granted(this))requestPermissions(HealthExport.PERMISSIONS,WRITE);else write();
+                    if(!HealthPreferences.enabled(this,true)){pendingId="";pendingFingerprint="";message="Enable Write to Health Connect before reviewing an export.";show();}
+                    else if(!HealthExport.granted(this))requestPermissions(HealthExport.PERMISSIONS,WRITE);else write();
                 }).show();
     }
     private void write(){
@@ -111,7 +152,7 @@ public class HealthConnectActivity extends Activity {
             if(HealthExport.granted(this)){write();return;}
             pendingId="";pendingFingerprint="";message="Writing was not allowed. Nothing was sent.";
         }else if(request==BACKGROUND){boolean enabled=HealthSync.granted(this)&&HealthAccess.granted(this,HealthJob.BACKGROUND);HealthJob.schedule(this,enabled);message=enabled?"Background reads enabled; Android controls timing.":"Background access was not granted. Manual import remains available.";}
-        else if(request==READ)message=HealthSync.granted(this)?"Read access allowed. Tap Read recent activities to import.":"Exercise and distance read permissions are both required.";
+        else if(request==READ)message=HealthPreferences.anyReadGranted(this)?"Read access updated. Only selected, allowed data is read when requested.":"No selected read data was allowed. You can retry or manage access in Health Connect.";
         else if(request==WRITE)message=HealthExport.granted(this)?"Write access allowed. Choose an activity to review; nothing has been sent.":"Exercise and distance write permissions are both required.";
         show();
     }

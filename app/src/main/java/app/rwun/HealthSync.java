@@ -15,13 +15,13 @@ final class HealthSync {
  static final String HEART_RATE="android.permission.health.READ_HEART_RATE";
  static final String[] PERMISSIONS={"android.permission.health.READ_EXERCISE","android.permission.health.READ_DISTANCE"};
  private static final AtomicBoolean BUSY=new AtomicBoolean();
- static boolean granted(Context c){return HealthAccess.granted(c,PERMISSIONS);}
+ static boolean granted(Context c){return HealthPreferences.selected(c,0)&&HealthAccess.granted(c,PERMISSIONS);}
  static String status(Context c){return HealthAccess.status(c);}
  static boolean busy(){return BUSY.get();}
  static <T> CompletableFuture<T> failed(Throwable e){CompletableFuture<T> f=new CompletableFuture<>();f.completeExceptionally(e);return f;}
  static CompletableFuture<String> sync(Context c,RunStore store){
   if(android.os.Build.VERSION.SDK_INT<34||!HealthAccess.available(c)||!granted(c))return failed(new SecurityException("Grant exercise and distance read access first."));
-  try{return sync(store,c.getPackageName(),HealthAccess.granted(c,HEART_RATE),new Api34.Source(c));}
+  try{return sync(store,c.getPackageName(),HealthPreferences.selected(c,1)&&HealthAccess.granted(c,HEART_RATE),new Api34.Source(c));}
   catch(Exception e){return failed(e);}
  }
  record Page(List<ExerciseSessionRecord> records,long next){}
