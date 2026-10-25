@@ -318,6 +318,7 @@ final class RunStore {
                 .put("id", r.sessionId())
                 .put("date", r.date())
                 .put("km", r.km())
+                .put("distanceKnown", r.km()>0)
                 .put("minutes", r.minutes())
                 .put("rpe", r.rpe())
                 .put("fatigue", r.fatigue())

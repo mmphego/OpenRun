@@ -52,7 +52,9 @@ public class HealthConnectTest {
         RunStore reloaded=new RunStore(app);assertEquals(1,reloaded.runs().size());assertEquals(0,reloaded.runs().get(0).km(),0);
         assertEquals("Unavailable",ProgressViews.distance(reloaded.runs().get(0).km()));
         assertFalse(reloaded.walks().getJSONObject(0).getBoolean("distanceKnown"));assertEquals(0,source.heart);
-        assertTrue(read(source,false).contains("0 runs/walks"));assertEquals(1,new RunStore(app).runs().size());
+        store.add(new RunStore.Run("new-local",LocalDate.now().toString(),3,20,5,2,false,"Manual","",0,1200));
+        RunStore.validatePreferences(store.backupPreferences());
+        assertTrue(read(source,false).contains("0 runs/walks"));assertEquals(2,new RunStore(app).runs().size());
     }
     @Test public void emptyReadExplainsSourceAndTimeWindow()throws Exception{
         String result=read(new Source(),false);assertTrue(result.contains("last 30 days"));assertTrue(result.contains("steps alone do not create activities"));
@@ -83,6 +85,12 @@ public class HealthConnectTest {
         read(new Source(one),false);
         var two=new ExerciseSessionRecord.Builder(new Metadata.Builder().setId("00000000-0000-0000-0000-000000000002").setDataOrigin(new DataOrigin.Builder().setPackageName("other.publisher").build()).build(),one.getStartTime(),one.getEndTime(),RUN).setStartZoneOffset(one.getStartZoneOffset()).build();
         read(new Source(two),false);assertEquals(1,store.runs().size());assertEquals(1,store.pendingImports().length());
+    }
+    @Test public void timeOnlyCounterpartRequiresDuplicateReview()throws Exception{
+        ExerciseSessionRecord one=session(1,RUN,"test.publisher",7200);read(new Source(one),false);
+        var two=new ExerciseSessionRecord.Builder(new Metadata.Builder().setId("00000000-0000-0000-0000-000000000002").setDataOrigin(new DataOrigin.Builder().setPackageName("other.publisher").build()).build(),one.getStartTime(),one.getEndTime(),RUN).build();
+        Source missing=new Source(two);missing.km=null;read(missing,false);
+        assertEquals(1,store.runs().size());assertEquals(1,store.pendingImports().length());
     }
     @Test public void partialReadFailureKeepsSavedPage()throws Exception{
         Source source=new Source(session(1,RUN,"test.publisher",7200)){

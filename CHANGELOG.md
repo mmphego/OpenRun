@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Show immediate Health Connect read feedback and publish activity outcomes independently of slower daily summaries. Preserve time-only markers when rewriting history and review timestamp-matched duplicates with unknown distance.
+
 - Preserve Health Connect runs with missing distance as time-only history; show unavailable distance and keep repeat-import protection.
 - Put Health Connect results at the top and explain empty reads, the 30-day window and where activities appear.
 
