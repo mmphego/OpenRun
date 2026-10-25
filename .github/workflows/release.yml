@@ -91,6 +91,13 @@ jobs:
           RWUN_RELEASE_VERSION: v${{ steps.identity.outputs.version }}
           EXPECTED_SIGNING_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
         run: bash scripts/package-release-apk.sh
+      - name: Verify compatibility with published APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/check-published-upgrade.sh
+      - name: Verify in-place upgrade and retained data
+        run: bash scripts/test-apk-upgrade.sh
       - name: Retain signed APK and checksum
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

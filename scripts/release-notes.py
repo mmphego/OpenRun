@@ -18,7 +18,7 @@ print(f"\nDownload **{apk.name}** from this release's assets. "
 if variant == "debug":
     print("\n**Debug build:** debuggable and signed with the runner debug key. "
           "Keys may differ between builds. An incompatible certificate blocks in-place updates. "
-          "Export a backup first; do not uninstall without preserving your data.")
+          "This is not a supported distribution update. Keep the installed app if its certificate conflicts; never uninstall or clear data to apply this build.")
 print(f"\nVerify the download with `sha256sum -c {apk.name}.sha256`. "
       "Updates require the same signing certificate; back up your data before installing.")
 print("\nAutomated build checks do not establish physical-device acceptance.")

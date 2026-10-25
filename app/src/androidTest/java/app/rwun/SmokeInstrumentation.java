@@ -9,16 +9,53 @@ import java.util.List;
 
 /** Run with adb shell am instrument -w app.rwun.test/app.rwun.SmokeInstrumentation. */
 public final class SmokeInstrumentation extends Instrumentation {
+  /** CI emulator only: exercise real app history, private files/preferences and SQLite across install -r. */
+  private void upgradeData(String phase)throws Exception{
+    Context context=getTargetContext();RunStore store=new RunStore(context);
+    var state=context.getSharedPreferences("upgrade-acceptance",Context.MODE_PRIVATE);
+    java.io.File route=new java.io.File(context.getFilesDir(),"upgrade-route.gpx");
+    if(phase.equals("seed")){
+      if(!state.edit().putString("token","retain-upgrade-data").commit())throw new IllegalStateException("Could not seed preferences");
+      try(var stream=new java.io.FileOutputStream(route)){stream.write("synthetic upgrade route".getBytes(StandardCharsets.UTF_8));}
+      new DailyHealthStore(context).saveCheckin(new DailyHealthRules.Checkin(java.time.Instant.now(),7d,2,2,DailyHealthRules.Answer.UNKNOWN,DailyHealthRules.Answer.NO,false));
+      store.add(new RunStore.Run("upgrade:fixture","2026-01-01",3.25,25,4,2,false,"Upgrade acceptance","upgrade-route.gpx",123,1500));
+      store.adapt(new AdaptiveCoach.Advice(0,true,"Upgrade acceptance hold"));
+      context.getSharedPreferences("health-connect-exports",Context.MODE_PRIVATE).edit().putLong("upgrade-ledger",12345).commit();
+      try(var db=context.openOrCreateDatabase("upgrade-acceptance.db",Context.MODE_PRIVATE,null)){
+        db.execSQL("CREATE TABLE sentinel (value TEXT NOT NULL)");db.execSQL("INSERT INTO sentinel VALUES ('retained')");
+      }
+    }else if(!phase.equals("verify"))throw new IllegalArgumentException("Unknown upgrade phase");
+    if(!state.getString("token","").equals("retain-upgrade-data"))throw new IllegalStateException("Preferences lost");
+    if(!new String(java.nio.file.Files.readAllBytes(route.toPath()),StandardCharsets.UTF_8).equals("synthetic upgrade route"))throw new IllegalStateException("Private route lost");
+    var run=store.runs().stream().filter(r->r.sessionId().equals("upgrade:fixture")).findFirst().orElseThrow();
+    if(run.km()!=3.25||run.seconds()!=1500||run.avgHr()!=123||!run.routeFile().equals("upgrade-route.gpx"))throw new IllegalStateException("Activity changed");
+    var checkin=new DailyHealthStore(context).checkin(java.time.Instant.now());
+    if(checkin==null||checkin.sleepHours()==null||checkin.sleepHours()!=7d)throw new IllegalStateException("Private wellness check-in lost");
+    if(!store.resting()||!store.adaptation().equals("Upgrade acceptance hold"))throw new IllegalStateException("Training hold lost");
+    if(context.getSharedPreferences("health-connect-exports",Context.MODE_PRIVATE).getLong("upgrade-ledger",0)!=12345)throw new IllegalStateException("Export ledger lost");
+    try(var db=context.openOrCreateDatabase("upgrade-acceptance.db",Context.MODE_PRIVATE,null);var cursor=db.rawQuery("SELECT value FROM sentinel",null)){
+      if(!cursor.moveToFirst()||!cursor.getString(0).equals("retained"))throw new IllegalStateException("SQLite data lost");
+    }
+  }
+
   private int assertions;
+  private String upgradePhase="";
 
   @Override
   public void onCreate(Bundle arguments) {
     super.onCreate(arguments);
+    if(arguments!=null)upgradePhase=arguments.getString("upgradePhase","");
     start();
   }
 
   @Override
   public void onStart() {
+    if(!upgradePhase.isEmpty()){
+      Bundle upgradeResult=new Bundle();
+      try{upgradeData(upgradePhase);upgradeResult.putString("upgradeCheck","passed");finish(-1,upgradeResult);}
+      catch(Exception error){upgradeResult.putString("upgradeCheck","failed: "+error);finish(1,upgradeResult);}
+      return;
+    }
     Bundle result = new Bundle();
     try {
       check(java.util.Arrays.asList(getTargetContext().getPackageManager().getPackageInfo(getTargetContext().getPackageName(),android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions).contains(android.Manifest.permission.ACCESS_NETWORK_STATE),"network-constrained jobs declare network state permission");

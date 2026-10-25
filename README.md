@@ -58,7 +58,7 @@ Device captures of the current build are a [starter contribution](CONTRIBUTING.m
 3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.7.2-BUILD-release.apk`.
 4. Grant recording permissions when needed. Use an installed offline TTS voice for offline audio coaching.
 
-For an interim developer build, open a successful [CI run](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml), download its versioned `OpenRun-<version>-<code>-<commit>-debug.apk` artifact, unzip and install the APK. Artifact download may require GitHub sign-in; retention is 14 days. Debug builds are for testing and may have different signing certificates. **Export a backup before uninstalling an incompatible old build**; uninstalling erases app data.
+For isolated developer testing, open a successful [CI run](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml), download its versioned `OpenRun-<version>-<code>-<commit>-debug.apk` artifact, unzip and install the APK. Artifact download may require GitHub sign-in; retention is 14 days. Debug builds are for testing and may have different signing certificates. **Do not uninstall or clear data to apply an update.** Keep your existing app installed if Android rejects a certificate. Distribution updates must pass package/certificate/version checks and an in-place upgrade retention test; CI debug artifacts are not supported distribution updates.
 
 ## Develop from a clean clone
 
