@@ -42,7 +42,7 @@ final class ProgressViews {
     return raw;
   }
 
-  static String distance(double km) { return String.format(Locale.getDefault(), "%.2f km", km); }
+  static String distance(double km) { return km > 0 ? String.format(Locale.getDefault(), "%.2f km", km) : "Unavailable"; }
   static String time(long seconds) {
     return seconds >= 3600
         ? String.format(Locale.getDefault(), "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)

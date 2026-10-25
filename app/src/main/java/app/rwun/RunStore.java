@@ -667,7 +667,8 @@ final class RunStore {
       if (id.isEmpty()
           || !ids.add(id)
           || !Double.isFinite(r.getDouble("km"))
-          || r.getDouble("km") <= 0
+          || r.getDouble("km") < 0
+          || (r.getDouble("km") == 0 && !(id.startsWith("health:") && r.has("distanceKnown") && !r.getBoolean("distanceKnown")))
           || r.getDouble("km") > 250
           || r.getInt("minutes") < 1
           || r.getInt("minutes") > 3000
