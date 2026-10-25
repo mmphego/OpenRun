@@ -27,6 +27,8 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: server/requirements.txt
+      - name: APK distribution regressions
+        run: python3 -m unittest discover -s tests/ci -v
       - name: Install Python test dependencies
         run: python3 -m pip install -r server/requirements.txt
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3

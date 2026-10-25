@@ -1,4 +1,4 @@
-name: Signed APK release
+name: GitHub APK release
 on:
   push:
     branches: [main]
@@ -60,34 +60,22 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
         with:
           cache-read-only: true
+      - name: APK distribution regressions
+        run: python3 -m unittest discover -s tests/ci -v
       - name: Checks without signing credentials
         run: |
           sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"
           python3 -m pip install -r server/requirements.txt
           bash scripts/check.sh
-      - name: Sign and package release
+      - name: Select signing mode and package APK
+        id: package
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           RWUN_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           RWUN_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           RWUN_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           RWUN_RELEASE_VERSION: v${{ steps.identity.outputs.version }}
-        run: |
-          for variable in KEYSTORE_BASE64 RWUN_KEYSTORE_PASSWORD RWUN_KEY_ALIAS RWUN_KEY_PASSWORD; do
-            if [ -z "${!variable}" ]; then echo "::error::Missing release signing secret for $variable. See docs/RELEASING.md."; exit 1; fi
-          done
-          export RWUN_KEYSTORE_PATH="$RUNNER_TEMP/openrun-release.keystore"
-          trap 'rm -f "$RWUN_KEYSTORE_PATH"' EXIT
-          umask 077
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RWUN_KEYSTORE_PATH"
-          ./gradlew --no-daemon :app:verifyReleaseSigning :app:assembleRelease
-          apk=app/build/outputs/apk/release/app-release.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
-          mkdir -p release-assets
-          name="OpenRun-${RWUN_RELEASE_VERSION#v}-${OPENRUN_VERSION_CODE}.apk"
-          cp "$apk" "release-assets/$name"
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 "$apk"
-          (cd release-assets && sha256sum "$name" > "$name.sha256")
+        run: bash scripts/package-release-apk.sh
       - name: Retain signed APK and checksum
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -111,7 +99,7 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --draft --title "OpenRun ${RELEASE_TAG#v}" --generate-notes
           fi
-          python3 scripts/release-notes.py release-assets > "$RUNNER_TEMP/release-notes.md"
+          python3 scripts/release-notes.py release-assets "${{ steps.package.outputs.variant }}" > "$RUNNER_TEMP/release-notes.md"
           gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$RELEASE_TAG" -f target_commitish="$GITHUB_SHA" --jq '.body' >> "$RUNNER_TEMP/release-notes.md"
           gh release edit "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           gh release upload "$RELEASE_TAG" release-assets/*.apk release-assets/*.sha256 --clobber

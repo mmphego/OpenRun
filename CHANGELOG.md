@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — GitHub APK distribution fix
+
+- Publish a labelled debug-signed APK to GitHub Releases when no private signing secrets exist; no Google Play setup is required.
+- Retain optional stable release-key signing and reject partial/invalid configuration.
+- Identify signing mode and upgrade limitations in release notes.
+
+
 ## Unreleased — Personal voice coach
 
 - Add next-run lessons, optional manageability/helpfulness reflections, previous-run review and comparable effort/pacing summaries.

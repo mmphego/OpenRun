@@ -96,7 +96,7 @@ Do not use `connectedDebugAndroidTest` as a substitute for the command above: th
 - `app/src/main/res/values/race_providers.xml` keeps RunSignup disabled. Enable it only with the required approval and an HTTPS proxy that holds caller credentials server-side. Never place secrets in Android resources: APKs can be inspected.
 - For the optional service, copy `server/.env.example` to `server/.env`, configure only the integrations you intend to operate, and follow [server/README.md](server/README.md). No service is deployed for you.
 - Local model setup and terms: [OFFLINE-COACH.md](docs/OFFLINE-COACH.md). Weights are not included.
-- Release signing: [docs/RELEASING.md](docs/RELEASING.md). All four signing secrets must be configured before tag builds can publish.
+- Release signing: [docs/RELEASING.md](docs/RELEASING.md). No Google Play setup is used. With zero signing secrets, builds publish labelled debug-signed APKs; all four optional signing secrets enable stable release signing.
 
 ## Architecture
 
@@ -122,7 +122,7 @@ python3 -m unittest discover -s tests/device -p 'test_*.py' -v
 
 Host regressions compile/run the existing Java test programs; the runner downloads two checksum-pinned test-only JARs and emits logs/JUnit XML under `build/reports/host`. Gradle tests include the recovered `tests/native` suites, Room upserts, both schema-1 migration paths, cross-provider merging, saved choices and database leases through Robolectric. Each test class runs in a fresh worker process; the live-provider test is skipped by default. Native UI renders are host evidence, not emulator or S23 acceptance. Android Lint is the current static analysis gate; no separate formatter or static analyser is claimed. Device QA utilities and the physical acceptance checklist are under [tests/device](tests/device/README.md) and [tests/s23](tests/s23/CHECKLIST.md).
 
-CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It verifies both debug APK signatures and ZIP alignment before uploading the app APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Pushes to main (including PR merges) and version tags run the separate signed release workflow after full checks. Each main build publishes a versioned APK, checksum and generated release notes to [Latest release](https://github.com/mmphego/OpenRun/releases/latest), provided signing secrets are configured. See [release setup and versioning](docs/RELEASING.md). [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
+CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It verifies both debug APK signatures and ZIP alignment before uploading the app APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Pushes to main (including PR merges) and version tags run the separate signed release workflow after full checks. Each main build publishes a versioned APK, checksum and generated release notes to [Latest release](https://github.com/mmphego/OpenRun/releases/latest) using debug signing when no private key is configured. See [release setup and versioning](docs/RELEASING.md). [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
 
 ## Collaborate
 
