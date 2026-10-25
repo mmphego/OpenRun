@@ -32,4 +32,8 @@ mkdir -p release-assets
 name="OpenRun-${RWUN_RELEASE_VERSION#v}-${OPENRUN_VERSION_CODE}-${variant}.apk"
 cp "$apk" "release-assets/$name"
 (cd release-assets && sha256sum "$name" > "$name.sha256")
+# Test runner is signed with the same identity so it can exercise a non-debuggable release.
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+  "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$RWUN_KEYSTORE_PATH" --ks-key-alias "$RWUN_KEY_ALIAS" --ks-pass env:RWUN_KEYSTORE_PASSWORD --key-pass env:RWUN_KEY_PASSWORD --out build/upgrade-test.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+fi
 echo "variant=$variant" >> "$GITHUB_OUTPUT"

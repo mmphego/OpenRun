@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Data-preserving upgrade gates
+
+- Block distribution unless the candidate matches the published APK package and certificate and increases versionCode.
+- Require a disposable-emulator in-place upgrade check with synthetic persisted history, route, hold, check-in, ledger and SQLite data.
+- Remove uninstall/clear-data recommendations from the supported update path. Existing incompatible installs remain untouched while their original signing key is sought.
+
+
 ## 1.7.2 — Stable APK signing candidate
 
 - Stop publishing APKs signed with a different random key on each runner. Require a persistent distribution key and pinned certificate.
