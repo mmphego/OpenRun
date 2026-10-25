@@ -62,6 +62,20 @@ jobs:
           cache-read-only: true
       - name: APK distribution regressions
         run: python3 -m unittest discover -s tests/ci -v
+      - name: Check stable signing configuration
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPECTED_SIGNING_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
+        run: |
+          for variable in KEYSTORE STORE_PASSWORD KEY_ALIAS KEY_PASSWORD EXPECTED_SIGNING_SHA256; do
+            if [ -z "${!variable}" ]; then
+              echo '::error::Stable APK signing is not configured. Run scripts/configure-signing.sh; see docs/RELEASING.md.'
+              exit 1
+            fi
+          done
       - name: Checks without signing credentials
         run: |
           sdkmanager "platforms;android-36" "build-tools;35.0.0" "platform-tools"
@@ -75,6 +89,7 @@ jobs:
           RWUN_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           RWUN_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           RWUN_RELEASE_VERSION: v${{ steps.identity.outputs.version }}
+          EXPECTED_SIGNING_SHA256: ${{ vars.ANDROID_SIGNING_CERT_SHA256 }}
         run: bash scripts/package-release-apk.sh
       - name: Retain signed APK and checksum
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

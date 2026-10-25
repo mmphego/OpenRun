@@ -11,7 +11,7 @@ SCRIPT = ROOT / 'scripts/package-release-apk.sh'
 
 
 class ApkDistributionTest(unittest.TestCase):
-    def package(self, secrets=0, fail=False):
+    def package(self, secrets=0, fail=False, mismatch=False, pin=True):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             for variant in ('debug', 'release'):
@@ -24,21 +24,21 @@ class ApkDistributionTest(unittest.TestCase):
             tools.mkdir(parents=True)
             for name in ('apksigner', 'zipalign'):
                 path = tools / name
-                path.write_text('#!/bin/sh\nexit 0\n')
+                path.write_text('#!/bin/sh\necho \"Signer #1 certificate SHA-256 digest: ' + 'a'*64 + '\"\nexit 0\n')
                 path.chmod(0o700)
             gradle = root / 'gradlew'
             gradle.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> gradle-args\nexit ' + ('1' if fail else '0') + '\n')
             gradle.chmod(0o700)
             env = dict(os.environ, ANDROID_HOME=str(root/'sdk'), RUNNER_TEMP=temp,
                        RWUN_RELEASE_VERSION='v1.7.0', OPENRUN_VERSION_CODE='100037',
-                       GITHUB_OUTPUT=str(root/'outputs'))
+                       GITHUB_OUTPUT=str(root/'outputs'), EXPECTED_SIGNING_SHA256=('b' if mismatch else 'a')*64 if pin else '')
             keys = ['KEYSTORE_BASE64', 'RWUN_KEYSTORE_PASSWORD', 'RWUN_KEY_ALIAS', 'RWUN_KEY_PASSWORD']
             for i, key in enumerate(keys):
                 env[key] = ('dGVzdA==' if i == 0 else 'synthetic') if i < secrets else ''
             result = subprocess.run(['bash', str(SCRIPT)], cwd=root, env=env, capture_output=True, text=True)
-            if secrets in (0, 4) and not fail:
+            if secrets == 4 and not fail and not mismatch and pin:
                 self.assertEqual(result.returncode, 0, result.stderr)
-                variant = 'debug' if secrets == 0 else 'release'
+                variant = 'release'
                 name = f'OpenRun-1.7.0-100037-{variant}.apk'
                 self.assertTrue((root/'release-assets'/name).exists())
                 subprocess.run(['sha256sum', '-c', name+'.sha256'], cwd=root/'release-assets', check=True, capture_output=True)
@@ -51,7 +51,7 @@ class ApkDistributionTest(unittest.TestCase):
                 self.assertFalse((root/'release-assets').exists())
             self.assertFalse((root/'openrun-release.keystore').exists())
 
-    def test_no_secrets_publishes_debug(self):
+    def test_no_secrets_never_publishes_a_random_key(self):
         self.package()
 
     def test_complete_secrets_select_release(self):
@@ -63,6 +63,12 @@ class ApkDistributionTest(unittest.TestCase):
 
     def test_signing_failure_has_no_fallback(self):
         self.package(4, fail=True)
+
+    def test_changed_certificate_rejected(self):
+        self.package(4, mismatch=True)
+
+    def test_unpinned_certificate_rejected(self):
+        self.package(4, pin=False)
 
 
 if __name__ == '__main__':
