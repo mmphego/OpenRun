@@ -30,6 +30,10 @@ final class HealthPreferences {
         for(int i=0;i<LABELS.length;i++)if(selected(c,i))java.util.Collections.addAll(permissions,READ_PERMISSIONS[i]);
         return permissions.toArray(new String[0]);
     }
+    static void selectPermission(Context c,String permission){
+        for(int i=0;i<READ_PERMISSIONS.length;i++)for(String candidate:READ_PERMISSIONS[i])
+            if(candidate.equals(permission)){state(c).edit().putBoolean("type:"+i,true).apply();return;}
+    }
     static boolean allows(Context c,String permission){
         if(permission.startsWith("android.permission.health.WRITE_"))return enabled(c,true);
         if(!permission.startsWith("android.permission.health.READ_"))return true;

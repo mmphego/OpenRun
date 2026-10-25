@@ -41,6 +41,30 @@ public class HealthConnectUiTest {
   HealthPreferences.enabled(app,false,true);assertTrue(HealthSync.granted(app));
   Shadows.shadowOf(app).denyPermissions(HealthSync.PERMISSIONS);assertFalse(HealthSync.granted(app));
  }
+ public static class SlowReadActivity extends AvailableHealthActivity {
+  final java.util.concurrent.CompletableFuture<String> pending=new java.util.concurrent.CompletableFuture<>();
+  final java.util.concurrent.CompletableFuture<String> summary=new java.util.concurrent.CompletableFuture<>();
+  int calls;
+  @Override protected java.util.concurrent.CompletableFuture<String> importActivities(){calls++;return pending;}
+  @Override protected java.util.concurrent.CompletableFuture<String> readSummary(){return summary;}
+ }
+ @Test public void doubleReadKeepsOriginalHandleAndPauseCancelsIt(){
+  Shadows.shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(HealthSync.PERMISSIONS);
+  try(var c=Robolectric.buildActivity(SlowReadActivity.class).setup().visible()){
+   NativePlanningTest.click(c.get(),"Read selected data now");
+   NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read selected data now").performClick();
+   assertEquals(1,c.get().calls);
+   ((android.widget.Switch)NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read from Health Connect")).setChecked(false);
+   assertTrue(c.get().pending.isCancelled());
+  }
+ }
+ @Test public void explicitDailyHealthOptInSelectsMetricWithoutClearingReadPause(){
+  var app=RuntimeEnvironment.getApplication();
+  HealthPreferences.select(app,new boolean[]{true,false,false,false,false,false});
+  HealthPreferences.enabled(app,false,false);
+  HealthPreferences.selectPermission(app,DailyHealthSource.STEPS);
+  assertTrue(HealthPreferences.selected(app,2));assertFalse(HealthPreferences.enabled(app,false));
+ }
  @Test public void requestingOnlyCaloriesDoesNotRequestOtherPermissions(){
   var app=RuntimeEnvironment.getApplication();
   HealthPreferences.select(app,new boolean[]{false,false,false,true,false,false});
