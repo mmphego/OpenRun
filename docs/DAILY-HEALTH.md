@@ -60,3 +60,7 @@ Before release, use an S23 and an older Android device to verify:
 8. Feature data is absent from backups and optional AI payloads. Deleting data during a pending read cannot resurrect results or notifications. Test only with synthetic data.
 
 References: [Health Connect reads/steps/aggregation](https://developer.android.com/health-and-fitness/health-connect/read-data), [JobScheduler](https://developer.android.com/reference/android/app/job/JobScheduler), [Garmin → Health Connect](https://support.garmin.com/en-GB/?faq=JToBEy0jfe6pIygark2Ui5).
+
+## Recovery check-in controls
+
+The check-in uses visible single-choice chips instead of dropdowns. Skip maps to unknown, and the five fatigue/soreness levels retain their existing values. Rest, body and evening questions are grouped into cards; watch-data/privacy details expand only when requested. Save/review and continue-without-saving remain below the scrolling form. Sleep accepts 0–16 hours (including decimals) with inline validation. Unsaved choices survive recreation and expansion without being persisted as a check-in until Save. Large text uses two chip columns instead of three. Pain remains explicit and does not silently create or clear a training hold.
