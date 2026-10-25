@@ -50,6 +50,17 @@ public class HealthConnectTest {
         Source source=new Source(session(1,RUN,"test.publisher",7200),session(2,WALK,"test.publisher",3600));source.km=null;
         read(source,false);assertTrue(store.runs().isEmpty());assertFalse(store.walks().getJSONObject(0).getBoolean("distanceKnown"));assertEquals(0,source.heart);
     }
+    @Test public void pausedReadDoesNotSaveAnInFlightDistanceResult()throws Exception{
+        java.util.concurrent.atomic.AtomicBoolean allowed=new java.util.concurrent.atomic.AtomicBoolean(true);
+        CompletableFuture<Double> distance=new CompletableFuture<>();
+        java.util.concurrent.CountDownLatch requested=new java.util.concurrent.CountDownLatch(1);
+        Source source=new Source(session(1,RUN,"test.publisher",7200)){
+            @Override public CompletableFuture<Double> distance(ExerciseSessionRecord row){requested.countDown();return distance;}
+        };
+        var result=HealthSync.sync(store,app.getPackageName(),false,source,allowed::get);
+        assertTrue(requested.await(5,TimeUnit.SECONDS));allowed.set(false);distance.complete(2d);
+        fails(result);settle();assertTrue(store.runs().isEmpty());
+    }
     @Test public void ownExportsAndOtherSportsNeverLoopBack()throws Exception{
         Source source=new Source(session(1,RUN,app.getPackageName(),7200),session(2,ExerciseSessionType.EXERCISE_SESSION_TYPE_BIKING,"test.publisher",3600));
         read(source,false);assertEquals(0,source.distances);assertTrue(store.runs().isEmpty());
