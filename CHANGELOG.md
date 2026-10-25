@@ -1,5 +1,9 @@
 # Changelog
 
+## Release emulator reliability
+
+- Use a shared explicit AVD directory, report startup failures immediately, and execute the release emulator test path in pull requests.
+
 ## Signing transition
 
 - Allow the owner-approved one-time fresh installation from the exact legacy build 100048 to the permanent signing key. Future releases retain strict signing and upgrade checks.
