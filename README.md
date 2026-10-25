@@ -27,7 +27,7 @@ A native Android running and walking app with original branding and code, offlin
 
 The app was previously named Rwun. Its Android package ID `app.rwun`, storage keys and backup formats are retained for compatibility; the display name and distribution name are OpenRun.
 
-The current source candidate is **OpenRun 1.7.0 / versionCode 26**, adding [daily movement and recovery](docs/DAILY-HEALTH.md) alongside [plan-change history and safe undo](docs/PLAN-CHANGES.md) and [Health Connect reading and writing](docs/HEALTH-CONNECT.md) to the recovered 1.5.0 implementation. A compatible APK upgrade requires the same signing certificate as the installed app.
+The current source candidate is **OpenRun 1.7.1 / local versionCode 27**, adding [daily movement and recovery](docs/DAILY-HEALTH.md) alongside [plan-change history and safe undo](docs/PLAN-CHANGES.md) and [Health Connect reading and writing](docs/HEALTH-CONNECT.md) to the recovered 1.5.0 implementation. Published builds use an automatic increasing versionCode and tags such as `v1.7.1-build.<code>`. A compatible APK upgrade requires the same signing certificate as the installed app.
 
 The current focus is **running and walking**. Historical cycling and strength support code remains in the source to preserve completed work; it is outside the active product roadmap.
 
@@ -54,8 +54,8 @@ Device captures of the current build are a [starter contribution](CONTRIBUTING.m
 ## Install an APK
 
 1. Download a signed APK and its `.sha256` file from [Releases](https://github.com/mmphego/OpenRun/releases), **when a release has been published**. No signed public release is promised by this README.
-2. Verify it: `sha256sum -c OpenRun-1.7.0.apk.sha256` (macOS: `shasum -a 256 -c OpenRun-1.7.0.apk.sha256`). Adjust the filename for the release.
-3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.7.0.apk`.
+2. Verify it: `sha256sum -c OpenRun-1.7.1-BUILD-debug.apk.sha256` (macOS: `shasum -a 256 -c OpenRun-1.7.1-BUILD-debug.apk.sha256`). Adjust the filename for the release.
+3. Open the APK on an Android 8.0+ phone and allow installation from that download source, or run `adb install -r OpenRun-1.7.1-BUILD-debug.apk`.
 4. Grant recording permissions when needed. Use an installed offline TTS voice for offline audio coaching.
 
 For an interim developer build, open a successful [CI run](https://github.com/mmphego/OpenRun/actions/workflows/ci.yml), download its versioned `OpenRun-<version>-<code>-<commit>-debug.apk` artifact, unzip and install the APK. Artifact download may require GitHub sign-in; retention is 14 days. Debug builds are for testing and may have different signing certificates. **Export a backup before uninstalling an incompatible old build**; uninstalling erases app data.

@@ -1,20 +1,24 @@
 # Changelog
 
-## Unreleased — Health Connect controls
+## 1.7.1 — Patch candidate
+
+- Advance the APK display version to 1.7.1, retaining automatic build codes and `v1.7.1-build.<code>` release tags. Local/standalone versionCode advances to 27.
+
+### Health Connect controls
 
 - Replace repeated allow/enable/disable buttons with independent Read and Write switches and one background-import switch.
 - Offer a selective read chooser for activities/distance, heart rate, steps, active calories, sleep and resting heart rate, with on-demand summaries.
 - Preserve reviewed original-activity exports, duplicate review and local data when paused. Unsupported write metrics are explained rather than invented.
 
 
-## Unreleased — GitHub APK distribution fix
+### GitHub APK distribution fix
 
 - Publish a labelled debug-signed APK to GitHub Releases when no private signing secrets exist; no Google Play setup is required.
 - Retain optional stable release-key signing and reject partial/invalid configuration.
 - Identify signing mode and upgrade limitations in release notes.
 
 
-## Unreleased — Personal voice coach
+### Personal voice coach
 
 - Add next-run lessons, optional manageability/helpfulness reflections, previous-run review and comparable effort/pacing summaries.
 - Add repeatable timed beginner run/walk stages for GPS and treadmill sessions, with reviewed progression, stage history and safe undo.

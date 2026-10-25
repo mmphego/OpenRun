@@ -19,7 +19,7 @@ s=Path('app/src/main/AndroidManifest.xml').read_text().replace('<manifest ', '<m
 Path('build/standalone/AndroidManifest.xml').write_text(s)
 PY
 "$BT/aapt2" compile --dir app/src/main/res -o "$B/resources.zip"
-"$BT/aapt2" link "$B/resources.zip" -A app/src/main/assets -I "$PLATFORM" --manifest "$B/AndroidManifest.xml" --min-sdk-version 26 --target-sdk-version 36 --version-code 26 --version-name 1.7.0 --java "$B/generated" -o "$B/resources.apk"
+"$BT/aapt2" link "$B/resources.zip" -A app/src/main/assets -I "$PLATFORM" --manifest "$B/AndroidManifest.xml" --min-sdk-version 26 --target-sdk-version 36 --version-code 27 --version-name 1.7.1 --java "$B/generated" -o "$B/resources.apk"
 ROOM_CP="$(python3 -c 'from pathlib import Path; print(":".join(str(p) for p in Path("build/race-compiler").glob("*.jar")))')"
 mkdir -p app/schemas
 javac --release 17 -processorpath "$ROOM_CP" -processor androidx.room.RoomProcessor -Aroom.schemaLocation="$PWD/app/schemas" -s "$B/generated" -cp "$PLATFORM:$RUNTIME_CP" -d "$B/classes" "$B/generated/app/rwun/R.java" app/src/main/java/app/rwun/*.java
@@ -41,7 +41,7 @@ fi
 "$BT/zipalign" -P 16 -f 4 "$B/unsigned.apk" "$B/aligned.apk"
 if [ ! -f "$B/development.keystore" ] && [ -f development/debug.keystore ]; then cp development/debug.keystore "$B/development.keystore"; fi
 if [ ! -f "$B/development.keystore" ]; then keytool -genkeypair -keystore "$B/development.keystore" -storepass android -keypass android -alias androiddebugkey -dname 'CN=OpenRun Development,O=OpenRun,C=ZA' -keyalg RSA -keysize 2048 -validity 10000 >/dev/null 2>&1; fi
-"$BT/apksigner" sign --ks "$B/development.keystore" --ks-pass pass:android --out dist/OpenRun-1.7.0-pending.apk "$B/aligned.apk"
-"$BT/apksigner" verify --verbose dist/OpenRun-1.7.0-pending.apk
-mv dist/OpenRun-1.7.0-pending.apk dist/OpenRun-1.7.0-debug.apk
-sha256sum dist/OpenRun-1.7.0-debug.apk
+"$BT/apksigner" sign --ks "$B/development.keystore" --ks-pass pass:android --out dist/OpenRun-1.7.1-pending.apk "$B/aligned.apk"
+"$BT/apksigner" verify --verbose dist/OpenRun-1.7.1-pending.apk
+mv dist/OpenRun-1.7.1-pending.apk dist/OpenRun-1.7.1-debug.apk
+sha256sum dist/OpenRun-1.7.1-debug.apk
