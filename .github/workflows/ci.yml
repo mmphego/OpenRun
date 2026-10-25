@@ -13,7 +13,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -80,6 +80,13 @@ jobs:
           path: build/ci-artifacts/*.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Exercise release emulator install path without secrets
+        run: |
+          mkdir -p build/upgrade release-assets
+          cp app/build/outputs/apk/debug/app-debug.apk build/upgrade/baseline.apk
+          cp app/build/outputs/apk/debug/app-debug.apk release-assets/ci-candidate.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk build/upgrade-test.apk
+          bash scripts/test-apk-upgrade.sh
       - name: Upload test and lint reports
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
