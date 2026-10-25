@@ -18,10 +18,13 @@ class SigningSetupTest(unittest.TestCase):
     def test_remote_signing_cannot_be_replaced_by_new_local_key(self):
         self.run_setup(remote=True)
 
+    def test_existing_local_key_cannot_overwrite_unpinned_remote_signing(self):
+        self.run_setup(legacy=True)
+
     def test_different_pin_blocks_secret_updates(self):
         self.run_setup(mismatch=True)
 
-    def run_setup(self, repeat=False, remote=False, mismatch=False):
+    def run_setup(self, repeat=False, remote=False, mismatch=False, legacy=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             cli = root/'gh'
@@ -33,6 +36,9 @@ data=json.loads(state.read_text()) if state.exists() else {}
 if args[:2]==['auth','status']: pass
 elif args[:2]==['secret','list']:
     if os.environ.get('FAKE_REMOTE'): print('ANDROID_KEYSTORE_BASE64')
+    else:
+        for name in data:
+            if name.startswith('ANDROID_'): print(name)
 elif args[:2]==['variable','list']:
     print('b'*64 if os.environ.get('FAKE_MISMATCH') else data.get('pin',''))
 elif args[:2]==['secret','set']:
@@ -60,6 +66,12 @@ state.write_text(json.dumps(data))
             password=(root/'keys/password').read_text().strip()
             self.assertNotIn(password,result.stdout+result.stderr)
             self.assertEqual(0o600,(root/'keys/password').stat().st_mode&0o777)
+            if legacy:
+                del state['pin'];(root/'state').write_text(json.dumps(state))
+                blocked=subprocess.run(['bash',str(SCRIPT)],env=env,text=True,capture_output=True)
+                self.assertNotEqual(0,blocked.returncode)
+                self.assertIn('no verified certificate pin',blocked.stdout)
+                self.assertEqual(state,json.loads((root/'state').read_text()))
             if repeat:
                 again=subprocess.run(['bash',str(SCRIPT)],env=env,text=True,capture_output=True)
                 self.assertEqual(0,again.returncode,again.stderr)

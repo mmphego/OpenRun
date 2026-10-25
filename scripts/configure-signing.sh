@@ -10,7 +10,9 @@ done
 gh auth status >/dev/null
 # Never generate a replacement for already-configured repository signing.
 remote=$(gh secret list --repo "$repo" --json name --jq '.[].name')
-if [ ! -f "$keystore" ] && printf '%s\n' "$remote" | grep -E '^ANDROID_(KEYSTORE_BASE64|KEYSTORE_PASSWORD|KEY_ALIAS|KEY_PASSWORD)$' >/dev/null; then
+has_remote=false
+if printf '%s\n' "$remote" | grep -E '^ANDROID_(KEYSTORE_BASE64|KEYSTORE_PASSWORD|KEY_ALIAS|KEY_PASSWORD)$' >/dev/null; then has_remote=true; fi
+if [ ! -f "$keystore" ] && "$has_remote"; then
   echo 'Repository signing already exists but this machine has no original keystore. Restore it instead of replacing the key.'
   exit 1
 fi
@@ -27,10 +29,16 @@ fi
 # Public fingerprint only; never print key bytes or passwords.
 fingerprint=$(keytool -exportcert -keystore "$keystore" -storepass:file "$password_file" -alias openrun 2>/dev/null | openssl dgst -sha256 | awk '{print $NF}')
 existing=$(gh variable list --repo "$repo" --json name,value --jq '.[] | select(.name=="ANDROID_SIGNING_CERT_SHA256") | .value')
+if "$has_remote" && [ -z "$existing" ]; then
+  echo 'Existing repository signing has no verified certificate pin. Verify its original certificate and establish the pin before running setup; no secrets were changed.'
+  exit 1
+fi
 if [ -n "$existing" ] && [ "$existing" != "$fingerprint" ]; then
   echo 'Repository certificate pin differs. Refusing to replace an existing signing identity.'
   exit 1
 fi
+# Pin first so an interrupted initial setup can safely resume with this same key.
+gh variable set ANDROID_SIGNING_CERT_SHA256 --repo "$repo" --body "$fingerprint"
 python3 - "$keystore" <<'PY' | gh secret set ANDROID_KEYSTORE_BASE64 --repo "$repo"
 import base64,sys
 from pathlib import Path
@@ -39,6 +47,5 @@ PY
 tr -d '\r\n' < "$password_file" | gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$repo"
 printf '%s' openrun | gh secret set ANDROID_KEY_ALIAS --repo "$repo"
 tr -d '\r\n' < "$password_file" | gh secret set ANDROID_KEY_PASSWORD --repo "$repo"
-gh variable set ANDROID_SIGNING_CERT_SHA256 --repo "$repo" --body "$fingerprint"
 printf 'Configured stable signing for %s. Certificate SHA-256: %s\n' "$repo" "$fingerprint"
 printf 'Back up %s and its password securely outside this machine. Never commit or share them.\n' "$signing_dir"
