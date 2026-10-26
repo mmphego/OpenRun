@@ -1,5 +1,10 @@
 # Changelog
 
+## Installed build identity
+
+- Profile, Health Connect and recording diagnostics read the installed APK version instead of a hard-coded Profile label. Android App info now includes the build number, with a debug suffix for test APKs.
+- Put Read diagnostics beside the Health Connect result and show the build at the top of the screen. Reject release packaging when the actual APK manifest does not match the expected version and build.
+
 ## Health Connect read permissions
 
 - Allow time-only activity imports with Exercise permission when Distance is denied. Add local per-permission read diagnostics and exact query-window reporting for empty reads.

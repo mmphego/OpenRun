@@ -11,7 +11,7 @@ SCRIPT = ROOT / 'scripts/package-release-apk.sh'
 
 
 class ApkDistributionTest(unittest.TestCase):
-    def package(self, secrets=0, fail=False, mismatch=False, pin=True):
+    def package(self, secrets=0, fail=False, mismatch=False, pin=True, wrong_name=False, wrong_code=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             for variant in ('debug', 'release'):
@@ -19,13 +19,22 @@ class ApkDistributionTest(unittest.TestCase):
                 output.mkdir(parents=True)
                 (output / f'app-{variant}.apk').write_bytes(b'synthetic APK')
                 (output / 'output-metadata.json').write_text(json.dumps({'elements': [
-                    {'versionName': '1.7.0', 'versionCode': 100037}]}))
+                    {'versionName': '1.7.0-build.100037', 'versionCode': 100037}]}))
             tools = root / 'sdk/build-tools/35.0.0'
             tools.mkdir(parents=True)
             for name in ('apksigner', 'zipalign'):
                 path = tools / name
                 path.write_text('#!/bin/sh\necho \"Signer #1 certificate SHA-256 digest: ' + 'a'*64 + '\"\nexit 0\n')
                 path.chmod(0o700)
+            aapt2 = tools / 'aapt2'
+            name = '1.7.0' if wrong_name else '1.7.0-build.100037'
+            code = 100036 if wrong_code else 100037
+            aapt2.write_text(f'''#!/bin/sh
+cat <<'BADGING'
+package: name='app.rwun' versionCode='{code}' versionName='{name}'
+BADGING
+''')
+            aapt2.chmod(0o700)
             gradle = root / 'gradlew'
             gradle.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> gradle-args\nexit ' + ('1' if fail else '0') + '\n')
             gradle.chmod(0o700)
@@ -36,7 +45,7 @@ class ApkDistributionTest(unittest.TestCase):
             for i, key in enumerate(keys):
                 env[key] = ('dGVzdA==' if i == 0 else 'synthetic') if i < secrets else ''
             result = subprocess.run(['bash', str(SCRIPT)], cwd=root, env=env, capture_output=True, text=True)
-            if secrets == 4 and not fail and not mismatch and pin:
+            if secrets == 4 and not fail and not mismatch and pin and not wrong_name and not wrong_code:
                 self.assertEqual(result.returncode, 0, result.stderr)
                 variant = 'release'
                 name = f'OpenRun-1.7.0-100037-{variant}.apk'
@@ -69,6 +78,12 @@ class ApkDistributionTest(unittest.TestCase):
 
     def test_unpinned_certificate_rejected(self):
         self.package(4, pin=False)
+
+    def test_manifest_without_build_identity_cannot_be_published(self):
+        self.package(4, wrong_name=True)
+
+    def test_stale_apk_cannot_be_renamed_to_new_build(self):
+        self.package(4, wrong_code=True)
 
 
 if __name__ == '__main__':

@@ -20,6 +20,7 @@ umask 077
 printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RWUN_KEYSTORE_PATH"
 ./gradlew --no-daemon :app:verifyReleaseSigning :app:assembleRelease
 apk="app/build/outputs/apk/$variant/app-$variant.apk"
+python3 "$(dirname "$0")/verify-apk-version.py" "$ANDROID_HOME/build-tools/35.0.0/aapt2" "$apk" "${RWUN_RELEASE_VERSION#v}-build.${OPENRUN_VERSION_CODE}" "$OPENRUN_VERSION_CODE"
 certificate=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk")
 printf '%s\n' "$certificate"
 actual=$(printf '%s\n' "$certificate" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr '[:upper:]' '[:lower:]')

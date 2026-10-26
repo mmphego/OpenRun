@@ -1104,7 +1104,8 @@ public final class MainActivity extends Activity {
 
   private void settings() {
     content.addView(text("Your profile", 30, true));
-    content.addView(text("OpenRun 1.7.0 · Run around your life", 16, false));
+    content.addView(text(AppVersion.label(this), 16, false));
+    content.addView(text("Run around your life", 16, false));
 
     section("MY STUFF");
     LinearLayout devices=card();row(devices,R.drawable.ic_watch,"Connected apps & devices","Health Connect, Garmin and heart rate",this::connections);

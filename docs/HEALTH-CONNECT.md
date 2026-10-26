@@ -48,3 +48,5 @@ The Read button immediately displays a busy state. Activity outcomes appear inde
 ### Empty-read diagnosis
 
 Read diagnostics shows the device clock, build, local read selections and individual Android permission grants without making new reads or writes. The activity result includes the exact UTC query window, all-source scope and page count. Steps being readable does not establish Exercise access or Garmin workout availability. A zero-session response is reported as a service result, not proof that the source app has no workout. No diagnostic information is uploaded. Distance denial permits time-only imports, but Exercise denial still blocks activity reads.
+
+The installed version is displayed at the top of Health Connect and in Profile. Read diagnostics is beside the result, before the data controls. New APKs include the build number in Android's version name, so App info also identifies the exact build. Older releases displayed only `1.7.2` in Android App info and a stale `1.7.0` label in Profile; neither label could identify the installed build. A successful APK build or upgrade test does not validate Garmin reads on a phone.
