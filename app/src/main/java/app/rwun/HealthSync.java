@@ -15,12 +15,12 @@ final class HealthSync {
  static final String HEART_RATE="android.permission.health.READ_HEART_RATE";
  static final String[] PERMISSIONS={"android.permission.health.READ_EXERCISE","android.permission.health.READ_DISTANCE"};
  private static final AtomicBoolean BUSY=new AtomicBoolean();
- static boolean granted(Context c){return HealthPreferences.selected(c,0)&&HealthAccess.granted(c,PERMISSIONS);}
+ static boolean granted(Context c){return HealthPreferences.selected(c,0)&&HealthAccess.granted(c,PERMISSIONS[0]);}
  static String status(Context c){return HealthAccess.status(c);}
  static boolean busy(){return BUSY.get();}
  static <T> CompletableFuture<T> failed(Throwable e){CompletableFuture<T> f=new CompletableFuture<>();f.completeExceptionally(e);return f;}
  static CompletableFuture<String> sync(Context c,RunStore store){
-  if(android.os.Build.VERSION.SDK_INT<34||!HealthAccess.available(c)||!granted(c))return failed(new SecurityException("Grant exercise and distance read access first."));
+  if(android.os.Build.VERSION.SDK_INT<34||!HealthAccess.available(c)||!granted(c))return failed(new SecurityException("Grant exercise read access first. Distance is optional."));
   try{return sync(store,c.getPackageName(),HealthPreferences.selected(c,1)&&HealthAccess.granted(c,HEART_RATE),new Api34.Source(c),()->granted(c));}
   catch(Exception e){return failed(e);}
  }
@@ -60,7 +60,7 @@ final class HealthSync {
   }
   void session(List<ExerciseSessionRecord> records,int index,long next){
    if(!active())return;
-   if(index==records.size()){if(next!=-1){page(next);return;}result.complete("Imported "+added+" runs/walks · "+duplicates+" already saved · "+skipped+" skipped · "+review+" held for duplicate review. "+timeOnly+" imported without distance. Checked "+seen+" sessions from the last 30 days. "+(seen==0?"No exercise sessions were returned. Check that your source app writes exercise sessions to Health Connect; steps alone do not create activities.":"Open Progress for saved runs or Walking for saved walks; possible duplicates need review."));return;}
+   if(index==records.size()){if(next!=-1){page(next);return;}result.complete("Imported "+added+" runs/walks · "+duplicates+" already saved · "+skipped+" skipped · "+review+" held for duplicate review. "+timeOnly+" imported without distance. Checked "+seen+" sessions from the last 30 days. "+(seen==0?"Health Connect returned no exercise sessions to OpenRun. This does not establish whether your source app has the workout. In Health Connect, check Data and access → Activity → Exercise and the source app’s permission to write Exercise; steps alone do not create activities.":"Open Progress for saved runs or Walking for saved walks; possible duplicates need review.")+" Query: "+start+" to "+end+" (UTC), all source apps, "+pages+" page(s).");return;}
    seen++;ExerciseSessionRecord s=records.get(index);int type=s.getExerciseType();boolean walk=type==ExerciseSessionType.EXERCISE_SESSION_TYPE_WALKING;
    String provider=s.getMetadata().getDataOrigin().getPackageName(),external=s.getMetadata().getId();
    if((!walk&&type!=ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING&&type!=ExerciseSessionType.EXERCISE_SESSION_TYPE_RUNNING_TREADMILL)||provider.equals(own)){skipped++;session(records,index+1,next);return;}
@@ -92,10 +92,10 @@ final class HealthSync {
   static TimeInstantRangeFilter range(Instant start,Instant end){return new TimeInstantRangeFilter.Builder().setStartTime(start).setEndTime(end).build();}
   static AggregateRecordsRequest<Length> distanceRequest(ExerciseSessionRecord s){return new AggregateRecordsRequest.Builder<Length>(range(s.getStartTime(),s.getEndTime())).addAggregationType(DistanceRecord.DISTANCE_TOTAL).addDataOriginsFilter(s.getMetadata().getDataOrigin()).build();}
   static final class Source implements HealthSync.Source {
-   final HealthConnectManager manager;final Executor callback;
-   Source(Context c){manager=c.getSystemService(HealthConnectManager.class);callback=c.getMainExecutor();if(manager==null)throw new IllegalStateException("Health Connect is unavailable.");}
+   final Context context;final HealthConnectManager manager;final Executor callback;
+   Source(Context c){context=c;manager=c.getSystemService(HealthConnectManager.class);callback=c.getMainExecutor();if(manager==null)throw new IllegalStateException("Health Connect is unavailable.");}
    public CompletableFuture<Page> page(Instant start,Instant end,long token){CompletableFuture<Page> f=new CompletableFuture<>();var b=new ReadRecordsRequestUsingFilters.Builder<>(ExerciseSessionRecord.class).setTimeRangeFilter(range(start,end)).setPageSize(100).setAscending(true);if(token!=-1)b.setPageToken(token);try{manager.readRecords(b.build(),callback,new OutcomeReceiver<ReadRecordsResponse<ExerciseSessionRecord>,HealthConnectException>(){public void onResult(ReadRecordsResponse<ExerciseSessionRecord> r){f.complete(new Page(r.getRecords(),r.getNextPageToken()));}public void onError(HealthConnectException e){f.completeExceptionally(e);}});}catch(Exception e){f.completeExceptionally(e);}return f;}
-   public CompletableFuture<Double> distance(ExerciseSessionRecord s){CompletableFuture<Double> f=new CompletableFuture<>();try{manager.aggregate(distanceRequest(s),callback,new OutcomeReceiver<AggregateRecordsResponse<Length>,HealthConnectException>(){public void onResult(AggregateRecordsResponse<Length> r){Length length=r.get(DistanceRecord.DISTANCE_TOTAL);f.complete(length==null?null:length.getInMeters()/1000);}public void onError(HealthConnectException e){f.completeExceptionally(e);}});}catch(Exception e){f.completeExceptionally(e);}return f;}
+   public CompletableFuture<Double> distance(ExerciseSessionRecord s){if(!HealthAccess.granted(context,PERMISSIONS[1]))return CompletableFuture.completedFuture(null);CompletableFuture<Double> f=new CompletableFuture<>();try{manager.aggregate(distanceRequest(s),callback,new OutcomeReceiver<AggregateRecordsResponse<Length>,HealthConnectException>(){public void onResult(AggregateRecordsResponse<Length> r){Length length=r.get(DistanceRecord.DISTANCE_TOTAL);f.complete(length==null?null:length.getInMeters()/1000);}public void onError(HealthConnectException e){f.completeExceptionally(e);}});}catch(Exception e){f.completeExceptionally(e);}return f;}
    public CompletableFuture<Integer> heartRate(ExerciseSessionRecord s){CompletableFuture<Integer> f=new CompletableFuture<>();var request=new AggregateRecordsRequest.Builder<Long>(range(s.getStartTime(),s.getEndTime())).addAggregationType(HeartRateRecord.BPM_AVG).addDataOriginsFilter(s.getMetadata().getDataOrigin()).build();try{manager.aggregate(request,callback,new OutcomeReceiver<AggregateRecordsResponse<Long>,HealthConnectException>(){public void onResult(AggregateRecordsResponse<Long> r){Long bpm=r.get(HeartRateRecord.BPM_AVG);f.complete(bpm==null?0:bpm.intValue());}public void onError(HealthConnectException e){f.completeExceptionally(e);}});}catch(Exception e){f.completeExceptionally(e);}return f;}
   }
  }

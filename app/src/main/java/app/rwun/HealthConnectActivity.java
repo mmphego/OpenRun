@@ -58,7 +58,7 @@ public class HealthConnectActivity extends Activity {
                 boolean scheduled=getSystemService(android.app.job.JobScheduler.class).getPendingJob(81)!=null;
                 toggle("Background activity imports",scheduled,enabled->{
                     if(!enabled){HealthJob.schedule(this,false);show();return;}
-                    if(!HealthSync.granted(this)){message="Select and allow runs, walks & distance before enabling background imports.";show();return;}
+                    if(!HealthSync.granted(this)){message="Allow Exercise read access before enabling background imports.";show();return;}
                     new AlertDialog.Builder(this).setTitle("Allow background import?").setMessage("Import recent runs and walks about every six hours. Other health summaries stay foreground-only. Android controls timing.")
                         .setNegativeButton("Cancel",(d,w)->show()).setPositiveButton("Continue",(d,w)->requestPermissions(new String[]{HealthJob.BACKGROUND},BACKGROUND)).setOnCancelListener(d->show()).show();
                 });
@@ -83,6 +83,9 @@ public class HealthConnectActivity extends Activity {
         text("Turning a toggle off pauses that direction in OpenRun. To revoke Android permissions, open Health Connect access below. Routes, steps, calories and heart-rate samples are never exported.",13);
 
         action("Manage Health Connect access",()->SettingsNavigator.openHealth(a->{try{startActivity(new Intent(a));return true;}catch(android.content.ActivityNotFoundException|SecurityException missing){return false;}}));
+        action("Read diagnostics",()->new AlertDialog.Builder(this).setTitle("Health Connect read diagnostics")
+            .setMessage(HealthReadDiagnostics.describe(this)+"\n\n"+(activityReadResult.isEmpty()?"No activity read result in this screen session. Tap Read selected data now first.":activityReadResult))
+            .setPositiveButton("Close",null).show());
         action("Health data & privacy",()->startActivity(new Intent(this,HealthPrivacyActivity.class)));
         if(new RunStore(this).pendingImports().length()>0)action("Review possible duplicates",()->startActivity(new Intent(this,ImportReviewActivity.class)));
     }
@@ -121,7 +124,7 @@ public class HealthConnectActivity extends Activity {
         message=activityReadResult+"\n\n"+summaryReadResult;show();
         java.util.concurrent.CompletableFuture<String> activities;
         try{activities=HealthSync.granted(this)?importActivities():
-            java.util.concurrent.CompletableFuture.completedFuture("Activity import is not allowed. Select runs, walks & distance and grant both permissions.");}
+            java.util.concurrent.CompletableFuture.completedFuture("Activity import is not allowed. Select runs, walks & distance and grant Exercise permission. Distance is optional.");}
         catch(Exception error){activities=HealthSync.failed(error);}
         activeRead=activities;
         // Publish the activity outcome immediately; daily summaries must not hide it.

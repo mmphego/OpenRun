@@ -16,6 +16,17 @@ public class HealthConnectUiTest {
    assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read from Health Connect"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Write activities"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Choose activity to write"));NativePlanningTest.shot(c.get(),"23-health-connect-read-write");
   }
  }
+ @Test public void diagnosticsShowsPerPermissionAccessWithoutReadingOrWriting(){
+  Shadows.shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(HealthSync.PERMISSIONS[0]);
+  try(var c=Robolectric.buildActivity(AvailableHealthActivity.class).setup().visible()){
+   NativePlanningTest.click(c.get(),"Read diagnostics");
+   AlertDialog dialog=(AlertDialog)org.robolectric.shadows.ShadowDialog.getLatestDialog();
+   String text=((android.widget.TextView)dialog.findViewById(android.R.id.message)).getText().toString();
+   assertTrue(text.contains("READ_EXERCISE: granted"));
+   assertTrue(text.contains("READ_DISTANCE: denied"));
+   assertFalse(HealthSync.busy());assertFalse(HealthExport.busy());
+  }
+ }
  @Test public void grantingWriteAccessDoesNotAutomaticallyExport()throws Exception{
   try(var c=Robolectric.buildActivity(AvailableHealthActivity.class).setup().visible()){
    ((android.widget.Switch)NativePlanningTest.find(c.get().getWindow().getDecorView(),"Write to Health Connect")).setChecked(true);AlertDialog dialog=(AlertDialog)org.robolectric.shadows.ShadowDialog.getLatestDialog();assertNotNull(dialog);dialog.getButton(-1).performClick();assertFalse(HealthExport.busy());
