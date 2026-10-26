@@ -3,7 +3,7 @@ import android.content.*;import android.os.*;import android.app.*;import org.jso
 /** Local, bounded support state. No routes, sample values, account data or automatic uploads. */
 final class RecordingDiagnostics {
  static void error(Context c,String code){try{c.getSharedPreferences("rwun-recording-health",0).edit().putString("error",code).putLong("at",System.currentTimeMillis()).commit();}catch(RuntimeException ignored){}}
- static String version(Context c){try{String v=c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionName;return v==null?"development":v;}catch(Exception e){return "unknown";}}
+ static String version(Context c){return AppVersion.name(c);}
  static String age(long then,long now){return then>0&&then<=now?(now-then)/1000+" s ago":"not available";}
  static String report(Context c){
   StringBuilder b=new StringBuilder("OpenRun "+version(c)+"\nAndroid API "+Build.VERSION.SDK_INT+" · "+Build.MANUFACTURER+" "+Build.MODEL);

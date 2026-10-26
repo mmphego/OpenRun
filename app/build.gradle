@@ -24,7 +24,13 @@ android {
             }
         }
     }
-    buildTypes { release { if (hasReleaseSigning) signingConfig signingConfigs.release } }
+    buildTypes {
+        debug { versionNameSuffix "-build.${defaultConfig.versionCode}-debug" }
+        release {
+            versionNameSuffix "-build.${defaultConfig.versionCode}"
+            if (hasReleaseSigning) signingConfig signingConfigs.release
+        }
+    }
     compileOptions {
         coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_17

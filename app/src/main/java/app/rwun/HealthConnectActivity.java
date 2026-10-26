@@ -38,8 +38,11 @@ public class HealthConnectActivity extends Activity {
     private void show(){
         body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);int pad=UiKit.dp(this,20);body.setPadding(pad,pad,pad,pad);body.setBackgroundColor(palette.background);
         ScrollView scroll=new ScrollView(this);scroll.addView(body);scroll.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(i.getSystemWindowInsetLeft(),i.getSystemWindowInsetTop(),i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i.consumeSystemWindowInsets();});setContentView(scroll);
-        action("Back",this::finish);text("Health Connect",24);text(HealthAccess.status(this,healthAvailable()),14);
+        action("Back",this::finish);text("Health Connect",24);text(AppVersion.label(this),13);text(HealthAccess.status(this,healthAvailable()),14);
         if(!message.isEmpty()){text("Health Connect result",18);text(message,14);}
+        action("Read diagnostics",()->new AlertDialog.Builder(this).setTitle("Health Connect read diagnostics")
+            .setMessage(HealthReadDiagnostics.describe(this)+"\n\n"+(activityReadResult.isEmpty()?"No activity read result in this screen session. Tap Read selected data now first.":activityReadResult))
+            .setPositiveButton("Close",null).show());
         text("Read activities",20);
         text("Choose what OpenRun can read. Runs and walks import locally with duplicate review; other selected readings show a daily summary.",14);
         if(healthAvailable()){
@@ -83,9 +86,6 @@ public class HealthConnectActivity extends Activity {
         text("Turning a toggle off pauses that direction in OpenRun. To revoke Android permissions, open Health Connect access below. Routes, steps, calories and heart-rate samples are never exported.",13);
 
         action("Manage Health Connect access",()->SettingsNavigator.openHealth(a->{try{startActivity(new Intent(a));return true;}catch(android.content.ActivityNotFoundException|SecurityException missing){return false;}}));
-        action("Read diagnostics",()->new AlertDialog.Builder(this).setTitle("Health Connect read diagnostics")
-            .setMessage(HealthReadDiagnostics.describe(this)+"\n\n"+(activityReadResult.isEmpty()?"No activity read result in this screen session. Tap Read selected data now first.":activityReadResult))
-            .setPositiveButton("Close",null).show());
         action("Health data & privacy",()->startActivity(new Intent(this,HealthPrivacyActivity.class)));
         if(new RunStore(this).pendingImports().length()>0)action("Review possible duplicates",()->startActivity(new Intent(this,ImportReviewActivity.class)));
     }
