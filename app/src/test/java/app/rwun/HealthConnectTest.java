@@ -41,6 +41,23 @@ public class HealthConnectTest {
         Shadows.shadowOf(app).grantPermissions(HealthExport.PERMISSIONS);Shadows.shadowOf(app).denyPermissions(HealthSync.PERMISSIONS);
         assertTrue(HealthExport.granted(app));assertFalse(HealthSync.granted(app));
     }
+    @Test public void exerciseOnlyPermissionAllowsTimeOnlyImports(){
+        Shadows.shadowOf(app).grantPermissions(HealthSync.PERMISSIONS[0]);
+        Shadows.shadowOf(app).denyPermissions(HealthSync.PERMISSIONS[1]);
+        assertTrue(HealthSync.granted(app));
+        assertTrue(HealthPreferences.anyReadGranted(app));
+        assertTrue(HealthPreferences.summary(app).contains("time only; distance not allowed"));
+        HealthPreferences.enabled(app,false,false);assertFalse(HealthSync.granted(app));
+    }
+    @Test public void distanceOrStepsAloneNeverAllowsActivityImport(){
+        Shadows.shadowOf(app).grantPermissions(HealthSync.PERMISSIONS[1],DailyHealthSource.STEPS);
+        Shadows.shadowOf(app).denyPermissions(HealthSync.PERMISSIONS[0]);
+        assertFalse(HealthSync.granted(app));
+        String report=HealthReadDiagnostics.describe(app);
+        assertTrue(report.contains("READ_EXERCISE: denied"));
+        assertTrue(report.contains("READ_DISTANCE: granted"));
+        assertTrue(report.contains("READ_STEPS: granted"));
+    }
     @Test public void missingReadPermissionDoesNotCallService()throws Exception{fails(HealthSync.sync(app,store));assertTrue(store.runs().isEmpty());}
     @Test public void runsAndWalksImportSeparatelyAndKeepOptionalHeartRate()throws Exception{
         Source source=new Source(session(1,RUN,"test.publisher",7200),session(2,WALK,"test.publisher",3600));
@@ -57,7 +74,7 @@ public class HealthConnectTest {
         assertTrue(read(source,false).contains("0 runs/walks"));assertEquals(2,new RunStore(app).runs().size());
     }
     @Test public void emptyReadExplainsSourceAndTimeWindow()throws Exception{
-        String result=read(new Source(),false);assertTrue(result.contains("last 30 days"));assertTrue(result.contains("steps alone do not create activities"));
+        String result=read(new Source(),false);assertTrue(result.contains("last 30 days"));assertTrue(result.contains("steps alone do not create activities"));assertTrue(result.contains("(UTC), all source apps, 1 page(s)"));
     }
     @Test public void pausedReadDoesNotSaveAnInFlightDistanceResult()throws Exception{
         java.util.concurrent.atomic.AtomicBoolean allowed=new java.util.concurrent.atomic.AtomicBoolean(true);

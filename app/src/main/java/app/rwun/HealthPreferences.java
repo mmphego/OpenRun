@@ -42,14 +42,15 @@ final class HealthPreferences {
             if(candidate.equals(permission))return selected(c,i);
         return true;
     }
+    static boolean groupGranted(Context c,int index){return index==0?HealthSync.granted(c):HealthAccess.granted(c,READ_PERMISSIONS[index]);}
     static boolean anyReadGranted(Context c){
         if(!enabled(c,false))return false;
-        for(int i=0;i<LABELS.length;i++)if(selected(c,i)&&HealthAccess.granted(c,READ_PERMISSIONS[i]))return true;
+        for(int i=0;i<LABELS.length;i++)if(selected(c,i)&&groupGranted(c,i))return true;
         return false;
     }
     static String summary(Context c){
         List<String> names=new ArrayList<>();
-        for(int i=0;i<LABELS.length;i++)if(selected(c,i))names.add(LABELS[i]+(HealthAccess.granted(c,READ_PERMISSIONS[i])?"":" (not allowed)"));
+        for(int i=0;i<LABELS.length;i++)if(selected(c,i))names.add(LABELS[i]+(groupGranted(c,i)?(i==0&&!HealthAccess.granted(c,HealthSync.PERMISSIONS[1])?" (time only; distance not allowed)":""):" (not allowed)"));
         return names.isEmpty()?"No data selected":String.join(" · ",names);
     }
 }

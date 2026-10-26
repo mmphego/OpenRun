@@ -1,5 +1,9 @@
 # Changelog
 
+## Health Connect read permissions
+
+- Allow time-only activity imports with Exercise permission when Distance is denied. Add local per-permission read diagnostics and exact query-window reporting for empty reads.
+
 ## Release emulator reliability
 
 - Use a shared explicit AVD directory, report startup failures immediately, and execute the release emulator test path in pull requests.
