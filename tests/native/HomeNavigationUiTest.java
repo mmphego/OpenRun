@@ -68,7 +68,7 @@ public class HomeNavigationUiTest {
   private ScrollView layout(MainActivity activity,int width,int height,String name) throws Exception {
     View decor=activity.getWindow().getDecorView();
     View root=((ViewGroup)activity.findViewById(android.R.id.content)).getChildAt(0);
-    root.dispatchApplyWindowInsets(new WindowInsets(new Rect(0,24,0,24)));
+    root.dispatchApplyWindowInsets(new WindowInsets.Builder().setSystemWindowInsets(android.graphics.Insets.of(0,24,0,24)).build());
     decor.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),
         View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));
     decor.layout(0,0,width,height);
