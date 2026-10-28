@@ -81,6 +81,38 @@ public class IndoorRecordingTest {
   twoKm();JSONObject active=IndoorState.active(app);assertEquals(2.0006,StepEstimate.km(count(),active.getDouble("length")),.00001);assertFalse(active.getBoolean("stepLengthCalibrated"));assertEquals("Steps detected",active.getString("stepStatus"));
   try(var activity=Robolectric.buildActivity(IndoorActivity.class).setup().visible()){assertNotNull(NativePlanningTest.find(activity.get().getWindow().getDecorView(),"~2.00"));NativePlanningTest.shot(activity.get(),"16-walking-pad-two-km");}
  }
+ @Test public void activeSessionKeepsMetricsAndActionsClearAtLargeFont()throws Exception{
+  start();emit(10000,1);emit(10300,120);RuntimeEnvironment.setFontScale(1.6f);
+  try(var activity=Robolectric.buildActivity(IndoorActivity.class).setup().visible()){
+   View root=activity.get().getWindow().getDecorView();
+   assertNotNull(NativePlanningTest.find(root,"Estimated distance"));assertNotNull(NativePlanningTest.find(root,"Duration"));
+   assertNotNull(NativePlanningTest.find(root,"Pause timer"));assertNotNull(NativePlanningTest.find(root,"Finish and review"));
+   assertNotNull(NativePlanningTest.find(root,"Recording diagnostics"));assertNotNull(NativePlanningTest.find(root,"Discard indoor session"));
+   NativePlanningTest.shot(activity.get(),"walking-pad-active-clean-large-font");
+  }finally{RuntimeEnvironment.setFontScale(1f);}
+ }
+ @Test public void indoorHistoryUsesSummaryAndSessionCardsAtLargeFont()throws Exception{
+  JSONObject state=new RunStore(app).v103();state.put("indoor",new JSONArray().put(new JSONObject()
+    .put("id","walk-history").put("date",java.time.LocalDate.now().toString()).put("kind","Walk").put("seconds",2714)
+    .put("km",3.6).put("distanceSource","Machine entered").put("effort",4).put("fatigue",2).put("pain",false)
+    .put("phoneSteps",3659).put("partialSteps",false)));
+  new RunStore(app).v103(state);RuntimeEnvironment.setFontScale(1.6f);
+  try(var activity=Robolectric.buildActivity(TrainingActivity.class,new Intent(app,TrainingActivity.class).putExtra("screen","indoorHistory")).setup().visible()){
+   View root=activity.get().getWindow().getDecorView();assertNotNull(NativePlanningTest.find(root,"Indoor movement"));
+   assertNotNull(NativePlanningTest.find(root,"45 min walking"));assertNotNull(NativePlanningTest.find(root,"45m 14s · 3.60 km"));
+   assertNotNull(NativePlanningTest.find(root,"3,659 detected phone steps"));assertNotNull(NativePlanningTest.find(root,"Delete this indoor entry"));
+   NativePlanningTest.shot(activity.get(),"indoor-history-clean-large-font");
+  }finally{RuntimeEnvironment.setFontScale(1f);}
+ }
+ @Test public void reminderScheduleUsesGroupedControlsAtLargeFont()throws Exception{
+  RuntimeEnvironment.setFontScale(1.6f);
+  try(var activity=Robolectric.buildActivity(TrainingActivity.class,new Intent(app,TrainingActivity.class).putExtra("screen","reminders")).setup().visible()){
+   View root=activity.get().getWindow().getDecorView();assertNotNull(NativePlanningTest.find(root,"Reminder schedule"));
+   assertNotNull(NativePlanningTest.find(root,"REMIND ME ABOUT"));assertNotNull(NativePlanningTest.find(root,"ACTIVE DAYS"));assertNotNull(NativePlanningTest.find(root,"TIMES"));
+   assertNotNull(NativePlanningTest.find(root,"MON"));assertNotNull(NativePlanningTest.find(root,"Save reminder preferences"));
+   NativePlanningTest.shot(activity.get(),"reminder-schedule-clean-large-font");
+  }finally{RuntimeEnvironment.setFontScale(1f);}
+ }
  @Test public void existingCalibrationTakesPriority()throws Exception{
   new RunStore(app).v103(new JSONObject().put("stepLengths",new JSONObject().put("Walk",.8)));start();emit(4000,1);emit(4100,60);JSONObject active=IndoorState.active(app);assertEquals(.08,StepEstimate.km(count(),active.getDouble("length")),.00001);assertTrue(active.getBoolean("stepLengthCalibrated"));
  }

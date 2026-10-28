@@ -53,6 +53,17 @@ final class UiKit {
     if(medium&&size>=20&&android.os.Build.VERSION.SDK_INT>=28)t.setAccessibilityHeading(true);
     t.setPadding(0,dp(c,5),0,dp(c,5));t.setLineSpacing(dp(c,2),1);return t;
   }
+  static TextView status(Context c,Palette p) {
+    TextView status=label(c,"",14,p.primary,false);status.setVisibility(android.view.View.GONE);
+    status.setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);
+    status.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void afterTextChanged(android.text.Editable value){}public void onTextChanged(CharSequence s,int start,int before,int count){status.setVisibility(s.length()==0?android.view.View.GONE:android.view.View.VISIBLE);}});
+    return status;
+  }
+  static LinearLayout card(Context c,Palette p) {
+    LinearLayout card=new LinearLayout(c);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(c,16),dp(c,14),dp(c,16),dp(c,14));
+    GradientDrawable background=shape(c,p.surface,18);background.setStroke(dp(c,1),p.outline);card.setBackground(background);
+    LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.setMargins(0,dp(c,8),0,dp(c,8));card.setLayoutParams(params);return card;
+  }
   static int actionIcon(String label) {
     String s=label.toLowerCase(java.util.Locale.ROOT);
     if(s.startsWith("back"))return R.drawable.ic_arrow_back;
@@ -73,9 +84,10 @@ final class UiKit {
   }
   static Button action(Context c,Palette p,String text,Runnable action) {
     boolean destructive=text.toLowerCase(java.util.Locale.ROOT).matches(".*(discard|delete).*"),
-      primary=text.equals("View workout")||text.startsWith("Start ")||text.equals("Finish and save")||text.equals("Build my plan")||text.equals("Save completed session")||text.equals("Continue")||text.startsWith("Create race")||text.startsWith("Create paused race")||text.equals("Preview race plan")||text.equals("Add race")||text.equals("Create my plan")||text.equals("Preview my plan")||text.equals("Create paused plan")||text.equals("Generate offline insight");
-    int bg=destructive?p.dangerSurface:primary?p.primary:p.surface;
-    int fg=destructive?p.danger:primary?p.onPrimary:p.ink;
+      primary=text.equals("View workout")||text.startsWith("Start ")||text.equals("Finish and save")||text.equals("Finish and review")||text.equals("Save reminder preferences")||text.equals("Build my plan")||text.equals("Save completed session")||text.equals("Continue")||text.startsWith("Create race")||text.startsWith("Create paused race")||text.equals("Preview race plan")||text.equals("Add race")||text.equals("Create my plan")||text.equals("Preview my plan")||text.equals("Create paused plan")||text.equals("Generate offline insight");
+    if(destructive)return quietAction(c,p,text,true,action);
+    int bg=primary?p.primary:p.surface;
+    int fg=primary?p.onPrimary:p.ink;
     Button b=new Button(c);b.setText(text);b.setTextSize(textSizeSp(15));b.setAllCaps(false);b.setTextColor(fg);
     b.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));b.setGravity(Gravity.CENTER_VERTICAL|Gravity.START);
     b.setPadding(dp(c,16),dp(c,12),dp(c,16),dp(c,12));b.setMinHeight(dp(c,48));b.setMinimumHeight(dp(c,48));
@@ -83,6 +95,12 @@ final class UiKit {
     b.setCompoundDrawablesRelative(icon(c,actionIcon(text),fg,22),null,null,null);
     LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(c,5),0,dp(c,5));b.setLayoutParams(lp);
     b.setMinWidth(0);b.setMinimumWidth(0);b.setOnClickListener(v->{feedback(v);action.run();});return b;
+  }
+  static Button quietAction(Context c,Palette p,String text,boolean destructive,Runnable action) {
+    int color=destructive?p.danger:p.muted;Button button=new Button(c);button.setText(text);button.setTextSize(textSizeSp(14));button.setTextColor(color);button.setAllCaps(false);
+    button.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));button.setGravity(Gravity.CENTER_VERTICAL|Gravity.START);button.setPadding(dp(c,12),dp(c,8),dp(c,12),dp(c,8));button.setMinHeight(dp(c,48));button.setMinimumHeight(dp(c,48));
+    button.setStateListAnimator(null);button.setElevation(0);button.setBackground(ripple(c,Color.TRANSPARENT,12));button.setCompoundDrawablePadding(dp(c,12));button.setCompoundDrawablesRelative(icon(c,actionIcon(text),color,20),null,null,null);
+    LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.setMargins(0,dp(c,2),0,dp(c,2));button.setLayoutParams(params);button.setOnClickListener(v->{feedback(v);action.run();});return button;
   }
   static LinearLayout tabs(Context c,Palette p,String[] labels,int selected,java.util.function.IntConsumer onSelect){
     LinearLayout tabs=new LinearLayout(c);
