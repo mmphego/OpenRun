@@ -93,8 +93,9 @@ public class IndoorRecordingTest {
  }
  @Test public void indoorHistoryUsesSummaryAndSessionCardsAtLargeFont()throws Exception{
   JSONObject state=new RunStore(app).v103();state.put("indoor",new JSONArray().put(new JSONObject()
-    .put("id","walk:history").put("date",java.time.LocalDate.now().toString()).put("kind","Walk").put("seconds",2714)
-    .put("km",3.6).put("distanceSource","Machine entered").put("effort",4).put("phoneSteps",3659).put("partialSteps",false)));
+    .put("id","walk-history").put("date",java.time.LocalDate.now().toString()).put("kind","Walk").put("seconds",2714)
+    .put("km",3.6).put("distanceSource","Machine entered").put("effort",4).put("fatigue",2).put("pain",false)
+    .put("phoneSteps",3659).put("partialSteps",false)));
   new RunStore(app).v103(state);RuntimeEnvironment.setFontScale(1.6f);
   try(var activity=Robolectric.buildActivity(TrainingActivity.class,new Intent(app,TrainingActivity.class).putExtra("screen","indoorHistory")).setup().visible()){
    View root=activity.get().getWindow().getDecorView();assertNotNull(NativePlanningTest.find(root,"Indoor movement"));
