@@ -73,7 +73,7 @@ final class UiKit {
   }
   static Button action(Context c,Palette p,String text,Runnable action) {
     boolean destructive=text.toLowerCase(java.util.Locale.ROOT).matches(".*(discard|delete).*"),
-      primary=text.equals("View workout")||text.startsWith("Start ")||text.equals("Finish and save")||text.equals("Build my plan")||text.equals("Save completed session")||text.equals("Continue")||text.startsWith("Create race")||text.startsWith("Create paused race")||text.equals("Preview race plan")||text.equals("Add race")||text.equals("Create my plan")||text.equals("Preview my plan")||text.equals("Create paused plan")||text.equals("Generate offline insight");
+      primary=text.equals("View workout")||text.startsWith("Start ")||text.equals("Finish and save")||text.equals("Finish and review")||text.equals("Build my plan")||text.equals("Save completed session")||text.equals("Continue")||text.startsWith("Create race")||text.startsWith("Create paused race")||text.equals("Preview race plan")||text.equals("Add race")||text.equals("Create my plan")||text.equals("Preview my plan")||text.equals("Create paused plan")||text.equals("Generate offline insight");
     int bg=destructive?p.dangerSurface:primary?p.primary:p.surface;
     int fg=destructive?p.danger:primary?p.onPrimary:p.ink;
     Button b=new Button(c);b.setText(text);b.setTextSize(textSizeSp(15));b.setAllCaps(false);b.setTextColor(fg);

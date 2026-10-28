@@ -81,6 +81,16 @@ public class IndoorRecordingTest {
   twoKm();JSONObject active=IndoorState.active(app);assertEquals(2.0006,StepEstimate.km(count(),active.getDouble("length")),.00001);assertFalse(active.getBoolean("stepLengthCalibrated"));assertEquals("Steps detected",active.getString("stepStatus"));
   try(var activity=Robolectric.buildActivity(IndoorActivity.class).setup().visible()){assertNotNull(NativePlanningTest.find(activity.get().getWindow().getDecorView(),"~2.00"));NativePlanningTest.shot(activity.get(),"16-walking-pad-two-km");}
  }
+ @Test public void activeSessionKeepsMetricsAndActionsClearAtLargeFont()throws Exception{
+  start();emit(10000,1);emit(10300,120);RuntimeEnvironment.setFontScale(1.6f);
+  try(var activity=Robolectric.buildActivity(IndoorActivity.class).setup().visible()){
+   View root=activity.get().getWindow().getDecorView();
+   assertNotNull(NativePlanningTest.find(root,"Estimated distance"));assertNotNull(NativePlanningTest.find(root,"Duration"));
+   assertNotNull(NativePlanningTest.find(root,"Pause timer"));assertNotNull(NativePlanningTest.find(root,"Finish and review"));
+   assertNotNull(NativePlanningTest.find(root,"Recording diagnostics"));assertNotNull(NativePlanningTest.find(root,"Discard indoor session"));
+   NativePlanningTest.shot(activity.get(),"walking-pad-active-clean-large-font");
+  }finally{RuntimeEnvironment.setFontScale(1f);}
+ }
  @Test public void existingCalibrationTakesPriority()throws Exception{
   new RunStore(app).v103(new JSONObject().put("stepLengths",new JSONObject().put("Walk",.8)));start();emit(4000,1);emit(4100,60);JSONObject active=IndoorState.active(app);assertEquals(.08,StepEstimate.km(count(),active.getDouble("length")),.00001);assertTrue(active.getBoolean("stepLengthCalibrated"));
  }

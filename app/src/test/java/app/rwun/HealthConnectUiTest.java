@@ -13,7 +13,8 @@ public class HealthConnectUiTest {
  public static class AvailableHealthActivity extends HealthConnectActivity { @Override protected boolean healthAvailable(){return true;} }
  @Test public void readAndWriteControlsAreVisibleWithoutConnectingAnAccount()throws Exception{
   try(var c=Robolectric.buildActivity(AvailableHealthActivity.class).setup().visible()){
-   assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read from Health Connect"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Write activities"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Choose activity to write"));NativePlanningTest.shot(c.get(),"23-health-connect-read-write");
+   assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Read from Health Connect"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Write activities"));assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Choose activity to write"));
+   assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Garmin Connect data can import after Garmin syncs it to Health Connect. The workout must appear under Activity → Exercise; steps or distance alone cannot identify a run."));NativePlanningTest.shot(c.get(),"23-health-connect-read-write");
   }
  }
  @Test public void diagnosticsShowsPerPermissionAccessWithoutReadingOrWriting(){

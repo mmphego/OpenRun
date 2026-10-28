@@ -1,5 +1,10 @@
 # Changelog
 
+## Indoor session presentation and Garmin import guidance
+
+- Group live walking-pad distance, steps, duration and recording state into one compact card; make Finish and review the primary action and reduce diagnostics/discard to lower-emphasis controls.
+- Explain that Garmin workouts import through Health Connect only when Garmin Connect publishes an Exercise session; steps or distance alone are not reconstructed as a workout.
+
 ## Installed build identity
 
 - Profile, Health Connect and recording diagnostics read the installed APK version instead of a hard-coded Profile label. Android App info now includes the build number, with a debug suffix for test APKs.

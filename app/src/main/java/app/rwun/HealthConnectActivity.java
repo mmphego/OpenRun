@@ -45,6 +45,7 @@ public class HealthConnectActivity extends Activity {
             .setPositiveButton("Close",null).show());
         text("Read activities",20);
         text("Choose what OpenRun can read. Runs and walks import locally with duplicate review; other selected readings show a daily summary.",14);
+        text("Garmin Connect data can import after Garmin syncs it to Health Connect. The workout must appear under Activity → Exercise; steps or distance alone cannot identify a run.",13);
         if(healthAvailable()){
             toggle("Read from Health Connect",HealthPreferences.anyReadGranted(this),enabled->{
                 if(enabled)chooseReadData();else{
