@@ -59,7 +59,18 @@ public final class WorkoutFactory {
       steps.add(distance("Easy finish", PaceProfile.Zone.EASY, metres * .25, profile));
     } else steps.add(distance(session.title(), PaceProfile.Zone.EASY, metres, profile));
     steps.add(timed("Cool-down walk", 300));
+    double coach=coachPace(session.instructions());
+    if(coach>0&&!session.title().equals("Intervals")&&!session.title().equals("Tempo run")&&!session.title().equals("Run / walk")){
+      for(int i=0;i<steps.size();i++){Step step=steps.get(i);if(step.metres()>0)steps.set(i,new Step(step.title(),step.zone(),step.metres(),step.seconds(),new PaceProfile.Range(coach,Math.min(1800,coach*1.08))));}
+    }
     return new Workout(steps);
+  }
+
+  static double coachPace(String instructions){
+    var match=java.util.regex.Pattern.compile("^Coach pace: ([0-9]{1,2}):([0-9]{2}) min/km\\.\\n").matcher(instructions);
+    if(!match.find())return 0;
+    int seconds=Integer.parseInt(match.group(1))*60+Integer.parseInt(match.group(2));
+    return Integer.parseInt(match.group(2))<60&&seconds>=180&&seconds<=1800?seconds:0;
   }
 
   public static Workout free() {

@@ -11,7 +11,7 @@ public final class Reminders extends android.content.BroadcastReceiver {
    if(SNOOZE.equals(action)||SKIP.equals(action)){synchronized(RunStore.LOCK){JSONObject d=store.v103(),r=d.optJSONObject("reminders");if(r!=null){if(SKIP.equals(action))r.put("skip",LocalDate.now().toString());else r.put("snooze",System.currentTimeMillis()+30*60*1000);store.v103(d);}}c.getSystemService(NotificationManager.class).cancel(1031);schedule(c);return;}
    if(MOVE.equals(action)||WORKOUT.equals(action))notifyDue(c,action);
    if(Intent.ACTION_BOOT_COMPLETED.equals(action)||Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)){IndoorState.snapshot(c);sessionNotification(c);}
-   DailyHealthJob.schedule(c);
+   DailyHealthJob.schedule(c);AiCoachJob.schedule(c);
    schedule(c);
   }catch(Exception ignored){schedule(c);}}
  static void notifyDue(Context c,String action)throws Exception{synchronized(RunStore.LOCK){RunStore store=new RunStore(c);JSONObject d=store.v103(),r=d.optJSONObject("reminders");if(r==null||store.resting()||!allowed(c))return;ZonedDateTime now=ZonedDateTime.now();boolean move=MOVE.equals(action);ReminderPlan p=V103Data.plan(r);

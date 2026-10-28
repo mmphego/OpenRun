@@ -65,10 +65,13 @@ public final class SmokeInstrumentation extends Instrumentation {
       getTargetContext().getPackageManager().getActivityInfo(new ComponentName(getTargetContext(),IndoorActivity.class),0);
       getTargetContext().getPackageManager().getActivityInfo(new ComponentName(getTargetContext(),TrainingActivity.class),0);
       getTargetContext().getPackageManager().getActivityInfo(new ComponentName(getTargetContext(),RacePlanActivity.class),0);
-      getTargetContext().getPackageManager().getActivityInfo(new ComponentName(getTargetContext(),OfflineCoachActivity.class),0);
-      var gemmaService=getTargetContext().getPackageManager().getServiceInfo(new ComponentName(getTargetContext(),GemmaService.class),0);
-      check(!gemmaService.exported&&gemmaService.processName.equals("app.rwun:offlinecoach"),"Gemma native runtime isolated from recorder process");
-      check(true,"indoor, race, offline coach and training screens registered");
+      getTargetContext().getPackageManager().getActivityInfo(new ComponentName(getTargetContext(),AiCoachActivity.class),0);
+      var coachJob=getTargetContext().getPackageManager().getServiceInfo(new ComponentName(getTargetContext(),AiCoachJob.class),0);
+      check("android.permission.BIND_JOB_SERVICE".equals(coachJob.permission),"AI review job requires the system binding permission");
+      check(true,"indoor, race, AI coach and training screens registered");
+      for(String removed:new String[]{"app.rwun.OfflineCoachActivity","app.rwun.GemmaService"}){
+        boolean absent=false;try{if(removed.endsWith("Activity"))getTargetContext().getPackageManager().getActivityInfo(new ComponentName(getTargetContext(),removed),0);else getTargetContext().getPackageManager().getServiceInfo(new ComponentName(getTargetContext(),removed),0);}catch(android.content.pm.PackageManager.NameNotFoundException expected){absent=true;}check(absent,"local model component removed: "+removed);
+      }
       boolean retired=false;try{getTargetContext().getPackageManager().getActivityInfo(new ComponentName(getTargetContext(),"app.rwun.CyclingActivity"),0);}catch(android.content.pm.PackageManager.NameNotFoundException expected){retired=true;}check(retired,"cycling screen removed");
       String gpx =
           "<gpx xmlns='http://www.topografix.com/GPX/1/1'><trk><trkseg><trkpt lat='0'"

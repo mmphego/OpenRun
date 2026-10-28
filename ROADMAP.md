@@ -17,7 +17,7 @@ Priority reflects dependencies and evidence, not delivery promises.
 - [ ] Expand sanitised provider fixtures and network failure/cancellation tests.
 - [ ] Improve international location/country filtering and source-conflict presentation.
 - [ ] Establish Room migration tests as the catalogue schema evolves.
-- [ ] Verify local model compatibility, download flow and resource use across devices.
+- [ ] Validate OpenAI/Gemini BYOK calls, encrypted key upgrades, post-run reviews and notification delivery on devices.
 
 ## Integrations requiring external access
 

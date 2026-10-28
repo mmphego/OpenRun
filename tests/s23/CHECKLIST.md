@@ -57,17 +57,17 @@ Release gates: complete the above on an S23 and broader API/device matrix, resol
 - Real recorded history: two-week/four-week gaps, recent high feedback and low baseline. Coach → Adapt plan → preview/apply. Same evidence must not reduce again; corrections/new evidence invalidate an old preview; active recording/hold prevents mutation. Past/completed workouts stay fixed.
 - Optional AI: without server/account/keys, explicit blocker. Consent cancel sends nothing. With a configured test server/provider, inspect disclosed numeric fields, no routes/names/HR, successful explanation, provider error/timeout and quota. AI cannot change workout data. No live provider pass has been recorded.
 
-## Gemma and rebuilt wizard (NOT EXECUTED ON S23)
+## BYOK AI Coach and upgrade (NOT EXECUTED ON S23)
 
-- Model manager is reachable from Coach and a reviewed plan. Open publisher link, decline/cancel download, import a wrong/truncated file and verify a clear rejection; an existing valid model is kept. Import the exact linked model, verify checksum and remove it without changing history.
-- Accept Gemma licence on the publisher site and download the pinned 557 MiB file. Weights are not bundled or silently downloaded. Offline Generate must make no network request; record model load time, generation latency, peak memory, temperature and battery use on S23. Repeat with airplane mode.
-- Check local runtime: record actual ARM64 JNI load outcome. This alone is not a model generation pass. Generate a short insight, verify no invented activity/target or hold clearance. Test fresh/returning history, held training and stale history while generating.
-- Cancel or leave screen during generation; confirm separate offlinecoach process ends and main app/recording data remain. Low memory, timeout, repeated taps, rotation, back navigation and process crash should leave a usable app.
-- Active/pending indoor or outdoor session must block generation. Leave a recording locked for 30 minutes to establish that the new runtime has not affected recovery.
+- Upgrade an installed prior build with synthetic model/cache files. Confirm legacy model files are removed in the background, while routes, activities, plan, holds and BYOK settings remain. No Gemma setup/import/download or local runtime component should be reachable.
+- Open AI Coach from the start screen, Coach tab and plan flow. Test OpenAI and Gemini separately with an authorised test key/model and synthetic activities. Consent cancel sends nothing; remove-key cancels pending reviews. No live-provider pass is claimed.
+- Check unknown imported effort/fatigue/pain, explicit reflections, and mixed known-distance/time-only history. Pace must use only known distance/duration and unreported imported feedback must not permit increases.
+- Generate, review/cancel/apply an AI proposal; inspect changes and eligible undo. Enable post-run updates and notifications, save/import a run, verify bounded upcoming changes and actual notification delivery. Exercise offline, quota, revoked/invalid key, provider timeout, denied notification permission and force-stop/reboot.
+- Report pain or hold a recording open while an AI request is running; its result must not change protected workouts or clear the hold. Test large fonts, TalkBack, keyboard and rotation.
 - Wizard: goal choice immediately continues; race card immediately continues. Distance goal skips race catalogue. Back and rotation preserve manual race name/date/distance and selected weekdays. Add remains disabled for incomplete/too-soon details.
 - Search/clear, date/distance/country sheets, no-results/manual entry, selected-day long-run picker, preview/confirmation and saved schedule consistency. TalkBack and 160–200% font with real Samsung keyboard. Capture native screenshots at every stage.
 
-Host Robolectric Native Graphics interaction tests and renders were run in this release. Android emulator boot failed in the implementation environment; no emulator, S23, live Gemma generation or physical permission/sensor pass is claimed.
+Host Robolectric Native Graphics interaction tests and renders were run in this release. Android emulator boot failed in the implementation environment; no emulator, S23, live AI-provider generation or physical permission/sensor pass is claimed.
 
 
 ## Compact typography (1.4.1; physical test pending)
