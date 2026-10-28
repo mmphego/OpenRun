@@ -1,5 +1,9 @@
 # OpenRun 0.6 theme and flow
 
+## 2026 native UI consistency pass
+
+The current pass keeps Java and Android Views while tightening the shared presentation layer. Standalone screens use consistent header/content spacing, empty status messages no longer reserve blank space, destructive actions use quiet text treatment instead of filled red cards, and reusable outlined cards group related metrics, history and settings. Indoor recording, Indoor progress and Movement & run reminders are the first fully migrated flows, with synthetic 1.6× font renders in the native host suite. Main navigation, storage, recording and Health Connect behavior are unchanged.
+
 The supplied Runna screenshots inform charcoal surfaces, slate grouped rows, pale CTAs and restrained teal accents. OpenRun uses its own mark, original native code and licensed Material Symbols. No Runna imagery, customer profile, records or plan data are copied.
 
 Main destinations: Today, Plan, Calendar, Progress and Profile. Record a free run from Today; workout details start scheduled sessions. Profile groups training preferences, backup and Connections. Connections separates Health Connect read access, Garmin account availability, activity files and live Bluetooth HR.

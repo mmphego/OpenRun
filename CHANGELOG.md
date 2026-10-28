@@ -3,6 +3,9 @@
 ## Indoor session presentation and Garmin import guidance
 
 - Group live walking-pad distance, steps, duration and recording state into one compact card; make Finish and review the primary action and reduce diagnostics/discard to lower-emphasis controls.
+- Rebuild Indoor progress with a seven-day summary card and one card per saved session; keep delete actions visible without letting them dominate the page.
+- Rework Movement & run reminders into grouped reminder, day and time cards with compact weekday chips and one clear save action.
+- Apply shared cards, compact secondary/destructive actions, hidden-empty status messages and tighter standalone-screen spacing across the native UI foundation.
 - Explain that Garmin workouts import through Health Connect only when Garmin Connect publishes an Exercise session; steps or distance alone are not reconstructed as a workout.
 
 ## Installed build identity
