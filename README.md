@@ -31,6 +31,8 @@ The current source candidate is **OpenRun 1.7.2 / local versionCode 28**, adding
 
 The current focus is **running and walking**. Historical cycling and strength support code remains in the source to preserve completed work; it is outside the active product roadmap.
 
+Home, Plan, Calendar, Progress and Coach remain available in the bottom navigation, including before a plan is created. Home returns to the entry screen; the settings icon opens Profile. Compact entry cards keep common actions visible on typical phone screens, with scrolling retained for smaller screens and larger accessibility fonts.
+
 ## UI images
 
 These are real Android Views from the Rwun baseline rendered by the existing Robolectric Native Graphics tests with synthetic data, **not photographs, mockups, emulator captures or S23 acceptance evidence**. They show the recovered Rwun 1.4.4 planning and walking screens. The new provider catalogue screen is not pictured.
