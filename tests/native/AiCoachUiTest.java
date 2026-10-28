@@ -20,7 +20,7 @@ public class AiCoachUiTest {
   @Test public void emptyStateRequiresConsentAndShowsProviderChoices()throws Exception{
     try(var controller=Robolectric.buildActivity(AiCoachActivity.class).setup().visible()){
       AiCoachActivity activity=controller.get();String text=ProgressUiTest.all(activity.getWindow().getDecorView());
-      assertTrue(text.contains("Create my plan first"));assertTrue(text.contains("Routes and heart-rate records are excluded"));
+      assertTrue(text.contains("Create my plan first"));assertFalse(text.contains("Offline Coach"));assertFalse(text.contains("Get Gemma"));assertTrue(text.contains("Routes and heart-rate records are excluded"));
       NativePlanningTest.click(activity,"Generate my AI running plan");assertTrue(ProgressUiTest.all(activity.getWindow().getDecorView()).contains("Enable and save data-sharing consent first"));
       NativePlanningTest.click(activity,"Save AI Coach settings");assertTrue(ProgressUiTest.all(activity.getWindow().getDecorView()).contains("Enable the data-sharing consent"));
       assertEquals("",app.getSharedPreferences("coach_vault",0).getString("data",""));

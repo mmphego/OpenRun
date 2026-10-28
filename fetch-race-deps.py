@@ -14,8 +14,7 @@ if not (runtime/'room-runtime-2.6.1.aar').exists() or not (compiler/'room-compil
 for f in runtime.glob('*.aar'):
  with zipfile.ZipFile(f) as z:
   if 'classes.jar' in z.namelist():f.with_suffix('.jar').write_bytes(z.read('classes.jar'))
-# LiteRT already brings a newer Kotlin stdlib and JetBrains annotations. Never dex both versions.
+# Include Room's complete runtime dependency graph; local inference no longer supplies dependencies.
 for f in runtime.glob('*.jar'):
- if f.name.startswith(('kotlin-','annotations-')):continue
  target=root/'build/runtime-deps'/('race-'+f.name);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(f.read_bytes())
 print('Room runtime and annotation processor ready')

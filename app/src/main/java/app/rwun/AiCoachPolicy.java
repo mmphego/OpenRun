@@ -12,17 +12,24 @@ final class AiCoachPolicy {
   record Proposal(String explanation,List<PlanEngine.Session> sessions) {}
   private AiCoachPolicy() {}
 
+  private static boolean feedbackReported(RunStore store,RunStore.Run run){
+    JSONObject reviews=CoachingMemory.data(store).optJSONObject("reviews");
+    if(reviews!=null&&reviews.optJSONObject(run.sessionId())!=null)return true;
+    return run.source().equals("Manual")||run.source().equals("GPS")||run.source().startsWith("Indoor · ");
+  }
+
   static Request snapshot(RunStore store,JSONObject settings,boolean automatic)throws JSONException {
     synchronized(RunStore.LOCK){
       if(store.config()==null)throw new IllegalStateException("Create a running plan first, then personalise it with AI Coach.");
       if(store.resting()||!store.checkpoint().isEmpty()||store.indoorPending())throw new IllegalStateException("Finish your session and review any recovery hold first.");
       LocalDate today=LocalDate.now();
       var recent=store.runs().stream().filter(r->!LocalDate.parse(r.date()).isBefore(today.minusDays(28))&&!LocalDate.parse(r.date()).isAfter(today)).sorted(Comparator.comparing(RunStore.Run::date).reversed()).limit(40).collect(java.util.stream.Collectors.toList());
-      double km=recent.stream().mapToDouble(RunStore.Run::km).sum();
-      long seconds=recent.stream().mapToLong(RunStore.Run::seconds).sum();
+      var timedDistance=recent.stream().filter(r->r.km()>0&&r.seconds()>0).collect(java.util.stream.Collectors.toList());
+      double km=timedDistance.stream().mapToDouble(RunStore.Run::km).sum();
+      long seconds=timedDistance.stream().mapToLong(RunStore.Run::seconds).sum();
       double pace=km>0&&seconds>0?seconds/km:0;
-      boolean increase=recent.size()>=3&&recent.stream().map(RunStore.Run::date).distinct().count()>=3&&recent.stream().allMatch(r->r.rpe()>0&&r.rpe()<=5&&r.fatigue()>0&&r.fatigue()<=3&&!r.pain())&&!LocalDate.parse(recent.get(0).date()).isBefore(today.minusDays(7));
-      JSONArray runs=new JSONArray();for(var r:recent)runs.put(new JSONObject().put("date",r.date()).put("km",r.km()).put("seconds",r.seconds()).put("paceSecondsPerKm",r.seconds()>0&&r.km()>0?r.seconds()/r.km():JSONObject.NULL).put("effort",r.rpe()>0?r.rpe():JSONObject.NULL).put("fatigue",r.fatigue()>0?r.fatigue():JSONObject.NULL).put("pain",r.pain()));
+      boolean increase=recent.size()>=3&&recent.stream().map(RunStore.Run::date).distinct().count()>=3&&recent.stream().allMatch(r->feedbackReported(store,r)&&r.rpe()>0&&r.rpe()<=5&&r.fatigue()>0&&r.fatigue()<=3&&!r.pain())&&!LocalDate.parse(recent.get(0).date()).isBefore(today.minusDays(7));
+      JSONArray runs=new JSONArray();for(var r:recent)runs.put(new JSONObject().put("date",r.date()).put("km",r.km()).put("seconds",r.seconds()).put("paceSecondsPerKm",r.seconds()>0&&r.km()>0?r.seconds()/r.km():JSONObject.NULL).put("effort",feedbackReported(store,r)&&r.rpe()>0?r.rpe():JSONObject.NULL).put("fatigue",feedbackReported(store,r)&&r.fatigue()>0?r.fatigue():JSONObject.NULL).put("pain",feedbackReported(store,r)?r.pain():JSONObject.NULL));
       var sessions=new ArrayList<PlanEngine.Session>();Map<String,Double> caps=new HashMap<>();JSONArray targets=new JSONArray();
       JSONObject race=store.v103().optJSONObject("race");LocalDate raceDate=race==null?null:LocalDate.parse(race.getString("date"));
       for(var s:store.plannedSessions()){
@@ -30,7 +37,7 @@ final class AiCoachPolicy {
         if(s.date().isBefore(today)||store.completed(key)||store.skipped(key)||automatic&&!s.date().isBefore(today.plusDays(8)))continue;
         // Quality work and beginner run/walk stages retain their existing prescriptions.
         if(ScheduleProposer.demanding(s.title())||s.title().equals("Run / walk"))continue;
-        boolean stressed=!recent.isEmpty()&&(recent.get(0).rpe()>=8||recent.get(0).fatigue()>=4);
+        boolean stressed=!recent.isEmpty()&&feedbackReported(store,recent.get(0))&&(recent.get(0).rpe()>=8||recent.get(0).fatigue()>=4);
         double cap=increase&&(raceDate==null||s.date().isBefore(raceDate.minusDays(14)))?Math.min(s.km()*1.04,store.aiBaselineKm(s.id())*1.04):s.km();
         if(stressed)cap=Math.min(cap,s.km()*.8);
         cap=Math.max(.1,Math.floor(cap*100+.00001)/100);caps.put(s.id(),cap);sessions.add(s);

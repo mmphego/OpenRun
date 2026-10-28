@@ -23,7 +23,6 @@ A native Android running and walking app with original branding and code, offlin
 | Daily movement & recovery | Working-hour step-based reminders, 60+ minute intervals, 3+ minute walks, private check-ins and optional sleep/RHR context | Opt-in Android 14+ Health Connect background steps; missing/stale data suppresses alerts. Manual check-ins work offline on Android 8+. Device acceptance pending. |
 | Optional integrations | Bluetooth heart-rate; self-hosted account/backup/Strava service | Permissions, compatible hardware/provider and operator configuration required; live service validation incomplete. |
 | AI Coach | Bring your own OpenAI/Gemini API key, recent-run-based pace/distance proposals, coach questions and opt-in automatic post-run reviews with notifications | Validated easy-run adjustments; API billing/internet required. [Setup and limits](docs/AI-COACH.md). Live provider/device acceptance pending. |
-| Offline AI explanations | Local LiteRT-LM adapter and consent-based server explanation endpoint | Gemma weights are optional; explanations cannot change workouts. |
 | Garmin account sync | **Not implemented** | Official partner approval, credentials and integration work required. File import is separate. |
 
 The app was previously named Rwun. Its Android package ID `app.rwun`, storage keys and backup formats are retained for compatibility; the display name and distribution name are OpenRun.
@@ -63,7 +62,7 @@ For isolated developer testing, open a successful [CI run](https://github.com/mm
 
 ## Develop from a clean clone
 
-Requirements: JDK **21** (Java source level 17), Python **3.12**, Android SDK platform **36**, Build Tools **35.0.0**, platform-tools, Git and internet for initial dependencies. The project commits Gradle **8.11.1** and its wrapper checksum, Android Gradle Plugin **8.9.1**, Room **2.6.1**, desugaring **2.1.4** R8 **9.5.26** and Android Lint **9.4.0**. R8 is explicitly upgraded for the current LiteRT runtime; do not remove that pin without testing dexing.
+Requirements: JDK **21** (Java source level 17), Python **3.12**, Android SDK platform **36**, Build Tools **35.0.0**, platform-tools, Git and internet for initial dependencies. The project commits Gradle **8.11.1** and its wrapper checksum, Android Gradle Plugin **8.9.1**, Room **2.6.1**, desugaring **2.1.4** R8 **9.5.26** and Android Lint **9.4.0**. The existing R8 and Lint pins are retained as the validated build toolchain; local inference is no longer a runtime dependency.
 
 ```bash
 git clone https://github.com/mmphego/OpenRun.git
@@ -97,7 +96,6 @@ Do not use `connectedDebugAndroidTest` as a substitute for the command above: th
 - `app/src/main/res/values/race_providers.xml` keeps RunSignup disabled. Enable it only with the required approval and an HTTPS proxy that holds caller credentials server-side. Never place secrets in Android resources: APKs can be inspected.
 - For the optional service, copy `server/.env.example` to `server/.env`, configure only the integrations you intend to operate, and follow [server/README.md](server/README.md). No service is deployed for you.
 - AI Coach setup, data sharing and automatic reviews: [AI-COACH.md](docs/AI-COACH.md). Keys stay encrypted on the device and are excluded from training backups.
-- Local model setup and terms: [OFFLINE-COACH.md](docs/OFFLINE-COACH.md). Weights are not included.
 - Release signing: [docs/RELEASING.md](docs/RELEASING.md). No Google Play setup is used. Run `bash scripts/configure-signing.sh` on your machine once to configure a persistent signing key and public certificate pin. Distribution never falls back to runner-generated keys.
 
 ## Architecture

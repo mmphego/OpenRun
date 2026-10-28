@@ -729,7 +729,7 @@ final class RunStore {
   }
 
   double aiBaselineKm(String id){return generated(config()).stream().filter(s->s.id().equals(id)).findFirst().orElseThrow().km();}
-  String aiHistoryToken(){synchronized(LOCK){return CoachingMemory.hash(planId()+preferences.getString("runs","[]"));}}
+  String aiHistoryToken(){synchronized(LOCK){return CoachingMemory.hash(planId()+preferences.getString("runs","[]")+CoachingMemory.data(this).optJSONObject("reviews"));}}
   boolean aiHistoryReviewed(){return aiHistoryToken().equals(preferences.getString("aiReviewedRuns",""));}
   void applyAiPlan(String fingerprint,List<PlanEngine.Session> replacements,String reason,String provider,String runToken){synchronized(LOCK){
     requirePreview(fingerprint);

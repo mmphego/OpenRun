@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 : "${ANDROID_SDK_ROOT:?Set ANDROID_SDK_ROOT}"
 : "${DESUGAR_JAR:?Set DESUGAR_JAR to desugar_jdk_libs 2.1.4}"
 : "${DESUGAR_CONFIG_JAR:?Set DESUGAR_CONFIG_JAR to desugar_jdk_libs_configuration 2.1.4}"
-python3 fetch-runtime.py
+rm -rf build/runtime-deps
 python3 fetch-race-deps.py
 R8_JAR="$(python3 fetch-build-tools.py)"
 RUNTIME_CP="$(python3 -c 'from pathlib import Path; print(":".join(str(p) for p in Path("build/runtime-deps").glob("*.jar")))')"
@@ -31,7 +31,6 @@ java -cp "$R8_JAR" com.android.tools.r8.D8 --min-api 26 --lib "$PLATFORM" --desu
 printf '%s\n' '-keep class j$.** { *; }' > "$B/desugar-keep.pro"
 java -cp "$R8_JAR" com.android.tools.r8.L8 --release --min-api 26 --lib "$PLATFORM" --desugared-lib "$B/desugar.json" --pg-conf "$B/desugar-keep.pro" --output "$B/library-dex" "$DESUGAR_JAR" "$DESUGAR_CONFIG_JAR"
 cp "$B/resources.apk" "$B/unsigned.apk"
-(cd build/runtime-deps/native && zip -q -0 -r ../../standalone/unsigned.apk lib)
 if [ -f "$B/library-dex/classes.dex" ]; then
   DEX_INDEX=2
   while [ -f "$B/dex/classes${DEX_INDEX}.dex" ]; do DEX_INDEX=$((DEX_INDEX+1)); done

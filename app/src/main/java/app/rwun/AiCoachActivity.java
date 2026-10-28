@@ -52,7 +52,6 @@ public final class AiCoachActivity extends Activity {
     answer=text("",17,false);
     action("Review and apply this AI plan",this::review);
     action("View plan changes and undo",()->startActivity(new Intent(this,PlanChangesActivity.class)));
-    action("Offline Coach · local model",()->startActivity(new Intent(this,OfflineCoachActivity.class)));
     text("AI guidance may be inaccurate. Targets are estimates: effort, recovery and pain take priority. Model access depends on your provider account; you can edit the model ID above.",13,false);
   }
   private void save()throws Exception {

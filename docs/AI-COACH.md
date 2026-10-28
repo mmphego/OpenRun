@@ -1,6 +1,7 @@
 # AI Coach with your own API key
 
-AI Coach is a cloud alternative to installing Gemma. Open **AI Coach** from the plan
+AI Coach uses OpenAI or Google Gemini with your own API key. Local Gemma support
+has been removed; no model download or inference runtime is included. Open **AI Coach** from the plan
 start screen or Coach tab. Create a goal/race plan, select **OpenAI** or **Gemini**,
 enter a model ID and your own API key, optionally set a goal pace in min:sec/km,
 read and enable data-sharing consent, then save settings. Defaults are `gpt-5-mini`
@@ -19,7 +20,7 @@ Questions are single-turn; a conversation history is not uploaded.
 ## Automatic post-run reviews
 
 Enable **After each saved or imported run** to allow validated updates without
-confirming each one. Newly persisted running history schedules one network-constrained,
+confirming each one. Newly persisted running history or explicit run reflections schedule one network-constrained,
 persisted Android JobScheduler job. Foreground entry and reboot/update also check for
 unreviewed history. Runs imported from Health Connect or files use the same storage
 listener; walking remains excluded. Unknown-distance/time-only runs cannot supply pace.
@@ -56,8 +57,11 @@ These are conservative software limits, not validated exercise prescriptions:
   workout and its original baseline, preventing compounding across reviews.
 - The last fortnight before a race cannot receive distance increases. Latest high
   effort/fatigue caps proposed distances at 80% of their current distance. Missing feedback
-  cannot establish readiness for an increase.
-- Observed pace is total recorded seconds divided by distance over recent runs,
+  cannot establish readiness for an increase. Imported placeholder effort/fatigue/pain
+  values remain unknown unless the runner explicitly reflects on that activity.
+- Observed pace is total recorded seconds divided by distance over recent runs
+  with both known distance and duration; time-only activities are excluded from
+  both totals,
   not a race benchmark or readiness estimate. No numeric AI pace is accepted without
   observed pace, or faster than that observation. A previous AI pace cannot become
   more than 2% faster in one revision. The goal pace informs the explanation, never
@@ -97,7 +101,7 @@ large fonts, recreation and notification opt-out with synthetic data.
 
 Local validation on 28 October 2026:
 
-- All 14 host regression suites passed, including 30 new AI Coach assertions.
+- All 14 host regression suites passed, including 36 AI Coach assertions and four retired-model cleanup assertions.
 - All 14 service tests and 20 device-QA utility tests passed.
 - `git diff --check` passed.
 - Android lint, Gradle unit tests, APK builds and native UI renders could not run:
@@ -118,3 +122,11 @@ Protocol references checked 28 October 2026:
 - [Gemini GenerateContent](https://ai.google.dev/api/generate-content)
 - [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash)
 - [ChatGPT Plus and separate API billing](https://help.openai.com/en/articles/6950777-what-is-chatgpt-plus)
+
+## Upgrade from Gemma
+
+The old model screen, publisher/download/import controls and inference service are
+removed. At process start, background cleanup removes only the retired private
+model and inference-cache directories. Existing running/walking history, active
+plans, recorded routes and API settings remain intact. This cleanup is idempotent
+and avoids symlink targets; tests use synthetic files. See [retired coach](OFFLINE-COACH.md).

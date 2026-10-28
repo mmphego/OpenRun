@@ -46,8 +46,6 @@
   <activity android:name=".IndoorActivity" android:exported="false"/>
   <activity android:name=".AiCoachActivity" android:exported="false"/>
   <service android:name=".AiCoachJob" android:exported="true" android:permission="android.permission.BIND_JOB_SERVICE"/>
-  <activity android:name=".OfflineCoachActivity" android:exported="false"/>
-  <service android:name=".GemmaService" android:exported="false" android:process=":offlinecoach" android:stopWithTask="true"/>
   <activity android:name=".RacePlanActivity" android:exported="false"/>
   <activity android:name=".DailyHealthActivity" android:exported="false"/>
   <receiver android:name=".DailyHealthActions" android:exported="false"/>

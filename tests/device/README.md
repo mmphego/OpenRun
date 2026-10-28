@@ -51,7 +51,7 @@ bash mac-qa.sh gate
 
 Exit 0 means this recording/UI gate passed. Nonzero blocks release. Required: the exact APK hash on all evidence, complete emulator UI results, a physical S23 walk with 30+ sampled screen-off minutes and increasing endpoint steps/distance, timer drift ≤30 seconds, no partial/paused endpoints or absent-service samples, acceptable independent step/distance measurements, and reviewed same-session continuity, notification, pause/resume, single-save and recovery checks with evidence files. Missing, pending, failed or different-build evidence blocks. Repeat after recording-related code or APK changes.
 
-The gate does not publish or install a production release, and does not approve production signing, Play declarations, coaching quality, Garmin activation, live race feeds or Gemma hardware performance. Wire its command as a required step in the eventual publishing pipeline. Until then, it is a local pre-release check, not an enforced store policy.
+The gate does not publish or install a production release, and does not approve production signing, Play declarations, coaching quality, Garmin activation, live race feeds or AI-provider behaviour. Wire its command as a required step in the eventual publishing pipeline. Until then, it is a local pre-release check, not an enforced store policy.
 
 For candidate packaging, use the gated entry point below. It refuses to create an archive when evidence is pending/failed or belongs to a different APK, and never overwrites an existing archive. Normal debug builds remain available for testing fixes. This package clears only the recording/UI checks, not the other production launch requirements.
 

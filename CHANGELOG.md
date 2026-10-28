@@ -2,6 +2,9 @@
 
 ## Unreleased — API-key AI Coach
 
+- Replaced local Gemma support with OpenAI/Gemini BYOK. Removed model installation, inference components, LiteRT dependency and standalone runtime fetch/lock files; preserved historical notices and added background cleanup of old model/cache files.
+- Corrected imported feedback handling so placeholders cannot authorise workload increases, and excluded time-only activities from observed pace totals.
+
 - Added direct OpenAI Responses and Gemini GenerateContent adapters with device-encrypted user API keys, explicit data-sharing consent and editable model IDs.
 - Added AI personalisation of upcoming easy runs from recent distances, durations, pace and feedback, a target pace, review/apply and coach questions.
 - Added opt-in persisted post-run jobs, bounded automatic updates, private notifications, change history and eligible undo. Offline/provider failures retain the saved plan; completed activities, dates, recovery holds and beginner/quality prescriptions stay protected.

@@ -4,7 +4,7 @@ Open **Coach → Beginner sessions & personal progress** for next-run lessons,
 reviewed beginner sessions and personal progress. Voice preferences are also in
 Profile. Core decisions and speech run on the phone without an account, network
 request or model. Install an offline Android TTS voice for offline playback.
-Optional Gemma explanations remain separate and cannot change a workout.
+Optional [AI Coach](AI-COACH.md) uses your own OpenAI or Gemini key for reviewed running-plan personalisation and separately opted-in automatic updates. Voice coaching and base planning continue offline without AI.
 
 ## Prepare → practise → reflect → next run
 

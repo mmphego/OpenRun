@@ -418,7 +418,6 @@ public final class MainActivity extends Activity {
     }else{LinearLayout start=card();start.addView(text("Build your running plan",21,true));start.addView(text("Choose a goal to get session briefings and weekly training guidance.",15,false));row(start,R.drawable.ic_assignment,"Create my plan","Your goal, experience and available days",()->{tab="Plan";creatingPlan=false;render();});}
     if(config!=null){content.addView(button("Adapt plan from recent running",()->openRace("review")));weeklyReview();}
     LinearLayout aiCoach=card();row(aiCoach,R.drawable.ic_volume_up,"AI Coach · OpenAI or Gemini","Your API key · adaptive running plans and coaching",()->startActivity(new Intent(this,AiCoachActivity.class)));
-    LinearLayout offline=card();row(offline,R.drawable.ic_volume_up,"Offline Coach · Gemma",OfflineModels.ready(this)?"Model installed · generate on this phone":"Private coaching · set up the local model",()->startActivity(new Intent(this,OfflineCoachActivity.class)));
     LinearLayout learn=card();row(learn,R.drawable.ic_info,"Coaching library","Running, walking and recovery guides",()->openFeatures("help"));row(learn,R.drawable.ic_volume_up,"Audio coaching","Voice preferences and a sample cue",()->{tab="Profile";render();});row(learn,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor walking and running",()->openIndoor(null));
     content.addView(text(CoachGuide.PROVENANCE,12,false));
   }

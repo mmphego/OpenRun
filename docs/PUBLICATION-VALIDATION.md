@@ -16,7 +16,7 @@ The repository was imported from recovered Rwun 1.4.4 source without project Git
 - `:app:lintDebug`: passed with 55 warnings and zero errors; warnings remain visible in reports. No baseline or disabled-error gate was introduced.
 - `:app:testDebugUnitTest`: four Room/Robolectric tests passed.
 - `:app:assembleDebug` and `:app:assembleDebugAndroidTest`: passed after compatibility fixes.
-- The current LiteRT Kotlin metadata requires the pinned Android Lint 9.4.0 override; R8 is independently pinned for dexing.
+- At original publication, LiteRT Kotlin metadata required the Android Lint 9.4.0 override; R8 was independently pinned for dexing. PR #27 removes local inference while retaining the validated build-tool pins.
 
 ## CI repair and fresh-checkout validation — 23 October 2026
 

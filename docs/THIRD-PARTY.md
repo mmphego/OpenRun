@@ -12,11 +12,18 @@ The source archive retains the Gradle wrapper and its upstream licensing headers
 
 OpenRun's original launcher mark is preserved in adaptive and monochrome launcher layers. No Runna assets were added. An original generated Cape Town illustration is used in 1.4.0.
 
-## Local inference (1.4.0)
+## Retired local inference
 
-LiteRT-LM Android 0.18.0 is linked through its official Maven artifact; checksum-pinned runtime dependencies are in `runtime-lock.json`. The AAR licence and complete third-party notices are retained in `app/src/main/assets/licenses` and packaged in the APK. Kotlin, coroutines, Gson and JetBrains annotations are included as the runtime's published dependencies. See each upstream project's published licences and the runtime notice.
+The 1.4.0 implementation linked LiteRT-LM Android 0.18.0. PR #27 removes the
+runtime dependency, native inference service, model manager and standalone runtime
+download/lock files. OpenAI and Gemini BYOK now provide AI coaching over their
+official HTTPS APIs without an additional Android inference dependency.
 
-Gemma model weights are **not distributed**. The model manager links to the publisher's licence-gated page and accepts only the pinned file described in `OFFLINE-COACH.md`. Downloading and using the model is subject to the publisher's Gemma terms.
+The previous runtime's licence and complete third-party notices remain unchanged in
+`app/src/main/assets/licenses` for provenance. They do not indicate that LiteRT is
+still linked. Room's transitive runtime dependencies remain resolved through its
+normal dependency graph. Historical Gemma setup/release notes describe old versions;
+model weights have never been distributed by this repository.
 
 The original generated Cape Town cover (`res/drawable-nodpi/race_cape_town.png`) is illustrative location artwork, not a race photograph or organiser endorsement. No Runna logos, screenshots, photographs, participant counts or training programmes are bundled.
 
