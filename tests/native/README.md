@@ -39,3 +39,7 @@ history/recreation, cancel/confirm undo, a hold arriving while undo is open, bac
 and preference listener observations of the atomic commit. It emits synthetic-data renders
 for empty/history/1.6x-font states under `app/build/reports/native-qa` in Gradle.
 These are Robolectric host renders, not installation, launch or S23 evidence.
+
+## API-key AI Coach
+
+`AiCoachUiTest` covers empty setup, consent gating, recreation, large-font rendering and notification opt-out using synthetic data. It does not submit API keys or call providers.

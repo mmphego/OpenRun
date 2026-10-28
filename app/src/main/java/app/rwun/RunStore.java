@@ -508,7 +508,7 @@ final class RunStore {
                   ? "Keep this adjusted run easy. Walk breaks are welcome."
                   : s.instructions()));
     }
-    JSONObject overrides=v103().optJSONObject("overrides");if(overrides!=null)for(int i=0;i<out.size();i++){var session=out.get(i);JSONObject o=overrides.optJSONObject(planId()+":"+session.id());if(o!=null){double ratio=completed(planId()+":"+session.id())?1:Math.min(1,factor(session.date())/o.optDouble("factor",1));out.set(i,new PlanEngine.Session(session.id(),session.date(),ratio<1?"Easy recovery run":o.optString("title",session.title()),Math.max(.1,Math.floor(o.optDouble("km",session.km())*ratio*10+.00001)/10),"Reviewed weekly change. Keep effort controlled; no catch-up mileage."));}}
+    JSONObject overrides=v103().optJSONObject("overrides");if(overrides!=null)for(int i=0;i<out.size();i++){var session=out.get(i);JSONObject o=overrides.optJSONObject(planId()+":"+session.id());if(o!=null){double ratio=completed(planId()+":"+session.id())?1:Math.min(1,factor(session.date())/o.optDouble("factor",1));out.set(i,new PlanEngine.Session(session.id(),session.date(),ratio<1?"Easy recovery run":o.optString("title",session.title()),Math.max(.1,Math.floor(o.optDouble("km",session.km())*ratio*10+.00001)/10),ratio<1?"Reviewed weekly change. Keep effort controlled; no catch-up mileage.":o.optString("instructions","Reviewed weekly change. Keep effort controlled; no catch-up mileage.")));}}
     JSONObject race=v103().optJSONObject("race");
     if(race!=null&&race.optString("planId").equals(planId())){
       LocalDate target=LocalDate.parse(race.optString("date"));
@@ -599,7 +599,7 @@ final class RunStore {
   static final Set<String> LONG_KEYS = Set.of("profileSeconds");
   static final Set<String> BOOL_KEYS = Set.of("rest", "audio", "speedWork", "paceAlerts");
   static final Set<String> STRING_KEYS =
-      Set.of("start", "planId", "runs", "adaptFrom", "adaptReason", "moves", "skips", "strength", "options", "schedule", "v1", "v103", "cycling", "planChanges", "planRevision", "planEpoch", "protectedTargets");
+      Set.of("start", "planId", "runs", "adaptFrom", "adaptReason", "moves", "skips", "strength", "options", "schedule", "v1", "v103", "cycling", "planChanges", "planRevision", "planEpoch", "protectedTargets", "aiReviewedRuns");
 
   static void validatePreferences(JSONObject data) throws Exception {
     if(data.has("protectedTargets"))PlanChanges.validateTargets(new JSONObject(data.getString("protectedTargets")));
@@ -727,6 +727,25 @@ final class RunStore {
     e.putString("planEpoch",UUID.randomUUID().toString());
     if (!e.commit()) throw new IllegalStateException("Could not restore. Please try again.");
   }
+
+  double aiBaselineKm(String id){return generated(config()).stream().filter(s->s.id().equals(id)).findFirst().orElseThrow().km();}
+  String aiHistoryToken(){synchronized(LOCK){return CoachingMemory.hash(planId()+preferences.getString("runs","[]"));}}
+  boolean aiHistoryReviewed(){return aiHistoryToken().equals(preferences.getString("aiReviewedRuns",""));}
+  void applyAiPlan(String fingerprint,List<PlanEngine.Session> replacements,String reason,String provider,String runToken){synchronized(LOCK){
+    requirePreview(fingerprint);
+    if(config()==null||resting()||!checkpoint().isEmpty()||indoorPending())throw new IllegalStateException("Finish your session and review any recovery hold before changing the plan.");
+    if(!aiHistoryToken().equals(runToken))throw new IllegalStateException("Running history changed. Generate a fresh plan.");
+    try{JSONObject data=v103(),overrides=data.optJSONObject("overrides");if(overrides==null)overrides=new JSONObject();
+      Map<String,PlanEngine.Session> current=new HashMap<>();for(var session:plannedSessions())current.put(session.id(),session);
+      Set<String> seen=new HashSet<>();
+      for(var next:replacements){var old=current.get(next.id());String key=planId()+":"+next.id();
+        if(old==null||!seen.add(key)||completed(key)||skipped(key)||old.date().isBefore(LocalDate.now())||!old.date().equals(next.date())||!old.title().equals(next.title())||!Double.isFinite(next.km())||next.km()<.1||next.km()>old.km()*1.04+.001||next.km()<old.km()*.5-.001||next.instructions().length()>2000)throw new IllegalArgumentException("AI proposal changes a protected workout or exceeds adjustment limits.");
+        overrides.put(key,new JSONObject().put("date",next.date().toString()).put("km",next.km()).put("factor",factor(next.date())).put("title",next.title()).put("instructions",next.instructions()));
+      }
+      data.put("overrides",overrides);V103Data.validate(data);
+      commit(new PreferenceEdit(preferences).putString("v103",data.toString()).putString("aiReviewedRuns",runToken),"AI Coach update",reason,"Provider: "+provider+". Explicit AI consent; "+runningEvidence());
+    }catch(Exception e){throw new IllegalStateException("AI plan could not be saved: "+e.getMessage(),e);}
+  }}
 
   String runningEvidence() {
     var recent=runs().stream().filter(r->!LocalDate.parse(r.date()).isBefore(LocalDate.now().minusDays(28))&&!LocalDate.parse(r.date()).isAfter(LocalDate.now())).collect(java.util.stream.Collectors.toList());

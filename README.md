@@ -22,7 +22,8 @@ A native Android running and walking app with original branding and code, offlin
 | Health Connect | Separate read/write consent; recent run/walk import and reviewed original outdoor/indoor recording exports | Android 14+; optional average HR read, no routes or imported-activity re-export. Device acceptance pending. |
 | Daily movement & recovery | Working-hour step-based reminders, 60+ minute intervals, 3+ minute walks, private check-ins and optional sleep/RHR context | Opt-in Android 14+ Health Connect background steps; missing/stale data suppresses alerts. Manual check-ins work offline on Android 8+. Device acceptance pending. |
 | Optional integrations | Bluetooth heart-rate; self-hosted account/backup/Strava service | Permissions, compatible hardware/provider and operator configuration required; live service validation incomplete. |
-| Optional AI explanations | Local LiteRT-LM adapter and consent-based server explanation endpoint | Gemma weights are not shipped; model terms, hardware and configuration apply. AI does not change workouts. |
+| AI Coach | Bring your own OpenAI/Gemini API key, recent-run-based pace/distance proposals, coach questions and opt-in automatic post-run reviews with notifications | Validated easy-run adjustments; API billing/internet required. [Setup and limits](docs/AI-COACH.md). Live provider/device acceptance pending. |
+| Offline AI explanations | Local LiteRT-LM adapter and consent-based server explanation endpoint | Gemma weights are optional; explanations cannot change workouts. |
 | Garmin account sync | **Not implemented** | Official partner approval, credentials and integration work required. File import is separate. |
 
 The app was previously named Rwun. Its Android package ID `app.rwun`, storage keys and backup formats are retained for compatibility; the display name and distribution name are OpenRun.
@@ -95,6 +96,7 @@ Do not use `connectedDebugAndroidTest` as a substitute for the command above: th
 - Race refresh automatically contacts Top Events/Bield when Android runs the network-constrained job. No personal training records are sent to those catalogue providers. The public endpoints receive ordinary request metadata such as IP address.
 - `app/src/main/res/values/race_providers.xml` keeps RunSignup disabled. Enable it only with the required approval and an HTTPS proxy that holds caller credentials server-side. Never place secrets in Android resources: APKs can be inspected.
 - For the optional service, copy `server/.env.example` to `server/.env`, configure only the integrations you intend to operate, and follow [server/README.md](server/README.md). No service is deployed for you.
+- AI Coach setup, data sharing and automatic reviews: [AI-COACH.md](docs/AI-COACH.md). Keys stay encrypted on the device and are excluded from training backups.
 - Local model setup and terms: [OFFLINE-COACH.md](docs/OFFLINE-COACH.md). Weights are not included.
 - Release signing: [docs/RELEASING.md](docs/RELEASING.md). No Google Play setup is used. Run `bash scripts/configure-signing.sh` on your machine once to configure a persistent signing key and public certificate pin. Distribution never falls back to runner-generated keys.
 

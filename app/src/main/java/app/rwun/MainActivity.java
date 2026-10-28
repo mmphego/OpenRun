@@ -300,7 +300,8 @@ public final class MainActivity extends Activity {
   private void setup(){
     if(setupStep<0){
       content.addView(text("Your next start line.",30,true));content.addView(text("A plan for your running. Room to walk every day.",17,false));PlanningUi.gap(this,content,24);
-      content.addView(PlanningUi.choice(this,R.drawable.ic_assignment,"Create my plan","Choose your goal or find a race.",()->openRace("goal")));
+      content.addView(PlanningUi.choice(this,R.drawable.ic_volume_up,"AI Coach","Use your own OpenAI or Gemini API key.",()->startActivity(new Intent(this,AiCoachActivity.class))));
+      content.addView(PlanningUi.choice(this,R.drawable.ic_assignment,"Create my plan","Choose your goal, then personalise it with AI Coach.",()->openRace("goal")));
       content.addView(PlanningUi.choice(this,R.drawable.ic_directions_walk,"Start a walk","Choose walking pad or outdoors.",this::chooseWalk));
       content.addView(PlanningUi.choice(this,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor time, steps and optional distance.",()->openIndoor(null)));
       content.addView(button("Movement reminders",()->openTraining("reminders")));return;
@@ -416,6 +417,7 @@ public final class MainActivity extends Activity {
       LinearLayout review=card();review.addView(text("Your training review",21,true));review.addView(text(store.adaptation(),15,false));row(review,R.drawable.ic_monitoring,"Review a saved workout","Recorded effort, fatigue and session details",()->openTraining("review"));row(review,R.drawable.ic_info,"How are you feeling?","Optional check-in before training",()->openTraining("checkin"));
     }else{LinearLayout start=card();start.addView(text("Build your running plan",21,true));start.addView(text("Choose a goal to get session briefings and weekly training guidance.",15,false));row(start,R.drawable.ic_assignment,"Create my plan","Your goal, experience and available days",()->{tab="Plan";creatingPlan=false;render();});}
     if(config!=null){content.addView(button("Adapt plan from recent running",()->openRace("review")));weeklyReview();}
+    LinearLayout aiCoach=card();row(aiCoach,R.drawable.ic_volume_up,"AI Coach · OpenAI or Gemini","Your API key · adaptive running plans and coaching",()->startActivity(new Intent(this,AiCoachActivity.class)));
     LinearLayout offline=card();row(offline,R.drawable.ic_volume_up,"Offline Coach · Gemma",OfflineModels.ready(this)?"Model installed · generate on this phone":"Private coaching · set up the local model",()->startActivity(new Intent(this,OfflineCoachActivity.class)));
     LinearLayout learn=card();row(learn,R.drawable.ic_info,"Coaching library","Running, walking and recovery guides",()->openFeatures("help"));row(learn,R.drawable.ic_volume_up,"Audio coaching","Voice preferences and a sample cue",()->{tab="Profile";render();});row(learn,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor walking and running",()->openIndoor(null));
     content.addView(text(CoachGuide.PROVENANCE,12,false));

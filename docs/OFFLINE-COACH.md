@@ -34,3 +34,7 @@ Host integrity/cancellation/prompt tests, native Android model-manager rendering
 JDK 21 is required to read the runtime's class files; app Java source remains release 17. `runtime-lock.json` pins runtime artifacts and SHA-256 hashes. `build-tools-lock.json` pins R8/D8 9.5.26, replacing the older SDK compiler to support the runtime's Kotlin dependencies. `fetch-runtime.py` and `fetch-build-tools.py` download and verify those dependencies. Licences/notices are packaged as assets. The retained Gradle configuration also overrides the embedded R8 compiler; Gradle/lint/CI were not executed in this environment.
 
 Upstream references: https://developers.google.com/edge/litert-lm/android , https://developer.android.com/build/kotlin-support , https://r8.googlesource.com/r8/+/refs/heads/main/README.md .
+
+## Cloud alternative
+
+Use [AI Coach](AI-COACH.md) with your own OpenAI or Gemini API key for validated running-plan personalisation, coach questions and opt-in post-run updates. No local model is needed for that flow.
