@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — Home navigation and compact actions
+
+- Keep all five bottom navigation icons visible before a training plan exists. The Home tab returns directly to the entry screen; Profile uses an explicit settings icon.
+- Compact home action cards and the existing-plan hub with smaller type, icons, padding and gaps. Text still scales with Android accessibility settings and content remains scrollable on smaller screens.
+
 ## Unreleased — API-key AI Coach
 
 - Replaced local Gemma support with OpenAI/Gemini BYOK. Removed model installation, inference components, LiteRT dependency and standalone runtime fetch/lock files; preserved historical notices and added background cleanup of old model/cache files.

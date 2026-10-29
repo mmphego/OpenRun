@@ -220,19 +220,20 @@ public final class MainActivity extends Activity {
     appTitle=UiKit.label(this,tab.equals("Today")?"OpenRun":tab.equals("Plan")?"Your Plan":tab.equals("Run")?(tracker!=null&&tracker.active()&&tracker.walking()?"Walk":"Move"):tab,18,ink,true);appTitle.setGravity(Gravity.CENTER);appTitle.setSingleLine(true);appTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
     FrameLayout.LayoutParams titleLp=new FrameLayout.LayoutParams(-1,dp(56));titleLp.setMargins(dp(62),0,dp(62),0);toolbar.addView(appTitle,titleLp);
     appLeft=UiKit.iconButton(this,palette,R.drawable.ic_settings,"Profile",()->{tab="Profile";creatingPlan=false;render();});
-    appLeft.setImageDrawable(getDrawable(R.drawable.ic_rwun));FrameLayout.LayoutParams leftLp=new FrameLayout.LayoutParams(dp(48),dp(48),Gravity.START|Gravity.CENTER_VERTICAL);leftLp.setMargins(dp(12),0,0,0);toolbar.addView(appLeft,leftLp);
+    FrameLayout.LayoutParams leftLp=new FrameLayout.LayoutParams(dp(48),dp(48),Gravity.START|Gravity.CENTER_VERTICAL);leftLp.setMargins(dp(12),0,0,0);toolbar.addView(appLeft,leftLp);
     ImageButton quickRun=UiKit.iconButton(this,palette,R.drawable.ic_directions_run,"Record a run",()->{creatingPlan=false;tab="Run";render();});
     FrameLayout.LayoutParams rightLp=new FrameLayout.LayoutParams(dp(48),dp(48),Gravity.END|Gravity.CENTER_VERTICAL);rightLp.setMargins(0,0,dp(12),0);toolbar.addView(quickRun,rightLp);root.addView(toolbar);
     pageScroll=new ScrollView(this);pageScroll.setFillViewport(false);pageScroll.setClipToPadding(false);
     pageScroll.setVerticalScrollBarEnabled(false);content=column();content.setPadding(dp(20),dp(12),dp(20),dp(24));
     pageScroll.addView(content);root.addView(pageScroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
-    if(config==null&&(tab.equals("Today")||tab.equals("Plan"))){setup();return;}
     View separator=new View(this);separator.setBackgroundColor(palette.outline);root.addView(separator,new LinearLayout.LayoutParams(-1,dp(1)));
     LinearLayout nav=new LinearLayout(this);nav.setBackgroundColor(palette.surface);nav.setPadding(dp(4),0,dp(4),0);
     String[] names={"Today","Plan","Calendar","Progress","Coach"};
+    String[] labels={"Home","Plan","Calendar","Progress","Coach"};
     int[] icons={R.drawable.ic_home,R.drawable.ic_assignment,R.drawable.ic_calendar_month,R.drawable.ic_monitoring,R.drawable.ic_volume_up};
-    for(int i=0;i<names.length;i++){String name=names[i];nav.addView(UiKit.navigationItem(this,palette,name,icons[i],name.equals(tab),()->{progressActivityId="";tab=name;creatingPlan=false;if(name.equals("Plan")){planSchedule=false;if(config!=null)week=Math.max(0,Math.min(config.weeks()-1,(int)(java.time.temporal.ChronoUnit.DAYS.between(config.start(),LocalDate.now())/7)));}render();}),new LinearLayout.LayoutParams(0,-2,1));}
+    for(int i=0;i<names.length;i++){String name=names[i];nav.addView(UiKit.navigationItem(this,palette,labels[i],icons[i],name.equals(tab),()->{progressActivityId="";tab=name;creatingPlan=false;if(name.equals("Today")&&config==null)setupStep=-1;if(name.equals("Plan")){if(setupStep<0)setupStep=0;planSchedule=false;if(config!=null)week=Math.max(0,Math.min(config.weeks()-1,(int)(java.time.temporal.ChronoUnit.DAYS.between(config.start(),LocalDate.now())/7)));}render();}),new LinearLayout.LayoutParams(0,-2,1));}
     root.addView(nav);
+    if(config==null&&(tab.equals("Today")||tab.equals("Plan"))){setup();return;}
     if(creatingPlan){setup();return;}
     switch(tab){case "Plan":if(planSchedule)plan();else planHub();break;case "Calendar":calendar();break;case "Run":recording();break;case "Progress":progress();break;case "Profile":settings();break;case "Coach":coach();break;default:today();}
   }
@@ -272,10 +273,10 @@ public final class MainActivity extends Activity {
   private void planChanges(){refreshFeatures=true;startActivity(new Intent(this,PlanChangesActivity.class));}
 
   private void planHub(){
-    LinearLayout hero=column();hero.setGravity(Gravity.CENTER);hero.setPadding(dp(10),dp(28),dp(10),dp(24));
+    LinearLayout hero=column();hero.setGravity(Gravity.CENTER);hero.setPadding(dp(10),dp(12),dp(10),dp(12));
     ImageView hand=new ImageView(this);hand.setImageDrawable(UiKit.icon(this,R.drawable.ic_waving_hand,palette.primary,40));hero.addView(hand,new LinearLayout.LayoutParams(dp(52),dp(52)));
-    TextView welcome=text("Welcome back!",28,true);welcome.setGravity(Gravity.CENTER);LinearLayout.LayoutParams wl=new LinearLayout.LayoutParams(-1,-2);wl.setMargins(0,dp(20),0,dp(14));hero.addView(welcome,wl);
-    TextView description=text("Let’s make a plan for your next start line.",17,false);description.setGravity(Gravity.CENTER);hero.addView(description);hero.setMinimumHeight(dp(240));content.addView(hero,new LinearLayout.LayoutParams(-1,-2));
+    TextView welcome=text("Welcome back!",22,true);welcome.setGravity(Gravity.CENTER);LinearLayout.LayoutParams wl=new LinearLayout.LayoutParams(-1,-2);wl.setMargins(0,dp(8),0,dp(4));hero.addView(welcome,wl);
+    TextView description=text("Let’s make a plan for your next start line.",17,false);description.setGravity(Gravity.CENTER);hero.addView(description);content.addView(hero,new LinearLayout.LayoutParams(-1,-2));
     planHubChoice("Start new plan",this::beginPlan);
     planHubChoice("Restart current plan",this::confirmRestart);
     planHubChoice("Continue plan",()->{planSchedule=true;render();});
@@ -283,7 +284,7 @@ public final class MainActivity extends Activity {
     if(store.resting())content.addView(text("Your training hold stays active when changing plans.",13,false));
     content.addView(button("Training preferences",()->openFeatures("plan")));
   }
-  private void planHubChoice(String label,Runnable action){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(20),dp(16),dp(16),dp(16));row.setMinimumHeight(dp(74));row.setBackground(PlanningUi.shape(this,PlanningUi.CARD,18,true));TextView title=text(label,20,false);title.setTextColor(palette.ink);row.addView(title,new LinearLayout.LayoutParams(0,-2,1));ImageView arrow=new ImageView(this);arrow.setImageDrawable(UiKit.icon(this,R.drawable.ic_chevron_right,palette.muted,25));row.addView(arrow,new LinearLayout.LayoutParams(dp(28),dp(28)));row.setClickable(true);row.setFocusable(true);row.setContentDescription(label);row.setOnClickListener(v->{try{action.run();}catch(RuntimeException e){error(e);}});LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,0,0,dp(20));content.addView(row,lp);}
+  private void planHubChoice(String label,Runnable action){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(16),dp(10),dp(16),dp(10));row.setMinimumHeight(dp(56));row.setBackground(PlanningUi.shape(this,PlanningUi.CARD,18,true));TextView title=text(label,16,false);title.setTextColor(palette.ink);row.addView(title,new LinearLayout.LayoutParams(0,-2,1));ImageView arrow=new ImageView(this);arrow.setImageDrawable(UiKit.icon(this,R.drawable.ic_chevron_right,palette.muted,25));row.addView(arrow,new LinearLayout.LayoutParams(dp(28),dp(28)));row.setClickable(true);row.setFocusable(true);row.setContentDescription(label);row.setOnClickListener(v->{try{action.run();}catch(RuntimeException e){error(e);}});LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,0,0,dp(8));content.addView(row,lp);}
 
   private void confirmRestart(){
     try{ensurePlanEditable();}catch(RuntimeException e){error(e);return;}
@@ -299,11 +300,11 @@ public final class MainActivity extends Activity {
 
   private void setup(){
     if(setupStep<0){
-      content.addView(text("Your next start line.",30,true));content.addView(text("A plan for your running. Room to walk every day.",17,false));PlanningUi.gap(this,content,24);
-      content.addView(PlanningUi.choice(this,R.drawable.ic_volume_up,"AI Coach","Use your own OpenAI or Gemini API key.",()->startActivity(new Intent(this,AiCoachActivity.class))));
-      content.addView(PlanningUi.choice(this,R.drawable.ic_assignment,"Create my plan","Choose your goal, then personalise it with AI Coach.",()->openRace("goal")));
-      content.addView(PlanningUi.choice(this,R.drawable.ic_directions_walk,"Start a walk","Choose walking pad or outdoors.",this::chooseWalk));
-      content.addView(PlanningUi.choice(this,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor time, steps and optional distance.",()->openIndoor(null)));
+      content.addView(text("Your next start line.",22,true));content.addView(text("A plan for your running. Room to walk every day.",17,false));PlanningUi.gap(this,content,12);
+      content.addView(PlanningUi.compactChoice(this,R.drawable.ic_volume_up,"AI Coach","Use your own OpenAI or Gemini API key.",()->startActivity(new Intent(this,AiCoachActivity.class))));
+      content.addView(PlanningUi.compactChoice(this,R.drawable.ic_assignment,"Create my plan","Choose your goal or find a race.",()->openRace("goal")));
+      content.addView(PlanningUi.compactChoice(this,R.drawable.ic_directions_walk,"Start a walk","Choose walking pad or outdoors.",this::chooseWalk));
+      content.addView(PlanningUi.compactChoice(this,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor time, steps and optional distance.",()->openIndoor(null)));
       content.addView(button("Movement reminders",()->openTraining("reminders")));return;
     }
     header("Create your plan",()->{if(setupStep>0){setupStep--;render();}else if(config!=null){creatingPlan=false;render();}else {setupStep=-1;render();}});

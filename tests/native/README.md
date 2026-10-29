@@ -43,3 +43,7 @@ These are Robolectric host renders, not installation, launch or S23 evidence.
 ## API-key AI Coach
 
 `AiCoachUiTest` covers empty setup, consent gating, recreation, large-font rendering and notification opt-out using synthetic data. It does not submit API keys or call providers.
+
+## Home navigation and compact entry actions
+
+`HomeNavigationUiTest` checks all five navigation icons without a plan, direct Home navigation from setup and other tabs, recreation, default-font action fit at 360 × 780, fixed navigation with scrollable 1.6× text at 320 × 640, and the compact existing-plan hub. Renders include synthetic system insets. These are host checks; Samsung and physical-device acceptance remain separate.
