@@ -129,3 +129,12 @@ removed. At process start, background cleanup removes only the retired private
 model and inference-cache directories. Existing running/walking history, active
 plans, recorded routes and API settings remain intact. This cleanup is idempotent
 and avoids symlink targets; tests use synthetic files. See [retired coach](OFFLINE-COACH.md).
+
+
+## Hybrid plan creation (draft PR #30)
+
+Race and goal onboarding offers two planning methods: the existing offline deterministic plan, or an AI-personalised full schedule. The AI method first generates the deterministic schedule as a safety envelope, then sends only run summaries and workout descriptions to the configured provider. The provider must return exactly one entry for each planned session. Validation preserves dates, IDs, workout types, recovery days, and quality-session distances; easy-run distances may only be reduced to 70–100% of baseline. The entire proposed schedule is previewed before saving. No existing plan is replaced if generation or validation fails.
+
+Settings → AI Connections remains the permanent provider configuration home. During onboarding, missing credentials direct the user there without discarding their draft. User-selectable outage policies are keep current plan, retry automatic review on connection errors, or pause automatic reviews. The existing post-run AI Coach retains its separate conservative easy-run adjustment policy.
+
+**Limitations:** AI full-plan generation is intentionally bounded by the deterministic schedule, not an unconstrained workout generator. It does not create new training days or workout types. Live provider/device testing is required before release. Imported run feedback may be incomplete and is not interpreted as proof of readiness.
