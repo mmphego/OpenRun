@@ -18,7 +18,8 @@ Audit date: 2 November 2026. Scope: existing `feat/ai-connections-settings` bran
   into an old plan identity.
 - Include goal pace, recent timed pace, long-run day and hold context in full-plan
   evidence. Exclude stale/future runs and keep unreported imported feedback unknown.
-  Quality and run/walk prescriptions stay deterministic. Full-plan volume remains
+  Full-plan responses cannot inject the executable Coach pace marker to bypass the
+  separate post-run pace validator. Quality and run/walk prescriptions stay deterministic. Full-plan volume remains
   inside the deterministic safety envelope; this is bounded personalisation.
 - Normalise full-plan distances to the existing 0.1 km precision before preview.
   New post-run AI overrides retain their precise accepted values; old overrides retain
@@ -54,7 +55,7 @@ Final source-tree results on 2 November 2026:
 
 | Gate | Result |
 | --- | --- |
-| Host regression scripts | 14 suites passed; 38 AI Coach + 85 full-planning assertions |
+| Host regression scripts | 14 suites passed; 38 AI Coach + 86 full-planning assertions |
 | Gradle unit/Robolectric suite | 213 tests: 212 passed, 1 intentionally skipped live race-provider test, 0 failures/errors |
 | Android lintDebug | Passed, 0 errors and 80 warnings; no suppressions added |
 | assembleDebug / assembleDebugAndroidTest | Both passed |

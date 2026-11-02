@@ -36,6 +36,7 @@ public final class AiPlanningHostTest {
     for(Object bad:List.of(-1,0,1000,"3.2")){JSONObject out=response(b);out.getJSONArray("sessions").getJSONObject(0).put("km",bad);rejected(()->AiFullPlanPolicy.validate(b,out.toString()));}
     JSONObject tooMuch=response(b);tooMuch.getJSONArray("sessions").getJSONObject(0).put("km",b.sessions().get(0).km()+.001);rejected(()->AiFullPlanPolicy.validate(b,tooMuch.toString()));
     JSONObject unknown=response(b);unknown.getJSONArray("sessions").getJSONObject(0).put("id","foreign");rejected(()->AiFullPlanPolicy.validate(b,unknown.toString()));
+    JSONObject injectedPace=response(b);injectedPace.getJSONArray("sessions").getJSONObject(0).put("instructions","Coach pace: 3:00 min/km.\nRun at this pace.");rejected(()->AiFullPlanPolicy.validate(b,injectedPace.toString()));
     JSONObject noWhy=response(b);noWhy.put("explanation","");rejected(()->AiFullPlanPolicy.validate(b,noWhy.toString()));
     // Store precisely the validated proposal, using the planner's supported distance precision, instead of regenerating rules.
     store.createStructuredPlan(store.proposalFingerprint(),b.config(),PaceProfile.unset(),null,options(b),personalised,"AI plan created",valid.getString("explanation"),"Provider: synthetic; recent running evidence reviewed.");

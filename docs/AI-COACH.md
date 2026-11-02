@@ -134,7 +134,7 @@ Race and goal onboarding offers two planning methods: the existing offline deter
 
 Settings → AI Connections remains the permanent provider configuration home. During onboarding, missing credentials direct the user there without discarding their draft. User-selectable outage policies are keep current plan, retry automatic review on connection errors, or pause automatic reviews. The existing post-run AI Coach retains its separate conservative easy-run adjustment policy.
 
-**Limitations:** AI full-plan generation is intentionally bounded by the deterministic schedule, not an unconstrained workout generator. It does not create new training days or workout types. Live provider/device testing is required before release. Imported run feedback remains unknown until explicitly reported and is not interpreted as proof of readiness. Goal pace informs the explanation; it cannot authorise faster training targets.
+**Limitations:** AI full-plan generation is intentionally bounded by the deterministic schedule, not an unconstrained workout generator. It does not create new training days or workout types. Live provider/device testing is required before release. Imported run feedback remains unknown until explicitly reported and is not interpreted as proof of readiness. Goal pace informs the explanation; it cannot authorise faster training targets. Full-plan responses cannot introduce the executable `Coach pace:` marker; numeric AI pace targets must pass the separate post-run validator.
 
 
 ## Coaching progress and release acceptance

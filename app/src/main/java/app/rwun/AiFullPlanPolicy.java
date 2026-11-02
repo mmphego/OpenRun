@@ -34,7 +34,7 @@ final class AiFullPlanPolicy {
         +"Include EVERY baseline session exactly once. Preserve all IDs, dates, workout types, recovery "
         +"days and session order. For easy sessions, distance may be 70-100% of baseline (no increases), rounded to one decimal; "
         +"for long/tempo/interval/run-walk/quality sessions preserve exact distance and instructions. Keep easy-run instructions "
-        +"conservative, practical and under 400 characters each. Never diagnose injury or claim "
+        +"conservative, practical and under 400 characters each. Use effort guidance, never a Coach pace marker. Never diagnose injury or claim "
         +"race-readiness. Missing feedback is unknown readiness; goal pace is an aspiration, not a training prescription. "
         +"Use only supplied evidence. Do not include routes or personal identifiers.\n"+context;
   }
@@ -59,6 +59,7 @@ final class AiFullPlanPolicy {
         throw new IllegalArgumentException("AI plan contains an invalid or duplicate workout.");
       if(!(row.get("km") instanceof Number))throw new IllegalArgumentException("AI workout distance must be numeric.");
       double km=row.getDouble("km");
+      if(WorkoutFactory.coachPace(instructions)>0)throw new IllegalArgumentException("Full-plan AI cannot prescribe a training pace. Use effort guidance.");
       boolean demanding=ScheduleProposer.demanding(old.title())||old.title().equals("Run / walk");
       double min=demanding?old.km():old.km()*.70,max=old.km();
       if(!Double.isFinite(km)||km<min-.000001||km>max+.000001)
