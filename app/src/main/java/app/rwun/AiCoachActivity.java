@@ -13,7 +13,7 @@ import org.json.*;
 public final class AiCoachActivity extends Activity {
   private final UiKit.Palette palette=new UiKit.Palette(true);
   private final ExecutorService worker=Executors.newSingleThreadExecutor();
-  private LinearLayout body;private TextView status,answer;private Spinner provider;
+  private LinearLayout body;private TextView status,answer;private Spinner provider,fallback;
   private EditText model,key,goal,question;private CheckBox consent,automatic,notifications;
   private AiCoachSettings vault;private RunStore store;private JSONObject saved;
   private String pendingSettingsRevision="";
@@ -42,6 +42,10 @@ public final class AiCoachActivity extends Activity {
     consent=check("I agree to send recent run dates, distance, duration, pace, effort, fatigue, pain flags, goal and upcoming workouts to my selected AI provider. Routes and heart-rate records are excluded. Questions I type are also sent.",saved.optBoolean("consent"));
     automatic=check("After each saved or imported run, automatically review and update upcoming easy runs within the app's adjustment limits.",saved.optBoolean("automatic"));
     notifications=check("Notify me when a post-run review completes or needs attention.",saved.optBoolean("notifications"));
+    text("When AI is unavailable",14,true);
+    fallback=new Spinner(this);
+    fallback.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Keep current plan","Retry automatically","Pause AI reviews"}));
+    String policy=saved.optString("fallback","keep");fallback.setSelection(policy.equals("retry")?1:policy.equals("pause")?2:0);body.addView(fallback);
     text("Automatic reviews require internet and run when Android permits. Offline or failed requests keep the saved plan. AI cannot clear recovery holds. You can inspect plan changes and undo an eligible update.",14,false);
     status=text(saved.optString("lastResult","Set up your provider to begin."),15,true);
     action("Save AI Coach settings",this::save);
@@ -63,7 +67,7 @@ public final class AiCoachActivity extends Activity {
     if(secret.isEmpty()&&selected.equals(saved.optString("provider")))secret=saved.optString("key");
     String pace=goal.getText().toString().trim();int seconds=0;
     if(!pace.isEmpty()){if(!pace.matches("[0-9]{1,2}:[0-5][0-9]"))throw new IllegalArgumentException("Enter goal pace as min:sec per km, for example 6:30.");String[] parts=pace.split(":");seconds=Integer.parseInt(parts[0])*60+Integer.parseInt(parts[1]);}
-    synchronized(RunStore.LOCK){vault.save(selected,model.getText().toString().trim(),secret,seconds,automatic.isChecked(),notifications.isChecked());AiCoachJob.cancel(this);}
+    synchronized(RunStore.LOCK){vault.save(selected,model.getText().toString().trim(),secret,seconds,automatic.isChecked(),notifications.isChecked(),new String[]{"keep","retry","pause"}[fallback.getSelectedItemPosition()]);AiCoachJob.cancel(this);}
     saved=vault.read();key.setText("");key.setHint("Saved key · leave blank to keep");pending=null;proposal=null;if(answer!=null)answer.setText("");status.setText("Settings saved. Generate a plan or ask your coach. "+(notifications.isChecked()&&!Reminders.allowed(this)?"Notifications are currently blocked in Android settings.":""));
     if(notifications.isChecked()&&Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},84);
     AiCoachJob.schedule(this);
