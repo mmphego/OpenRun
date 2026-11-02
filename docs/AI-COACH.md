@@ -1,8 +1,7 @@
 # AI Coach with your own API key
 
 AI Coach uses OpenAI or Google Gemini with your own API key. Local Gemma support
-has been removed; no model download or inference runtime is included. Open **AI Coach** from the plan
-start screen or Coach tab. Create a goal/race plan, select **OpenAI** or **Gemini**,
+has been removed; no model download or inference runtime is included. Open **AI Connections** from Profile settings to configure and test a provider without creating a plan. The Coach tab and plan onboarding continue to open the coaching screen. Create a goal/race plan, select **OpenAI** or **Gemini**,
 enter a model ID and your own API key, optionally set a goal pace in min:sec/km,
 read and enable data-sharing consent, then save settings. Defaults are `gpt-5-mini`
 and `gemini-3.8-flash`; model access and availability depend on the provider account.
