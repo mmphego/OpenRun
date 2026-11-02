@@ -43,11 +43,20 @@ If a label differs on your build, use the closest corresponding section; report 
 
 ## Create a training plan
 
+![Goal selection screen (baseline Android Views render)](screenshots/goals.png)
+
+*Goal selection. This is a synthetic-data host render of an earlier Rwun baseline, not a current-device screenshot.*
+
+
 1. Open **Plan** and start goal/race onboarding.
 2. Select a goal or race, your current running baseline, the number of weeks and training days.
 3. Review the generated schedule, including easy days, harder sessions and recovery.
 4. Inspect **Review all workouts** before choosing **Create my plan**.
 5. Use **Calendar** or **Plan** to see upcoming sessions.
+
+![Training plan preview (baseline Android Views render)](screenshots/plan-preview.png)
+
+*Example plan preview from the earlier baseline. Confirm labels and controls against your installed version.*
 
 The offline deterministic planner works without an account, API key or internet. The AI-personalised planning option requires [AI Coach configuration](#configure-ai-coach) and a working provider. AI plans are checked against the deterministic safety envelope; generating a preview does not automatically replace a saved plan.
 
@@ -65,11 +74,25 @@ The recorder supports GPS routes, splits, audio cues and interrupted-session rec
 
 ## Record an indoor walk
 
+![Indoor walking screen (baseline Android Views render)](screenshots/indoor-walk.png)
+
+*Indoor walking example from the earlier baseline; actual device layout may differ.*
+
+
 Use the indoor walking entry point, start the timer and save when finished. On supported phones, OpenRun can estimate distance from phone steps and a calibrated stride. Keep the phone positioned consistently; an estimate is not a treadmill-measured distance. Indoor walking does not require a GPS route or direct walking-pad integration. If step sensors are unavailable, record the supported time-only activity rather than inventing a distance.
 
 ## Review progress and change your plan
 
+![Progress history with monthly activity groups](screenshots/progress-history.png)
+
+*Current native Android Views rendered with synthetic activities; not a physical-device capture.*
+
+
 **Progress** groups saved activities and shows available distance, time, pace and route details. Imported records may have no GPS route or pace. Running and walking totals are kept separate.
+
+![Activity detail with recorded route](screenshots/progress-route-detail.png)
+
+*Example route detail using synthetic data. Never share personal GPS routes in documentation screenshots.*
 
 After a workout, provide effort, fatigue or pain feedback when prompted. Training adaptations are conservative: they protect completed sessions and recovery holds. Review proposed changes rather than assuming every run should make the next workout harder.
 
@@ -100,6 +123,10 @@ Health Connect integration is available through the Android 14+ framework API; o
 2. Enable **Read from Health Connect** and grant the Android permissions for the data you want imported.
 3. Run the available import/synchronisation action and inspect **Progress** for imported activities.
 4. To export eligible OpenRun recordings, separately enable **Write to Health Connect** and review the export action and records.
+
+![Health Connect imported activity with no route](screenshots/progress-health-detail.png)
+
+*Example imported-activity detail with unavailable route, rendered from native Android Views using synthetic data.*
 
 Reading and writing are independent permissions. Imported activities are not re-exported as if OpenRun created them. Imported records may lack routes, precise times or heart-rate information; missing fields remain missing. If an import does not appear, confirm that the source app actually wrote a compatible run/walk record into Health Connect and that OpenRun has read permission. Device acceptance is still pending; consult [Health Connect details](HEALTH-CONNECT.md).
 
