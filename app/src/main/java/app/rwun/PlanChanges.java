@@ -48,6 +48,7 @@ final class PlanChanges {
       for(String key:List.of("runs","active"))value.put(key,state.getOrDefault(key,""));
       JSONObject data=new JSONObject((String)state.getOrDefault("v103","{}"));
       for(String key:List.of("matches","walks","indoor","activeIndoor"))if(data.has(key))value.put(key,data.get(key));
+      JSONObject coaching=data.optJSONObject("coaching");value.put("runReviews",coaching==null?null:coaching.optJSONObject("reviews"));
       value.put("activeCycling",new JSONObject((String)state.getOrDefault("cycling","{}")).optJSONObject("active"));
       return hash(canonical(value));
     }catch(JSONException e){throw new IllegalStateException(e);}
@@ -80,6 +81,7 @@ final class PlanChanges {
       JSONArray history=new JSONArray((String)state.getOrDefault("planChanges","[]"));
       if(history.length()==0)throw new IllegalStateException("No recorded changes to undo.");
       JSONObject event=history.getJSONObject(history.length()-1);String kind=event.getString("kind");
+      if(!event.getJSONObject("before").optString("planId").equals(event.getJSONObject("after").optString("planId")))throw new IllegalStateException("Plan creation cannot be undone. Saved activities remain in history.");
       if(Set.of("Undo","Recovery hold","Recovery review").contains(kind))throw new IllegalStateException("This event cannot be undone. Recovery needs explicit review; undo events cannot be undone.");
       if(!event.getString("revision").equals(state.getOrDefault("planRevision",""))||!canonical(event.getJSONObject("after")).equals(canonical(raw(state))))throw new IllegalStateException("The plan has changed since this event. Newer work will be kept.");
       RunStore store=new RunStore(PreferenceEdit.view(state));

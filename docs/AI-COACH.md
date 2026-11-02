@@ -30,8 +30,11 @@ The job updates upcoming easy sessions in the next seven days, stores a processe
 history token in the same transaction as the plan changes, and optionally notifies
 you. Changes to history/plan while the request is running invalidate its proposal.
 A stopped job cannot apply its result; pending work is retried by Android. Connection
-and timeout failures request backoff; authentication, quota or invalid outputs need
-attention in AI Coach. Failed calls preserve workouts. The screen retains the latest
+and timeout failures, HTTP 429 and provider outages request Android backoff only when
+**Retry automatically** is selected. **Keep current plan** leaves the schedule intact
+and waits for a later trigger or manual retry; **Pause AI reviews** turns automatic
+reviews off. Authentication and invalid/incomplete outputs never request automatic
+retries. Failures from an old settings revision cannot pause newly saved settings. Failed calls preserve workouts. The screen retains the latest
 review/status. Notifications use a separate private channel and Android permission;
 a blocked notification never prevents a saved review.
 
@@ -71,7 +74,8 @@ These are conservative software limits, not validated exercise prescriptions:
 
 ## Data and credentials
 
-Only up to 40 runs from the last 28 days are included: dates, distance, duration,
+Post-run/manual coaching includes up to 40 runs from the last 28 days; full-plan
+onboarding includes up to 30 runs from that window: dates, distance, duration,
 computed pace, and available effort/fatigue/pain flags, alongside goal and upcoming
 workouts. No routes, names, raw heart-rate records, sleep or Movement & recovery
 check-ins are included. User-typed coach questions are sent verbatim.
@@ -98,16 +102,9 @@ completed activity protection, workout pace propagation, history/undo and both
 provider response formats. `AiCoachUiTest` exercises missing-key/consent states,
 large fonts, recreation and notification opt-out with synthetic data.
 
-Local validation on 28 October 2026:
-
-- All 14 host regression suites passed, including 36 AI Coach assertions and four retired-model cleanup assertions.
-- All 14 service tests and 20 device-QA utility tests passed.
-- `git diff --check` passed.
-- Android lint, Gradle unit tests, APK builds and native UI renders could not run:
-  the Gradle distribution download failed with `Network is unreachable`. No SDK or
-  emulator was available in this workspace. The added native UI tests are unexecuted.
-- Remote CI, live provider calls and physical-device acceptance are separate from
-  these local validation results.
+Current PR validation, acceptance evidence and external limitations are recorded in
+[PR #30 validation](PR-30-VALIDATION.md). Earlier host-only results do not substitute
+for the current Android release checks.
 
 No API keys or personal running data are used in tests. Live generation for either
 provider, Android Keystore persistence across upgrade, actual JobScheduler timing,
@@ -131,18 +128,18 @@ plans, recorded routes and API settings remain intact. This cleanup is idempoten
 and avoids symlink targets; tests use synthetic files. See [retired coach](OFFLINE-COACH.md).
 
 
-## Hybrid plan creation (draft PR #30)
+## Hybrid plan creation
 
-Race and goal onboarding offers two planning methods: the existing offline deterministic plan, or an AI-personalised full schedule. The AI method first generates the deterministic schedule as a safety envelope, then sends only run summaries and workout descriptions to the configured provider. The provider must return exactly one entry for each planned session. Validation preserves dates, IDs, workout types, recovery days, and quality-session distances; easy-run distances may only be reduced to 70–100% of baseline. The entire proposed schedule is previewed before saving. No existing plan is replaced if generation or validation fails.
+Race and goal onboarding offers two planning methods: the existing offline deterministic plan, or an AI-personalised full schedule. The AI method first generates the deterministic schedule as a safety envelope, then sends only run summaries and workout descriptions to the configured provider. The provider must return exactly one entry for each planned session. Validation preserves dates, IDs, workout types, recovery days, and quality-session distances/instructions; easy-run distances may only be reduced to 70–100% of baseline. Use **Review all workouts** to inspect the complete schedule and instructions before saving. The validated preview and its original data fingerprint survive rotation; new running evidence or changed AI credentials require a fresh preview. Full-plan distances use the existing 0.1 km schedule precision; validation normalises them before preview. New post-run overrides retain the exact accepted distance, while legacy override rounding remains unchanged. Accepted previews are saved unchanged, and the provider, explanation and running evidence are recorded atomically in plan-change history. Plan creation/replacement cannot be undone into an older plan; saved activities remain available. No existing plan is replaced if generation or validation fails.
 
 Settings → AI Connections remains the permanent provider configuration home. During onboarding, missing credentials direct the user there without discarding their draft. User-selectable outage policies are keep current plan, retry automatic review on connection errors, or pause automatic reviews. The existing post-run AI Coach retains its separate conservative easy-run adjustment policy.
 
-**Limitations:** AI full-plan generation is intentionally bounded by the deterministic schedule, not an unconstrained workout generator. It does not create new training days or workout types. Live provider/device testing is required before release. Imported run feedback may be incomplete and is not interpreted as proof of readiness.
+**Limitations:** AI full-plan generation is intentionally bounded by the deterministic schedule, not an unconstrained workout generator. It does not create new training days or workout types. Live provider/device testing is required before release. Imported run feedback remains unknown until explicitly reported and is not interpreted as proof of readiness. Goal pace informs the explanation; it cannot authorise faster training targets.
 
 
 ## Coaching progress and release acceptance
 
-Open Training → Training progress & next run for a read-only summary: planned versus actual distance through today, completed versus due workouts, current phase, next uncompleted run, recovery context, and the latest applied plan-change reason. View all plan changes opens the existing audit trail. Unrelated runs and walks are excluded from plan completion. This is descriptive progress, not a predicted finish time or medical readiness score.
+Open Training → Training progress & next run for a read-only summary: planned versus actual distance through today, completed versus due workouts, current phase, next uncompleted run, recovery context, and the latest applied plan-change reason. View all plan changes opens the existing audit trail. Only linked or explicitly matched runs count toward plan completion; a match counts once and is excluded from the next-run recommendation. Skipped due workouts remain in the planned denominator so skipping cannot inflate adherence. Recent pain in any saved run, including unrelated runs, suppresses the next-run prescription. Unrelated runs and walks are excluded from completion totals. This is descriptive progress, not a predicted finish time or medical readiness score.
 
 ### Release gates (required before marking PR ready)
 

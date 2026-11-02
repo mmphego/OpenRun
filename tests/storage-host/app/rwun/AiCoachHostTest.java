@@ -34,7 +34,7 @@ public final class AiCoachHostTest {
     check(context.preferenceCommits()==commits+1&&store.aiHistoryReviewed(),"update and processed run token commit atomically");
     check(new RunStore(context).aiHistoryReviewed()&&store.runs().toString().equals(activities),"update survives repository recreation and preserves history");
     check(store.planChanges().getJSONObject(0).getString("kind").equals("AI Coach update"),"AI changes have provenance and history");
-    var updated=store.plannedSessions().get(0);check(WorkoutFactory.coachPace(updated.instructions())==450,"saved pace is readable");
+    var updated=store.plannedSessions().get(0);check(updated.km()==proposal.sessions().get(0).km(),"new AI override retains the exact reviewed distance");check(WorkoutFactory.coachPace(updated.instructions())==450,"saved pace is readable");
     check(WorkoutFactory.create(updated,store.profile()).steps().get(1).pace().fastSeconds()==450,"coach pace reaches workout guidance");
     reject(()->store.applyAiPlan(request.fingerprint(),proposal.sessions(),"duplicate","OpenAI",request.runToken()));
     var next=AiCoachPolicy.snapshot(store,settings(),false);check(next.caps().get(first.id())<=store.aiBaselineKm(first.id())*1.04+.001,"repeated reviews cannot compound workload increases");
@@ -52,9 +52,10 @@ public final class AiCoachHostTest {
     check(!imported.increase(),"imported placeholder feedback cannot enable progression");
     JSONObject importedRow=imported.payload().getJSONArray("recentRuns").getJSONObject(0);
     check(importedRow.isNull("effort")&&importedRow.isNull("fatigue")&&importedRow.isNull("pain"),"unreported imported feedback is sent as unknown");
-    String beforeReflection=store.aiHistoryToken();
+    String beforeReflection=store.aiHistoryToken(),beforeReflectionFingerprint=store.proposalFingerprint();
     for(var run:store.runs())store.reviewRun(run.sessionId(),CoachingMemory.hash(run.toString()),5,2,false,true,true);
     check(AiCoachPolicy.snapshot(store,settings(),true).increase(),"explicit imported reflections support readiness evidence");
+    check(!beforeReflectionFingerprint.equals(store.proposalFingerprint()),"explicit imported feedback invalidates full-plan previews even when placeholder values are unchanged");
     check(!beforeReflection.equals(store.aiHistoryToken()),"reporting unchanged placeholder values still invalidates the reviewed history token");
     setup();store.add(new RunStore.Run("known-distance",LocalDate.now().toString(),5,30));
     JSONArray mixed=new JSONArray(context.getSharedPreferences("rwun",0).getString("runs","[]"));

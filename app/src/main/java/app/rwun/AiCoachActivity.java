@@ -32,7 +32,7 @@ public final class AiCoachActivity extends Activity {
     text(connectionsOnly?"AI Connections":"Your runs. Your goal. Your coach.",28,true);
     text("Use your own OpenAI or Google Gemini API key to personalise your running plan and ask your coach questions. API usage is billed by the provider; a ChatGPT subscription does not supply an API key.",16,false);
     try{saved=vault.read();}catch(RuntimeException e){saved=new JSONObject();text(e.getMessage(),16,true);}
-    text("Provider",14,true);provider=new Spinner(this);provider.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"OpenAI","Gemini"}));provider.setSelection(saved.optString("provider").equals("Gemini")?1:0);body.addView(provider);
+    text("Provider",14,true);provider=new Spinner(this);provider.setContentDescription("AI provider");provider.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"OpenAI","Gemini"}));provider.setSelection(saved.optString("provider").equals("Gemini")?1:0);body.addView(provider);
     model=field("Model ID",saved.optString("model","gpt-5-mini"));
     provider.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){private boolean initial=true;public void onNothingSelected(android.widget.AdapterView<?> p){}public void onItemSelected(android.widget.AdapterView<?> p,View v,int position,long id){if(initial){initial=false;return;}model.setText(position==0?"gpt-5-mini":"gemini-3.8-flash");key.setText("");key.setHint("Enter the selected provider's API key");}});
     key=field("API key (stored encrypted on this device)","");key.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);key.setSaveEnabled(false);key.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);key.setHint(saved.has("key")?"Saved key · leave blank to keep":"Enter API key");
@@ -43,7 +43,7 @@ public final class AiCoachActivity extends Activity {
     automatic=check("After each saved or imported run, automatically review and update upcoming easy runs within the app's adjustment limits.",saved.optBoolean("automatic"));
     notifications=check("Notify me when a post-run review completes or needs attention.",saved.optBoolean("notifications"));
     text("When AI is unavailable",14,true);
-    fallback=new Spinner(this);
+    fallback=new Spinner(this);fallback.setContentDescription("When AI is unavailable");
     fallback.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Keep current plan","Retry automatically","Pause AI reviews"}));
     String policy=saved.optString("fallback","keep");fallback.setSelection(policy.equals("retry")?1:policy.equals("pause")?2:0);body.addView(fallback);
     text("Automatic reviews require internet and run when Android permits. Offline or failed requests keep the saved plan. AI cannot clear recovery holds. You can inspect plan changes and undo an eligible update.",14,false);

@@ -178,14 +178,17 @@ final class RunStore {
   /** Commit race identity, generated schedule and settings together; retain history and holds. */
   void createRacePlan(String expectedFingerprint,PlanEngine.Config c,PaceProfile p,JSONObject race,JSONObject options,List<PlanEngine.Session> sessions){if(race==null)throw new IllegalArgumentException("Choose a race");createStructuredPlan(expectedFingerprint,c,p,race,options,sessions);}
   void createGoalPlan(String expectedFingerprint,PlanEngine.Config c,PaceProfile p,JSONObject options,List<PlanEngine.Session> sessions){createStructuredPlan(expectedFingerprint,c,p,null,options,sessions);}
-  private void createStructuredPlan(String expectedFingerprint,PlanEngine.Config c,PaceProfile p,JSONObject race,JSONObject options,List<PlanEngine.Session> sessions){synchronized(LOCK){
+  void createStructuredPlan(String expectedFingerprint,PlanEngine.Config c,PaceProfile p,JSONObject race,JSONObject options,List<PlanEngine.Session> sessions){
+    createStructuredPlan(expectedFingerprint,c,p,race,options,sessions,"Plan created","Plan created from reviewed running history.","Deterministic OpenRun rules; "+runningEvidence());
+  }
+  void createStructuredPlan(String expectedFingerprint,PlanEngine.Config c,PaceProfile p,JSONObject race,JSONObject options,List<PlanEngine.Session> sessions,String kind,String reason,String evidence){synchronized(LOCK){
     if(!expectedFingerprint.equals(proposalFingerprint()))throw new IllegalStateException("Your plan or running history changed. Preview again.");
     if(!checkpoint().isEmpty()||indoorPending())throw new IllegalStateException("Finish or recover your pending session first");
     try{
       String id=UUID.randomUUID().toString();JSONObject target=race==null?null:new JSONObject(race.toString()).put("planId",id),data=v103();if(target==null)data.remove("race");else data.put("race",target);V103Data.validate(data);validateOptions(options);
       if(options.getJSONArray("weekdays").length()!=c.days()||(target!=null&&(Math.abs(target.getDouble("km")-c.goalKm())>.001||!LocalDate.parse(target.getString("date")).equals(c.start().plusWeeks(c.weeks())))))throw new IllegalArgumentException("Race and training dates disagree");
       JSONObject candidate=new JSONObject().put("weeks",c.weeks()).put("days",c.days()).put("volume",c.weeklyKm()).put("goal",c.goalKm()).put("start",c.start().toString()).put("schedule",serializeSchedule(sessions).toString());validatePreferences(candidate);
-      commit(new PreferenceEdit(preferences).putString("planId",id).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(sessions).toString()).putString("v103",data.toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"Plan created from reviewed running history."));
+      commit(new PreferenceEdit(preferences).putString("planId",id).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(sessions).toString()).putString("v103",data.toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():reason),kind,reason,evidence);
     }catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}
   }}
 
@@ -508,7 +511,7 @@ final class RunStore {
                   ? "Keep this adjusted run easy. Walk breaks are welcome."
                   : s.instructions()));
     }
-    JSONObject overrides=v103().optJSONObject("overrides");if(overrides!=null)for(int i=0;i<out.size();i++){var session=out.get(i);JSONObject o=overrides.optJSONObject(planId()+":"+session.id());if(o!=null){double ratio=completed(planId()+":"+session.id())?1:Math.min(1,factor(session.date())/o.optDouble("factor",1));out.set(i,new PlanEngine.Session(session.id(),session.date(),ratio<1?"Easy recovery run":o.optString("title",session.title()),Math.max(.1,Math.floor(o.optDouble("km",session.km())*ratio*10+.00001)/10),ratio<1?"Reviewed weekly change. Keep effort controlled; no catch-up mileage.":o.optString("instructions","Reviewed weekly change. Keep effort controlled; no catch-up mileage.")));}}
+    JSONObject overrides=v103().optJSONObject("overrides");if(overrides!=null)for(int i=0;i<out.size();i++){var session=out.get(i);JSONObject o=overrides.optJSONObject(planId()+":"+session.id());if(o!=null){double ratio=completed(planId()+":"+session.id())?1:Math.min(1,factor(session.date())/o.optDouble("factor",1));out.set(i,new PlanEngine.Session(session.id(),session.date(),ratio<1?"Easy recovery run":o.optString("title",session.title()),ratio<1||!o.optBoolean("precise",false)?Math.max(.1,Math.floor(o.optDouble("km",session.km())*ratio*10+.00001)/10):o.optDouble("km",session.km()),ratio<1?"Reviewed weekly change. Keep effort controlled; no catch-up mileage.":o.optString("instructions","Reviewed weekly change. Keep effort controlled; no catch-up mileage.")));}}
     JSONObject race=v103().optJSONObject("race");
     if(race!=null&&race.optString("planId").equals(planId())){
       LocalDate target=LocalDate.parse(race.optString("date"));
@@ -740,7 +743,7 @@ final class RunStore {
       Set<String> seen=new HashSet<>();
       for(var next:replacements){var old=current.get(next.id());String key=planId()+":"+next.id();
         if(old==null||!seen.add(key)||completed(key)||skipped(key)||old.date().isBefore(LocalDate.now())||!old.date().equals(next.date())||!old.title().equals(next.title())||!Double.isFinite(next.km())||next.km()<.1||next.km()>old.km()*1.04+.001||next.km()<old.km()*.5-.001||next.instructions().length()>2000)throw new IllegalArgumentException("AI proposal changes a protected workout or exceeds adjustment limits.");
-        overrides.put(key,new JSONObject().put("date",next.date().toString()).put("km",next.km()).put("factor",factor(next.date())).put("title",next.title()).put("instructions",next.instructions()));
+        overrides.put(key,new JSONObject().put("date",next.date().toString()).put("km",next.km()).put("factor",factor(next.date())).put("title",next.title()).put("instructions",next.instructions()).put("precise",true));
       }
       data.put("overrides",overrides);V103Data.validate(data);
       commit(new PreferenceEdit(preferences).putString("v103",data.toString()).putString("aiReviewedRuns",runToken),"AI Coach update",reason,"Provider: "+provider+". Explicit AI consent; "+runningEvidence());
@@ -777,7 +780,7 @@ final class RunStore {
         e.putString("planRevision",UUID.randomUUID().toString());
         if(!Objects.equals(e.before.get("rest"),e.after.get("rest"))&&Boolean.TRUE.equals(e.after.get("rest"))){kind="Recovery hold";reason=(String)e.after.getOrDefault("adaptReason","Pain reported; training paused.");evidence="Reported pain. Recovery requires explicit review.";}
         // Creation/replacement invalidates undo but never invents earlier adaptations.
-        if(new RunStore(PreferenceEdit.view(e.before)).planId().equals(new RunStore(PreferenceEdit.view(e.after)).planId()))
+        if(kind.equals("Plan created")||kind.equals("AI plan created")||new RunStore(PreferenceEdit.view(e.before)).planId().equals(new RunStore(PreferenceEdit.view(e.after)).planId()))
           PlanChanges.append(e,kind,reason,evidence);
       }
       if (!e.commit()) throw new IllegalStateException("Could not save. Please try again.");

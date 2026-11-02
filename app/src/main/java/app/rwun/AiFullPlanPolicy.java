@@ -11,25 +11,32 @@ import org.json.*;
  */
 final class AiFullPlanPolicy {
   private AiFullPlanPolicy() {}
-  static String prompt(RaceTraining.Draft baseline, List<RunStore.Run> history) throws JSONException {
+  static String prompt(RaceTraining.Draft baseline, RunStore store, JSONObject settings) throws JSONException {
+    List<RunStore.Run> history=store.runs();
+    java.time.LocalDate today=java.time.LocalDate.now();
     JSONArray sessions=new JSONArray(),runs=new JSONArray();
     for(PlanEngine.Session s:baseline.sessions())sessions.put(new JSONObject()
         .put("id",s.id()).put("date",s.date().toString()).put("title",s.title())
         .put("km",s.km()).put("instructions",s.instructions()));
-    for(RunStore.Run r:history.stream().sorted(Comparator.comparing(RunStore.Run::date).reversed()).limit(30).collect(java.util.stream.Collectors.toList()))
+    for(RunStore.Run r:history.stream().filter(r->!java.time.LocalDate.parse(r.date()).isBefore(today.minusDays(27))&&!java.time.LocalDate.parse(r.date()).isAfter(today)).sorted(Comparator.comparing(RunStore.Run::date).reversed()).limit(30).collect(java.util.stream.Collectors.toList()))
       runs.put(new JSONObject().put("date",r.date()).put("km",r.km()).put("seconds",r.seconds())
-          .put("effort",r.rpe()>0?r.rpe():JSONObject.NULL)
-          .put("fatigue",r.fatigue()>0?r.fatigue():JSONObject.NULL).put("pain",r.pain()));
+          .put("paceSecondsPerKm",r.km()>0&&r.seconds()>0?r.seconds()/r.km():JSONObject.NULL)
+          .put("effort",AiCoachPolicy.feedbackReported(store,r)&&r.rpe()>0?r.rpe():JSONObject.NULL)
+          .put("fatigue",AiCoachPolicy.feedbackReported(store,r)&&r.fatigue()>0?r.fatigue():JSONObject.NULL)
+          .put("pain",AiCoachPolicy.feedbackReported(store,r)?r.pain():JSONObject.NULL));
     JSONObject context=new JSONObject().put("goalKm",baseline.config().goalKm())
+        .put("goalPaceSecondsPerKm",settings.optInt("goalPace",0))
+        .put("trainingHold",baseline.review().hold()).put("longRunDay",baseline.preferences().longDay().toString())
         .put("weeks",baseline.config().weeks()).put("weeklyBaselineKm",baseline.config().weeklyKm())
         .put("review",baseline.review().reason()).put("recentRuns",runs).put("baselineSessions",sessions);
     return "Design a complete personalised running programme balancing performance and recovery. "
         +"Return JSON {explanation:string,sessions:[{id:string,km:number,instructions:string}]}. "
         +"Include EVERY baseline session exactly once. Preserve all IDs, dates, workout types, recovery "
-        +"days and session order. For easy sessions, distance may be 70-100% of baseline (no increases); "
-        +"for tempo/interval/run-walk/quality sessions preserve exact distance. Keep instructions "
+        +"days and session order. For easy sessions, distance may be 70-100% of baseline (no increases), rounded to one decimal; "
+        +"for long/tempo/interval/run-walk/quality sessions preserve exact distance and instructions. Keep easy-run instructions "
         +"conservative, practical and under 400 characters each. Never diagnose injury or claim "
-        +"race-readiness. Use only supplied evidence. Do not include routes or personal identifiers.\n"+context;
+        +"race-readiness. Missing feedback is unknown readiness; goal pace is an aspiration, not a training prescription. "
+        +"Use only supplied evidence. Do not include routes or personal identifiers.\n"+context;
   }
   static List<PlanEngine.Session> validate(RaceTraining.Draft baseline,String raw) throws JSONException {
     if(raw==null||raw.length()>180000)throw new IllegalArgumentException("Invalid AI plan response.");
@@ -50,14 +57,16 @@ final class AiFullPlanPolicy {
       PlanEngine.Session old=byId.get(id);
       if(old==null||!seen.add(id)||instructions.isEmpty()||instructions.length()>400)
         throw new IllegalArgumentException("AI plan contains an invalid or duplicate workout.");
+      if(!(row.get("km") instanceof Number))throw new IllegalArgumentException("AI workout distance must be numeric.");
       double km=row.getDouble("km");
       boolean demanding=ScheduleProposer.demanding(old.title())||old.title().equals("Run / walk");
       double min=demanding?old.km():old.km()*.70,max=old.km();
-      if(!Double.isFinite(km)||km<min-.011||km>max+.011)
+      if(!Double.isFinite(km)||km<min-.000001||km>max+.000001)
         throw new IllegalArgumentException("AI plan exceeds safe workout distance bounds.");
       int week=Integer.parseInt(id.split("-")[0]);
       weekly.merge(week,km,Double::sum);limits.merge(week,old.km(),Double::sum);
-      result.add(new PlanEngine.Session(id,old.date(),old.title(),Math.round(km*100)/100.,instructions));
+      double acceptedKm=demanding?old.km():Math.max(Math.ceil(min*10-.000001)/10,Math.min(max,Math.round(km*10)/10.));
+      result.add(new PlanEngine.Session(id,old.date(),old.title(),acceptedKm,demanding?old.instructions():instructions));
     }
     for(int week:weekly.keySet())if(weekly.get(week)>limits.get(week)+.01)
       throw new IllegalArgumentException("AI plan exceeds weekly volume limits.");
