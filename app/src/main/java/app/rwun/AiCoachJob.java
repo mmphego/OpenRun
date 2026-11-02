@@ -19,8 +19,8 @@ public final class AiCoachJob extends JobService {
   static void cancel(Context c){JobScheduler scheduler=c.getSystemService(JobScheduler.class);if(scheduler!=null)scheduler.cancel(84);}
   public boolean onStartJob(JobParameters params){
     if(!ACTIVE.compareAndSet(false,true))return false;stopped=false;executor=Executors.newSingleThreadExecutor();executor.execute(()->{
-      boolean retry=false;String requestedToken="";
-      try{AiCoachSettings vault=new AiCoachSettings(this);JSONObject settings=vault.read();RunStore store=new RunStore(this);
+      boolean retry=false;String requestedToken="";String fallback="keep";
+      try{AiCoachSettings vault=new AiCoachSettings(this);JSONObject settings=vault.read();fallback=settings.optString("fallback","keep");RunStore store=new RunStore(this);
         if(!settings.optBoolean("consent")||!settings.optBoolean("automatic")||store.aiHistoryReviewed())return;
         AiCoachPolicy.Request request=AiCoachPolicy.snapshot(store,settings,true);requestedToken=request.runToken();
         AiCoachPolicy.Proposal proposal=AiCoachPolicy.validate(request,AiCoachClient.generate(settings,AiCoachPolicy.prompt(request,null)));
@@ -29,12 +29,13 @@ public final class AiCoachJob extends JobService {
           vault.result("Post-run review saved.\n"+proposal.explanation());
         }
         Reminders.schedule(this);notifyResult(this,settings,proposal.sessions().isEmpty()?"Your running plan was reviewed":"Your running plan has been updated");
-      }catch(java.net.SocketTimeoutException|java.net.UnknownHostException|java.net.ConnectException e){retry=true;status("AI Coach is waiting for a connection. Your current plan is kept.");}
+      }catch(java.net.SocketTimeoutException|java.net.UnknownHostException|java.net.ConnectException e){retry="retry".equals(fallback);if("pause".equals(fallback))pauseReviews();status("AI Coach is waiting for a connection. Your current plan is kept.");}
       catch(IllegalStateException e){RunStore current=new RunStore(this);retry=!current.resting()&&(!current.checkpoint().isEmpty()||current.indoorPending()||!requestedToken.isEmpty()&&!requestedToken.equals(current.aiHistoryToken()));status("AI Coach needs review. Open AI Coach to continue. Your saved activities are kept.");}
-      catch(Exception e){status("AI Coach could not update the plan. Open AI Coach and try again.");}
+      catch(Exception e){if("pause".equals(fallback))pauseReviews();status("AI Coach could not update the plan. Your existing schedule is unchanged.");}
       finally{ACTIVE.set(false);if(!stopped)jobFinished(params,retry);executor.shutdown();}
     });return true;
   }
+  private void pauseReviews(){try{new AiCoachSettings(this).pauseAutomatic();}catch(Exception ignored){}}
   private void status(String text){try{AiCoachSettings settings=new AiCoachSettings(this);settings.result(text);if(!stopped)notifyResult(this,settings.read(),"AI Coach needs attention");}catch(Exception ignored){}}
   public boolean onStopJob(JobParameters params){stopped=true;if(executor!=null)executor.shutdownNow();return true;}
   static void notifyResult(Context c,JSONObject settings,String title){
