@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Hybrid AI planning and coaching progress
+
+- Added AI Connections in Profile, independent provider testing and explicit keep/retry/pause failure policies.
+- Added deterministic or bounded AI full-plan onboarding, complete workout review, rotation-safe previews and atomic saving with provider/reason/evidence history. Kept AI distances precise when reopening the schedule.
+- Protected stale previews, completed runs, imported feedback and recovery holds; retained deterministic fallback and existing activity history.
+- Added planned-versus-actual progress, training phases, next-run and recovery context, matched-import deduplication and a link to complete change history.
+- Replaced expiring race UI fixture dates with execution-relative dates and retained the API 26 stream compatibility fix. Added planning/storage/transport and native UI regressions. See [PR validation](docs/PR-30-VALIDATION.md) for results and external acceptance limits.
+
 ## Unreleased — Home navigation and compact actions
 
 - Keep all five bottom navigation icons visible before a training plan exists. The Home tab returns directly to the entry screen; Profile uses an explicit settings icon.

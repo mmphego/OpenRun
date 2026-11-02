@@ -16,22 +16,33 @@ public final class AiCoachJob extends JobService {
       JobScheduler scheduler=context.getSystemService(JobScheduler.class);if(scheduler!=null&&scheduler.getPendingJob(84)==null)scheduler.schedule(new JobInfo.Builder(84,new ComponentName(context,AiCoachJob.class)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPersisted(true).setBackoffCriteria(60000,JobInfo.BACKOFF_POLICY_EXPONENTIAL).build());
     }catch(RuntimeException ignored){/* The settings screen exposes unreadable credentials; recording stays available. */}
   }
+  static boolean retryAfterFailure(String policy,Throwable failure,boolean stale,boolean hold){return "retry".equals(policy)&&(AiCoachClient.retryable(failure)||stale)&&!hold;}
   static void cancel(Context c){JobScheduler scheduler=c.getSystemService(JobScheduler.class);if(scheduler!=null)scheduler.cancel(84);}
   public boolean onStartJob(JobParameters params){
     if(!ACTIVE.compareAndSet(false,true))return false;stopped=false;executor=Executors.newSingleThreadExecutor();executor.execute(()->{
-      boolean retry=false;String requestedToken="";
-      try{AiCoachSettings vault=new AiCoachSettings(this);JSONObject settings=vault.read();RunStore store=new RunStore(this);
+      boolean retry=false,applied=false;String requestedToken="";String fallback="keep",revision="";
+      try{AiCoachSettings vault=new AiCoachSettings(this);JSONObject settings=vault.read();fallback=settings.optString("fallback","keep");revision=settings.optString("revision");RunStore store=new RunStore(this);
         if(!settings.optBoolean("consent")||!settings.optBoolean("automatic")||store.aiHistoryReviewed())return;
         AiCoachPolicy.Request request=AiCoachPolicy.snapshot(store,settings,true);requestedToken=request.runToken();
         AiCoachPolicy.Proposal proposal=AiCoachPolicy.validate(request,AiCoachClient.generate(settings,AiCoachPolicy.prompt(request,null)));
         synchronized(RunStore.LOCK){JSONObject current=vault.read();if(stopped||!settings.optString("revision").equals(current.optString("revision")))return;
-          store.applyAiPlan(request.fingerprint(),proposal.sessions(),proposal.explanation(),settings.getString("provider"),request.runToken());
+          store.applyAiPlan(request.fingerprint(),proposal.sessions(),proposal.explanation(),settings.getString("provider"),request.runToken());applied=true;
           vault.result("Post-run review saved.\n"+proposal.explanation());
         }
         Reminders.schedule(this);notifyResult(this,settings,proposal.sessions().isEmpty()?"Your running plan was reviewed":"Your running plan has been updated");
-      }catch(java.net.SocketTimeoutException|java.net.UnknownHostException|java.net.ConnectException e){retry=true;status("AI Coach is waiting for a connection. Your current plan is kept.");}
-      catch(IllegalStateException e){RunStore current=new RunStore(this);retry=!current.resting()&&(!current.checkpoint().isEmpty()||current.indoorPending()||!requestedToken.isEmpty()&&!requestedToken.equals(current.aiHistoryToken()));status("AI Coach needs review. Open AI Coach to continue. Your saved activities are kept.");}
-      catch(Exception e){status("AI Coach could not update the plan. Open AI Coach and try again.");}
+      }catch(Exception e){
+        if(applied){status("Your AI plan was saved. Open plan changes for details.");}
+        else{RunStore current=new RunStore(this);
+        boolean stale=e instanceof IllegalStateException&&!requestedToken.isEmpty()&&!requestedToken.equals(current.aiHistoryToken());
+        retry=retryAfterFailure(fallback,e,stale,current.resting());
+        try{synchronized(RunStore.LOCK){
+          AiCoachSettings currentVault=new AiCoachSettings(this);
+          if(!stopped&&revision.equals(currentVault.read().optString("revision"))){
+            if("pause".equals(fallback))currentVault.pauseAutomatic();
+            status("AI Coach could not update the plan. Your existing schedule is unchanged. Open AI Coach to review or try again.");
+          }else retry=false;
+        }}catch(Exception unavailable){retry=false;}}
+      }
       finally{ACTIVE.set(false);if(!stopped)jobFinished(params,retry);executor.shutdown();}
     });return true;
   }

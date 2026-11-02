@@ -1111,6 +1111,7 @@ public final class MainActivity extends Activity {
 
     section("MY STUFF");
     LinearLayout devices=card();row(devices,R.drawable.ic_watch,"Connected apps & devices","Health Connect, Garmin and heart rate",this::connections);
+    row(devices,R.drawable.ic_settings,"AI Connections","Configure and test OpenAI or Gemini",()->startActivity(new Intent(this,AiCoachActivity.class).putExtra("screen","connections")));
 
 
     

@@ -12,7 +12,7 @@ final class AiCoachPolicy {
   record Proposal(String explanation,List<PlanEngine.Session> sessions) {}
   private AiCoachPolicy() {}
 
-  private static boolean feedbackReported(RunStore store,RunStore.Run run){
+  static boolean feedbackReported(RunStore store,RunStore.Run run){
     JSONObject reviews=CoachingMemory.data(store).optJSONObject("reviews");
     if(reviews!=null&&reviews.optJSONObject(run.sessionId())!=null)return true;
     return run.source().equals("Manual")||run.source().equals("GPS")||run.source().startsWith("Indoor · ");
