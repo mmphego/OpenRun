@@ -16,7 +16,7 @@ final class AiFullPlanPolicy {
     for(PlanEngine.Session s:baseline.sessions())sessions.put(new JSONObject()
         .put("id",s.id()).put("date",s.date().toString()).put("title",s.title())
         .put("km",s.km()).put("instructions",s.instructions()));
-    for(RunStore.Run r:history.stream().sorted(Comparator.comparing(RunStore.Run::date).reversed()).limit(30).toList())
+    for(RunStore.Run r:history.stream().sorted(Comparator.comparing(RunStore.Run::date).reversed()).limit(30).collect(java.util.stream.Collectors.toList()))
       runs.put(new JSONObject().put("date",r.date()).put("km",r.km()).put("seconds",r.seconds())
           .put("effort",r.rpe()>0?r.rpe():JSONObject.NULL)
           .put("fatigue",r.fatigue()>0?r.fatigue():JSONObject.NULL).put("pain",r.pain()));
