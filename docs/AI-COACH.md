@@ -138,3 +138,18 @@ Race and goal onboarding offers two planning methods: the existing offline deter
 Settings → AI Connections remains the permanent provider configuration home. During onboarding, missing credentials direct the user there without discarding their draft. User-selectable outage policies are keep current plan, retry automatic review on connection errors, or pause automatic reviews. The existing post-run AI Coach retains its separate conservative easy-run adjustment policy.
 
 **Limitations:** AI full-plan generation is intentionally bounded by the deterministic schedule, not an unconstrained workout generator. It does not create new training days or workout types. Live provider/device testing is required before release. Imported run feedback may be incomplete and is not interpreted as proof of readiness.
+
+
+## Coaching progress and release acceptance
+
+Open Training → Training progress & next run for a read-only summary: planned versus actual distance through today, completed versus due workouts, current phase, next uncompleted run, recovery context, and the latest applied plan-change reason. View all plan changes opens the existing audit trail. Unrelated runs and walks are excluded from plan completion. This is descriptive progress, not a predicted finish time or medical readiness score.
+
+### Release gates (required before marking PR ready)
+
+1. Android assembleDebug, testDebugUnitTest (including TrainingProgressUiTest), and lint must pass.
+2. Test both providers with real user-owned credentials; invalid JSON, timeouts, rate limits and credential rotation must leave saved schedules intact.
+3. Verify onboarding draft preservation, plan preview, save/reopen, replacement, offline fallback and preservation of completed runs.
+4. Complete a planned run, verify metrics count it once, then verify idempotent post-run adaptation and a readable applied-change explanation.
+5. Verify recovery holds, recent pain, taper weeks, large fonts, rotation and empty state. Missing recovery data must not imply readiness.
+6. Test on a physical Android device, including notification permissions, offline interruptions and app restart. Robolectric does not replace device acceptance.
+7. Verify an installable signed release without credentials or personal health data. Keep the PR draft until all gates have evidence.
