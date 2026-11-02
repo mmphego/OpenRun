@@ -85,10 +85,24 @@ public class AiPlanningUiTest {
     assertFalse(AiCoachJob.retryAfterFailure("retry",new AiCoachClient.ProviderFailure(401,"access"),false,false));
     assertTrue(AiCoachJob.retryAfterFailure("retry",new AiCoachClient.ProviderFailure(503,"outage"),false,false));
   }
+  @Test public void coachEntryStartsAiOnboardingWithoutSavingABaseline()throws Exception{
+    Intent intent=new Intent().putExtra("planningMethod","ai");
+    try(var c=Robolectric.buildActivity(RacePlanActivity.class,intent).setup().visible()){
+      availability(c.get());
+      assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("AI plan setup"));
+      assertNull(store.config());assertEquals(0,store.planChanges().length());
+      assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Preview standard plan"));
+      c.recreate();assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("AI plan setup"));
+      NativePlanningTest.click(c.get(),"AI personalised plan · OpenAI / Gemini");
+      assertTrue(ProgressUiTest.all(ShadowDialog.getLatestDialog().getWindow().getDecorView()).contains("Your running goal and training days will remain here"));
+      assertNull(store.config());
+      NativePlanningTest.shot(c.get(),"ai-new-plan-coach-entry");
+    }
+  }
   @Test public void connectionsScreenIsUsableWithoutAPlan()throws Exception{
     try(var c=Robolectric.buildActivity(AiCoachActivity.class,new Intent().putExtra("screen","connections")).setup().visible()){
       String text=ProgressUiTest.all(c.get().getWindow().getDecorView());assertTrue(text.contains("AI Connections"));
-      assertTrue(text.contains("Test AI connection"));assertFalse(text.contains("Generate my AI running plan"));
+      assertTrue(text.contains("Test AI connection"));assertFalse(text.contains("Generate my AI running plan"));assertFalse(text.contains("Create my AI running plan"));
       NativePlanningTest.shot(c.get(),"ai-connections-without-plan");
       NativePlanningTest.click(c.get(),"Save AI Coach settings");assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("Enable the data-sharing consent"));
     }

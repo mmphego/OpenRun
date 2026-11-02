@@ -24,7 +24,7 @@ public final class AiCoachJob extends JobService {
       try{AiCoachSettings vault=new AiCoachSettings(this);JSONObject settings=vault.read();fallback=settings.optString("fallback","keep");revision=settings.optString("revision");RunStore store=new RunStore(this);
         if(!settings.optBoolean("consent")||!settings.optBoolean("automatic")||store.aiHistoryReviewed())return;
         AiCoachPolicy.Request request=AiCoachPolicy.snapshot(store,settings,true);requestedToken=request.runToken();
-        AiCoachPolicy.Proposal proposal=AiCoachPolicy.validate(request,AiCoachClient.generate(settings,AiCoachPolicy.prompt(request,null)));
+        AiCoachPolicy.Proposal proposal=AiCoachPolicy.validate(request,AiCoachClient.generateOnce(settings,AiCoachPolicy.prompt(request,null)));
         synchronized(RunStore.LOCK){JSONObject current=vault.read();if(stopped||!settings.optString("revision").equals(current.optString("revision")))return;
           store.applyAiPlan(request.fingerprint(),proposal.sessions(),proposal.explanation(),settings.getString("provider"),request.runToken());applied=true;
           vault.result("Post-run review saved.\n"+proposal.explanation());

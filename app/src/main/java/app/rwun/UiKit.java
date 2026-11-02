@@ -84,7 +84,7 @@ final class UiKit {
   }
   static Button action(Context c,Palette p,String text,Runnable action) {
     boolean destructive=text.toLowerCase(java.util.Locale.ROOT).matches(".*(discard|delete).*"),
-      primary=text.equals("View workout")||text.startsWith("Start ")||text.equals("Finish and save")||text.equals("Finish and review")||text.equals("Save reminder preferences")||text.equals("Build my plan")||text.equals("Save completed session")||text.equals("Continue")||text.startsWith("Create race")||text.startsWith("Create paused race")||text.equals("Preview race plan")||text.equals("Add race")||text.equals("Create my plan")||text.equals("Preview my plan")||text.equals("Create paused plan")||text.equals("Generate offline insight");
+      primary=text.equals("Create my AI running plan")||text.equals("AI personalised plan · OpenAI / Gemini")||text.equals("View workout")||text.startsWith("Start ")||text.equals("Finish and save")||text.equals("Finish and review")||text.equals("Save reminder preferences")||text.equals("Build my plan")||text.equals("Save completed session")||text.equals("Continue")||text.startsWith("Create race")||text.startsWith("Create paused race")||text.equals("Preview race plan")||text.equals("Add race")||text.equals("Create my plan")||text.equals("Preview my plan")||text.equals("Create paused plan")||text.equals("Generate offline insight");
     if(destructive)return quietAction(c,p,text,true,action);
     int bg=primary?p.primary:p.surface;
     int fg=primary?p.onPrimary:p.ink;
