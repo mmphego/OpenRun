@@ -18,6 +18,12 @@ final class TrainingProgress {
     List<PlanEngine.Session> sessions=store.plannedSessions();
     Map<String,RunStore.Run> completed=new HashMap<>();
     for(RunStore.Run run:store.runs())if(run.sessionId().startsWith(plan))completed.putIfAbsent(run.sessionId(),run);
+    JSONObject matches=store.v103().optJSONObject("matches");
+    if(matches!=null)for(String activity:V1State.keys(matches)){
+      String session=matches.optString(activity);
+      if(!session.startsWith(plan)||completed.containsKey(session))continue;
+      for(RunStore.Run run:store.runs())if(run.sessionId().equals(activity)){completed.put(session,run);break;}
+    }
     double planned=0,actual=0;int due=0,done=0;
     for(PlanEngine.Session session:sessions){
       String id=plan+session.id();
