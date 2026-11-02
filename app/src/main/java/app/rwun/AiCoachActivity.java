@@ -46,6 +46,7 @@ public final class AiCoachActivity extends Activity {
     status=text(saved.optString("lastResult","Set up your provider to begin."),15,true);
     action("Save AI Coach settings",this::save);
     action("Remove key and turn off AI Coach",()->{synchronized(RunStore.LOCK){vault.clear();AiCoachJob.cancel(this);}pending=null;proposal=null;show();});
+    action("Test AI connection",this::testConnection);
     action("Generate my AI running plan",()->generate(null));
     question=field("Ask your running coach","");question.setSingleLine(false);question.setMaxLines(6);question.setSaveEnabled(false);
     action("Ask coach",()->{String value=question.getText().toString().trim();if(value.isEmpty()||value.length()>1000)throw new IllegalArgumentException("Enter a coaching question of up to 1,000 characters.");generate(value);});
@@ -64,6 +65,21 @@ public final class AiCoachActivity extends Activity {
     saved=vault.read();key.setText("");key.setHint("Saved key · leave blank to keep");pending=null;proposal=null;answer.setText("");status.setText("Settings saved. Generate a plan or ask your coach. "+(notifications.isChecked()&&!Reminders.allowed(this)?"Notifications are currently blocked in Android settings.":""));
     if(notifications.isChecked()&&Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},84);
     AiCoachJob.schedule(this);
+  }
+  private void testConnection(){
+    if(!vault.enabled())throw new IllegalStateException("Save your provider, API key and consent before testing.");
+    busy=true;status.setText("Testing AI connection…");
+    worker.execute(()->{
+      String result;
+      try{
+        JSONObject settings=vault.read();
+        String raw=AiCoachClient.generate(settings,"Return only this JSON object: {\"connection\":\"ok\"}.");
+        if(!new JSONObject(raw).optString("connection").equals("ok"))throw new IllegalStateException("Provider replied, but did not return the expected test response.");
+        result="Connection successful: "+settings.getString("provider")+" / "+settings.getString("model");
+      }catch(Exception e){result="Connection test failed: "+e.getMessage();}
+      final String message=result;
+      runOnUiThread(()->{if(!isDestroyed()){busy=false;status.setText(message);}});
+    });
   }
   private void generate(String question){
     if(!consent.isChecked())throw new IllegalStateException("Enable and save data-sharing consent first.");
