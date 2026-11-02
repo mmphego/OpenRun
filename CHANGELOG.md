@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — AI provider retry and plan setup
+
+- Retry temporary HTTP failures during connection tests, plan generation and coach questions up to three attempts, with exponential backoff, jitter and bounded Retry-After handling.
+- Show retry progress and actionable 503 errors; preserve the selected provider/model, credentials, saved schedules and existing background failure policies. Stop further attempts on cancellation or credential changes.
+- Route Coach’s new-plan action directly into AI goal onboarding when no plan exists; label existing-plan personalisation explicitly. No saved deterministic plan is required before creating an AI plan.
+- Add synthetic transport/cancellation regressions and native large-font/accessibility/onboarding checks.
+
 ## Unreleased — Hybrid AI planning and coaching progress
 
 - Added AI Connections in Profile, independent provider testing and explicit keep/retry/pause failure policies.

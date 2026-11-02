@@ -8,13 +8,47 @@ and `gemini-3.8-flash`; model access and availability depend on the provider acc
 The model ID is editable. API usage is billed by the provider; ChatGPT subscription
 billing is separate. No server deployment or downloaded model is needed.
 
-**Generate my AI running plan** sends the recent running summary and upcoming easy
-sessions. It returns an explanation of the current pace, goal gap and progression,
+With no saved plan, **Create my AI running plan** opens goal/race onboarding with AI
+planning offered first. Choose your goal, running baseline, weeks and training days;
+select **AI personalised plan · OpenAI / Gemini**, then **Generate AI plan**. Inspect
+**Review all workouts**, choose **Create my plan**, and confirm. An existing saved
+baseline is not required: the app generates an internal deterministic safety envelope
+and saves only the reviewed, accepted schedule.
+
+With an existing plan, **Personalise my existing plan with AI** sends the recent
+running summary and upcoming easy sessions. It returns an explanation of the current pace, goal gap and progression,
 plus proposed distances and easy paces. Review the proposal before applying it.
 The plan-creation preview also offers **Create plan and personalise with AI**:
 it saves the reviewed baseline first, then opens AI Coach. **Ask coach** uses the
 same current training context but never applies its returned workout proposals.
 Questions are single-turn; a conversation history is not uploaded.
+
+## Temporary provider failures
+
+Foreground connection tests, plan generation and coach questions make at most **three
+attempts** for HTTP 408, 429, 500, 502, 503 and 504. Retries wait 1 then 2 seconds,
+with 0–500 ms of random jitter. A valid `Retry-After` seconds or HTTP-date header
+is honoured up to 30 seconds; a longer requested delay ends this foreground request
+so it can be retried later rather than sending prematurely. The status shows the
+HTTP code, wait and next attempt number and is a polite accessibility live region.
+
+Authentication/access errors, unsupported models, malformed or incomplete answers,
+and ambiguous network/timeout failures are not automatically resent by this foreground
+loop. Cancelling the screen or changing/revoking saved credentials stops subsequent
+attempts. Retries use the same provider/model and never silently switch or change keys.
+Persistent errors leave the saved plan unchanged. A 503 message identifies the selected
+provider/model as unavailable; it does not declare the API key invalid.
+
+Background reviews use a single HTTP attempt per JobScheduler execution and retain
+the selected **Keep current plan / Retry automatically / Pause AI reviews** policy.
+They do not multiply foreground retries with scheduled backoff. Connection tests use
+saved settings, so save a changed key/model before testing.
+
+Synthetic HTTP regressions cover recovery after 503s, exhaustion, transient/permanent
+status handling, header waits, jitter, cancellation, credential revocation, connection
+cleanup and unchanged stored plans. Native UI checks cover readable large-font progress
+and accessibility announcements. Live provider outages and physical-device interruption
+remain separate acceptance checks.
 
 ## Automatic post-run reviews
 
