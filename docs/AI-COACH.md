@@ -1,27 +1,38 @@
 # AI Coach with your own API key
 
 AI Coach uses OpenAI or Google Gemini with your own API key. Local Gemma support
-has been removed; no model download or inference runtime is included. Open **AI Connections** from Profile settings to configure and test a provider without creating a plan. The Coach tab and plan onboarding continue to open the coaching screen. Create a goal/race plan, select **OpenAI** or **Gemini**,
-enter a model ID and your own API key, optionally set a goal pace in min:sec/km,
+has been removed; no model download or inference runtime is included. Open **AI Connections** from Profile settings to configure and test a provider without creating a plan. The Coach tab and plan onboarding continue to open the coaching screen. Select **OpenAI** or **Gemini**,
+enter a model ID and your own API key, optionally set a default goal pace in min:sec/km,
 read and enable data-sharing consent, then save settings. Defaults are `gpt-5-mini`
 and `gemini-3.8-flash`; model access and availability depend on the provider account.
 The model ID is editable. API usage is billed by the provider; ChatGPT subscription
 billing is separate. No server deployment or downloaded model is needed.
 
-With no saved plan, **Create my AI running plan** opens goal/race onboarding with AI
-planning offered first. Choose your goal, running baseline, weeks and training days;
-select **AI personalised plan · OpenAI / Gemini**, then **Generate AI plan**. Inspect
-**Review all workouts**, choose **Create my plan**, and confirm. An existing saved
-baseline is not required: the app generates an internal deterministic safety envelope
-and saves only the reviewed, accepted schedule.
+With no saved plan, **Create my AI running plan** opens **Your AI running goal**.
+Enter target distance (5–42.2 km) and target pace (3:00–30:00 min/km), for example
+10 km at 6:30 min/km. A race can also supply the distance and deadline.
+Continue through recent-running baseline, weeks and available training days; select
+**AI personalised plan · OpenAI / Gemini**, then **Generate AI plan**. The selected
+goal appears before generation and in the accepted preview. Inspect **Review all
+workouts**, choose **Create my plan**, and confirm. No existing plan is required:
+the internal deterministic schedule supplies a safety envelope; only the accepted
+AI schedule is saved. Provider failure leaves a clearly labelled standard-plan
+alternative that requires its own preview and acceptance.
 
-With an existing plan, **Personalise my existing plan with AI** sends the recent
-running summary and upcoming easy sessions. It returns an explanation of the current pace, goal gap and progression,
-plus proposed distances and easy paces. Review the proposal before applying it.
-The plan-creation preview also offers **Create plan and personalise with AI**:
-it saves the reviewed baseline first, then opens AI Coach. **Ask coach** uses the
-same current training context but never applies its returned workout proposals.
-Questions are single-turn; a conversation history is not uploaded.
+With an existing plan, **Personalise my existing plan with AI** proposes changes to
+upcoming easy sessions; review and apply them explicitly. **Create a new AI goal
+plan** starts the distance/pace flow and only replaces the current schedule after
+acceptance. Both goals are stored with the plan and survive reopening and backup
+restore. Provider/default-pace edits do not change this saved goal. Older plans
+without a saved pace retain their previous provider-default behaviour. Standard
+plan replacement clears a previous plan's pace goal.
+
+**Ask coach** is a separate read-only conversation: it works without a plan,
+without eligible easy workouts, and during a recovery hold. It sends recent run
+summaries and, when available, the saved goal, phase, completed/expected workouts
+and next-run context. An answer cannot apply a schedule proposal. Questions are
+single-turn; conversation history is not stored or uploaded. Errors and results
+scroll into view instead of remaining above the question field.
 
 ## Temporary provider failures
 
@@ -60,7 +71,7 @@ listener; walking remains excluded. Unknown-distance/time-only runs cannot suppl
 Android controls when the job runs; this is not an immediate-delivery guarantee.
 Several runs saved before a job executes are reviewed together.
 
-The job updates upcoming easy sessions in the next seven days, stores a processed
+The job uses the saved distance and pace goal, the current phase and newly recorded running evidence to update upcoming easy sessions in the next seven days, stores a processed
 history token in the same transaction as the plan changes, and optionally notifies
 you. Changes to history/plan while the request is running invalidate its proposal.
 A stopped job cannot apply its result; pending work is retried by Android. Connection
@@ -164,11 +175,11 @@ and avoids symlink targets; tests use synthetic files. See [retired coach](OFFLI
 
 ## Hybrid plan creation
 
-Race and goal onboarding offers two planning methods: the existing offline deterministic plan, or an AI-personalised full schedule. The AI method first generates the deterministic schedule as a safety envelope, then sends only run summaries and workout descriptions to the configured provider. The provider must return exactly one entry for each planned session. Validation preserves dates, IDs, workout types, recovery days, and quality-session distances/instructions; easy-run distances may only be reduced to 70–100% of baseline. Use **Review all workouts** to inspect the complete schedule and instructions before saving. The validated preview and its original data fingerprint survive rotation; new running evidence or changed AI credentials require a fresh preview. Full-plan distances use the existing 0.1 km schedule precision; validation normalises them before preview. New post-run overrides retain the exact accepted distance, while legacy override rounding remains unchanged. Accepted previews are saved unchanged, and the provider, explanation and running evidence are recorded atomically in plan-change history. Plan creation/replacement cannot be undone into an older plan; saved activities remain available. No existing plan is replaced if generation or validation fails.
+Race and goal onboarding offers two planning methods: the existing offline deterministic plan, or an AI-personalised full schedule. The AI method first generates the deterministic schedule as a safety envelope, then sends only run summaries and workout descriptions to the configured provider. The provider must explain the pace/distance gap and progression and return exactly one entry for each planned session. Validation preserves dates, IDs, workout types, recovery days, and quality-session distances/instructions; easy-run distances may only be reduced to 70–100% of baseline. Easy workouts may include validated numeric paces no faster than observed recent running; effort-only guidance is mandatory without evidence or during a hold. First-week instructions and the complete workout review show the accepted guidance. Use **Review all workouts** to inspect the complete schedule and instructions before saving. The validated preview and its original data fingerprint survive rotation; new running evidence or changed AI credentials require a fresh preview. Full-plan distances use the existing 0.1 km schedule precision; validation normalises them before preview. New post-run overrides retain the exact accepted distance, while legacy override rounding remains unchanged. Accepted previews are saved unchanged, and the provider, explanation and running evidence are recorded atomically in plan-change history. Plan creation/replacement cannot be undone into an older plan; saved activities remain available. No existing plan is replaced if generation or validation fails.
 
 Settings → AI Connections remains the permanent provider configuration home. During onboarding, missing credentials direct the user there without discarding their draft. User-selectable outage policies are keep current plan, retry automatic review on connection errors, or pause automatic reviews. The existing post-run AI Coach retains its separate conservative easy-run adjustment policy.
 
-**Limitations:** AI full-plan generation is intentionally bounded by the deterministic schedule, not an unconstrained workout generator. It does not create new training days or workout types. Live provider/device testing is required before release. Imported run feedback remains unknown until explicitly reported and is not interpreted as proof of readiness. Goal pace informs the explanation; it cannot authorise faster training targets. Full-plan responses cannot introduce the executable `Coach pace:` marker; numeric AI pace targets must pass the separate post-run validator.
+**Limitations:** AI full-plan generation is intentionally bounded by the deterministic schedule, not an unconstrained workout generator. It does not create new training days or workout types. Live provider/device testing is required before release. Imported run feedback remains unknown until explicitly reported and is not interpreted as proof of readiness. Goal pace informs the explanation; it cannot authorise faster training targets. Full-plan responses cannot introduce the executable `Coach pace:` marker; easy-session numeric pace targets must be supplied in the separate paceSecondsPerKm field and pass evidence bounds before the app adds that marker. No pace is accepted without observed timed-distance history, on demanding/run-walk workouts or during a hold.
 
 
 ## Coaching progress and release acceptance
@@ -184,3 +195,22 @@ Open Training → Training progress & next run for a read-only summary: planned 
 5. Verify recovery holds, recent pain, taper weeks, large fonts, rotation and empty state. Missing recovery data must not imply readiness.
 6. Test on a physical Android device, including notification permissions, offline interruptions and app restart. Robolectric does not replace device acceptance.
 7. Verify an installable signed release without credentials or personal health data. Keep the PR draft until all gates have evidence.
+
+## Goal-driven flow regressions
+
+Native Robolectric journey tests click through goal entry, generation, rotation,
+acceptance and reopening of the exact AI schedule, including executable validated
+pace targets and durable goals. A synthetic provider/settings boundary is used;
+these are actual Android Views and storage, not a live Gemini/Keystore test.
+A second journey asks for a recent-run breakdown without a plan and during a pain
+hold, verifies a conversational answer and proves storage is unchanged. Host
+regressions also reject malformed answers and unsupported paces and cover goal
+backup/restore, automatic-review context, preserved activities and recovery holds.
+
+These bounds allow pace targets to follow improving recorded performance, with
+the existing 2% per-review pace limit. They do not promise to reach an arbitrary
+goal or pre-authorise faster training based only on the goal. Imported runs without
+reported recovery feedback do not justify distance increases. Enable **After each
+saved or imported run** in AI Coach settings for automatic adaptation; otherwise
+request changes manually. Qualified coaching review and physical-device/live
+provider acceptance remain outstanding.

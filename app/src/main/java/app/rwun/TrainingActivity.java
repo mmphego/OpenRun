@@ -17,6 +17,7 @@ public final class TrainingActivity extends Activity {
    if(store.config()==null){text("Create a running plan first.",20);action("Create a plan",()->startActivity(new Intent(this,RacePlanActivity.class)));return;}
    TrainingProgress.Snapshot snapshot=TrainingProgress.from(store,LocalDate.now());
    text("Progress toward your goal",26);
+   text(PlanEngine.distance(store.config().goalKm())+(store.options().optInt("goalPace")>0?" at "+PaceProfile.format(store.options().optInt("goalPace"))+" min/km":""),18);
    text("Only runs directly linked to this plan count toward completed workouts. Unmatched activities remain in your history.",14);
    LinearLayout totals=card();cardText(totals,"PLANNED VS ACTUAL · THROUGH TODAY",12,false);
    ProgressViews.metrics(this,p,totals,new String[]{"Planned","Completed","Workouts"},

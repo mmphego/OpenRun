@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — AI goal and conversation flow
+
+- Coach questions now use a read-only answer path, including before plan creation and during recovery holds; errors and answers scroll into view.
+- AI goal onboarding collects target kilometres and pace before generation, saves both with the accepted schedule and supplies them to later reviews independently of provider defaults.
+- Complete AI plans can include evidence-bounded easy paces, visible in preview and workout guidance; automatic reviews retain completed-run, recovery and progression safeguards.
+- Added synthetic native journey and storage regressions for answers, goal validation, generated-plan persistence, rotation, pace bounds and backup compatibility.
+
+
 ## Unreleased — AI provider retry and plan setup
 
 - Retry temporary HTTP failures during connection tests, plan generation and coach questions up to three attempts, with exponential backoff, jitter and bounded Retry-After handling.

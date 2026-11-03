@@ -25,7 +25,7 @@ public final class AiCoachActivity extends Activity {
   private EditText field(String caption,String value){text(caption,14,true);EditText input=new EditText(this);input.setTextColor(palette.ink);input.setHintTextColor(palette.muted);input.setText(value);input.setContentDescription(caption);input.setSingleLine(true);body.addView(input,new LinearLayout.LayoutParams(-1,-2));return input;}
   private CheckBox check(String caption,boolean value){CheckBox box=new CheckBox(this);box.setText(caption);box.setTextColor(palette.ink);box.setChecked(value);body.addView(box);return box;}
   private interface Action {void run()throws Exception;}
-  private void action(String caption,Action action){body.addView(UiKit.action(this,palette,caption,()->{try{if(busy)throw new IllegalStateException("Wait for the current coach request to finish.");action.run();}catch(Exception e){status.setText(e.getMessage());}}));}
+  private void action(String caption,Action action){body.addView(UiKit.action(this,palette,caption,()->{try{if(busy)throw new IllegalStateException("Wait for the current coach request to finish.");action.run();}catch(Exception e){status.setText(e.getMessage());reveal(status);}}));}
   private void show(){
     shownPlanId=store.config()==null?"":store.planId();
     LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(palette.background);root.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(i.getSystemWindowInsetLeft(),i.getSystemWindowInsetTop(),i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i.consumeSystemWindowInsets();});
@@ -38,8 +38,8 @@ public final class AiCoachActivity extends Activity {
     model=field("Model ID",saved.optString("model","gpt-5-mini"));
     provider.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){private boolean initial=true;public void onNothingSelected(android.widget.AdapterView<?> p){}public void onItemSelected(android.widget.AdapterView<?> p,View v,int position,long id){if(initial){initial=false;return;}model.setText(position==0?"gpt-5-mini":"gemini-3.8-flash");key.setText("");key.setHint("Enter the selected provider's API key");}});
     key=field("API key (stored encrypted on this device)","");key.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);key.setSaveEnabled(false);key.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);key.setHint(saved.has("key")?"Saved key · leave blank to keep":"Enter API key");
-    goal=field("Goal pace · min:sec per km (optional)",saved.optInt("goalPace")>0?PaceProfile.format(saved.optInt("goalPace")):"");
-    if(!connectionsOnly)text(store.config()==null?"Choose a goal and training days to create your AI plan. No existing plan is required.":"Goal distance: "+PlanEngine.distance(store.config().goalKm())+" · "+store.runningEvidence(),15,false);
+    goal=field("Default goal pace · min:sec per km (optional)",saved.optInt("goalPace")>0?PaceProfile.format(saved.optInt("goalPace")):"");
+    if(!connectionsOnly)text(store.config()==null?"Choose a goal and training days to create your AI plan. No existing plan is required.":"Goal distance: "+PlanEngine.distance(store.config().goalKm())+(store.goalPace(saved)>0?" · Goal pace: "+PaceProfile.format(store.goalPace(saved))+" min/km":"")+" · "+store.runningEvidence(),15,false);
     if(!connectionsOnly)action("Create or change my running goal",()->startActivity(new Intent(this,RacePlanActivity.class)));
     consent=check("I agree to send recent run dates, distance, duration, pace, effort, fatigue, pain flags, goal and upcoming workouts to my selected AI provider. Routes and heart-rate records are excluded. Questions I type are also sent.",saved.optBoolean("consent"));
     automatic=check("After each saved or imported run, automatically review and update upcoming easy runs within the app's adjustment limits.",saved.optBoolean("automatic"));
@@ -56,10 +56,12 @@ public final class AiCoachActivity extends Activity {
     text("Connection tests use saved settings. Temporary service errors retry up to three attempts.",14,false);
     action("Test AI connection",this::testConnection);
     if(!connectionsOnly){
-    action(store.config()==null?"Create my AI running plan":"Personalise my existing plan with AI",()->generate(null));
+    text("AI plan setup collects your target distance and pace before generation. Coach questions also work without a plan.",14,false);
+    action(store.config()==null?"Create my AI running plan":"Personalise my existing plan with AI",this::generate);
+    if(store.config()!=null)action("Create a new AI goal plan",()->startActivity(new Intent(this,RacePlanActivity.class).putExtra("planningMethod","ai")));
     question=field("Ask your running coach","");question.setSingleLine(false);question.setMaxLines(6);question.setSaveEnabled(false);
-    action("Ask coach",()->{String value=question.getText().toString().trim();if(value.isEmpty()||value.length()>1000)throw new IllegalArgumentException("Enter a coaching question of up to 1,000 characters.");generate(value);});
-    answer=text("",17,false);
+    action("Ask coach",()->{String value=question.getText().toString().trim();if(value.isEmpty()||value.length()>1000)throw new IllegalArgumentException("Enter a coaching question of up to 1,000 characters.");ask(value);});
+    answer=text("",17,false);answer.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);answer.setTextIsSelectable(true);
     action("Review and apply this AI plan",this::review);
     action("View plan changes and undo",()->startActivity(new Intent(this,PlanChangesActivity.class)));
     text("AI guidance may be inaccurate. Targets are estimates: effort, recovery and pain take priority. Model access depends on your provider account; you can edit the model ID above.",13,false);
@@ -90,7 +92,7 @@ public final class AiCoachActivity extends Activity {
   }
   private void testConnection(){
     if(!vault.enabled())throw new IllegalStateException("Save your provider, API key and consent before testing.");
-    busy=true;status.setText("Testing AI connection…");
+    busy=true;status.setText("Testing AI connection…");reveal(status);
     worker.execute(()->{
       String result;
       try{
@@ -101,23 +103,33 @@ public final class AiCoachActivity extends Activity {
         result="Connection successful: "+settings.getString("provider")+" / "+settings.getString("model");
       }catch(Exception e){result="Connection test failed: "+e.getMessage();}
       final String message=result;
-      runOnUiThread(()->{if(!isDestroyed()){busy=false;status.setText(message);}});
+      runOnUiThread(()->{if(!isDestroyed()){busy=false;status.setText(message);reveal(status);}});
     });
   }
-  private void generate(String question){
+  private void reveal(TextView view){view.post(()->view.requestRectangleOnScreen(new android.graphics.Rect(0,0,view.getWidth(),view.getHeight()),false));}
+  private void ask(String value){
+    if(!consent.isChecked()||!vault.enabled())throw new IllegalStateException("Save your API key and data-sharing consent first.");
+    pending=null;proposal=null;busy=true;status.setText("Coach is reading your recent runs…");answer.setText("");reveal(status);
+    worker.execute(()->{try{
+      JSONObject settings=vault.read();String fingerprint=store.proposalFingerprint();
+      String response=AiCoachConversation.validate(AiCoachClient.generate(settings,AiCoachConversation.prompt(store,settings,value),retryProgress(settings)));
+      synchronized(RunStore.LOCK){if(!settings.optString("revision").equals(vault.read().optString("revision")))throw new IllegalStateException("AI settings changed. Ask again.");if(!fingerprint.equals(store.proposalFingerprint()))throw new IllegalStateException("Your running history changed while the coach was answering. Ask again for current advice.");}
+      runOnUiThread(()->{if(isDestroyed())return;busy=false;answer.setText(response);status.setText("Coach answer ready. Your plan is unchanged.");reveal(answer);});
+    }catch(Exception e){runOnUiThread(()->{if(!isDestroyed()){busy=false;status.setText("Coach could not answer. "+e.getMessage());reveal(status);}});}});
+  }
+  private void generate(){
     if(store.config()==null){
-      if(question==null){startActivity(new Intent(this,RacePlanActivity.class).putExtra("planningMethod","ai"));return;}
-      throw new IllegalStateException("Create a running plan before asking your coach.");
+      startActivity(new Intent(this,RacePlanActivity.class).putExtra("planningMethod","ai"));return;
     }
     if(!consent.isChecked())throw new IllegalStateException("Enable and save data-sharing consent first.");
     if(!vault.enabled())throw new IllegalStateException("Save your API key and data-sharing consent first.");
-    busy=true;pending=null;proposal=null;status.setText("Coach is reviewing your recent runs…");answer.setText("");
+    busy=true;pending=null;proposal=null;status.setText("Coach is reviewing your recent runs…");answer.setText("");reveal(status);
     worker.execute(()->{try{
       JSONObject settings=vault.read();AiCoachPolicy.Request request=AiCoachPolicy.snapshot(store,settings,false);
-      AiCoachPolicy.Proposal result=AiCoachPolicy.validate(request,AiCoachClient.generate(settings,AiCoachPolicy.prompt(request,question),retryProgress(settings)));
+      AiCoachPolicy.Proposal result=AiCoachPolicy.validate(request,AiCoachClient.generate(settings,AiCoachPolicy.prompt(request,null),retryProgress(settings)));
       synchronized(RunStore.LOCK){if(!settings.optString("revision").equals(vault.read().optString("revision")))throw new IllegalStateException("AI settings changed. Generate again.");vault.result(result.explanation());}
-      runOnUiThread(()->{if(isDestroyed())return;busy=false;if(question==null){pending=request;proposal=result;pendingSettingsRevision=settings.optString("revision");}answer.setText(result.explanation()+"\n\n"+summary(result));status.setText(question==null?"Plan proposal ready. Review it before applying.":"Coach answer ready. Your plan is unchanged.");});
-    }catch(Exception e){runOnUiThread(()->{if(!isDestroyed()){busy=false;status.setText(e instanceof java.io.IOException?e.getMessage():"Coach could not complete a valid proposal. "+e.getMessage());}});}});
+      runOnUiThread(()->{if(isDestroyed())return;busy=false;pending=request;proposal=result;pendingSettingsRevision=settings.optString("revision");answer.setText(result.explanation()+"\n\n"+summary(result));status.setText("Plan proposal ready. Review it before applying.");reveal(answer);});
+    }catch(Exception e){runOnUiThread(()->{if(!isDestroyed()){busy=false;status.setText(e instanceof java.io.IOException?e.getMessage():"Coach could not complete a valid proposal. "+e.getMessage());reveal(status);}});}});
   }
   private String summary(AiCoachPolicy.Proposal result){StringBuilder out=new StringBuilder();for(var s:result.sessions())out.append(s.date()).append(" · ").append(PlanEngine.distance(s.km())).append("\n").append(s.instructions()).append("\n\n");return out.length()==0?"No workout changes proposed.":out.toString();}
   private void review(){

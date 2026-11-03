@@ -146,7 +146,7 @@ final class RunStore {
   }
 
   void save(PlanEngine.Config c) { synchronized(LOCK) {
-    JSONObject retained=options();retained.remove("mode");retained.remove("weekdays");retained.remove("longDay");
+    JSONObject retained=options();retained.remove("mode");retained.remove("weekdays");retained.remove("longDay");retained.remove("goalPace");
     commit(
         new PreferenceEdit(preferences)
             .putString("planId", UUID.randomUUID().toString())
@@ -168,7 +168,7 @@ final class RunStore {
   /** Atomic creation keeps preview, first week, history and recovery state consistent. */
   void createPlan(PlanEngine.Config c,PaceProfile p,boolean returning){synchronized(LOCK){
     if(!checkpoint().isEmpty())throw new IllegalStateException("Finish or recover the pending run first");
-    JSONObject options=options();options.remove("mode");options.remove("weekdays");options.remove("longDay");
+    JSONObject options=options();options.remove("mode");options.remove("weekdays");options.remove("longDay");options.remove("goalPace");
     try{if(returning){var preference=OnboardingPlan.returning(c,p);JSONArray days=new JSONArray();for(var day:preference.weekdays())days.put(day.getValue());options.put("mode",preference.mode()).put("weekdays",days).put("longDay",preference.longDay().getValue());}validateOptions(options);
     var schedule=OnboardingPlan.sessions(c,p,returning);
     commit(new PreferenceEdit(preferences).putString("planId",UUID.randomUUID().toString()).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(schedule).toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"No adjustments applied."));
@@ -461,6 +461,7 @@ final class RunStore {
     }
   }
 
+  int goalPace(JSONObject settings){return options().optInt("goalPace",settings.optInt("goalPace",0));}
   JSONObject options(){ synchronized(LOCK) {return object("options"); }}
   void options(JSONObject value){ synchronized(LOCK) {
     validateOptions(value);var editor=new PreferenceEdit(preferences).putString("options",value.toString());JSONObject previous=options();
@@ -476,7 +477,8 @@ final class RunStore {
 
   private static void validateOptions(JSONObject value){
     if(value.length()>12)throw new IllegalArgumentException("Too many preference fields");
-    for(Iterator<String> keys=value.keys();keys.hasNext();){String key=keys.next();if(!Set.of("mode","weekdays","longDay","strengthLevel","strengthMinutes","equipment","units").contains(key))throw new IllegalArgumentException("Unknown preference");}
+    for(Iterator<String> keys=value.keys();keys.hasNext();){String key=keys.next();if(!Set.of("mode","weekdays","longDay","strengthLevel","strengthMinutes","equipment","units","goalPace").contains(key))throw new IllegalArgumentException("Unknown preference");}
+    if(value.has("goalPace")&&(!(value.opt("goalPace") instanceof Number)||value.optDouble("goalPace")!=Math.rint(value.optDouble("goalPace"))||value.optInt("goalPace")<180||value.optInt("goalPace")>1800))throw new IllegalArgumentException("Goal pace must be 3:00–30:00 min/km.");
     String mode=value.optString("mode","Race preparation");if(!PlanPreferences.MODES.contains(mode))throw new IllegalArgumentException("Unknown programme");
     if(value.has("weekdays")){var days=value.optJSONArray("weekdays");if(days==null||days.length()<2||days.length()>5)throw new IllegalArgumentException("Choose 2–5 weekdays");Set<Integer> unique=new HashSet<>();for(int i=0;i<days.length();i++){int day=days.optInt(i,0);if(day<1||day>7||!unique.add(day))throw new IllegalArgumentException("Invalid weekday");}if(!unique.contains(value.optInt("longDay",0)))throw new IllegalArgumentException("Choose a long-run day from your training days");}
     if(value.optInt("strengthLevel",1)<1||value.optInt("strengthLevel",1)>3||!Set.of(10,20,30).contains(value.optInt("strengthMinutes",20))||!Set.of("bodyweight","dumbbells").contains(value.optString("equipment","bodyweight"))||!Set.of("km","mi").contains(value.optString("units","km")))throw new IllegalArgumentException("Invalid training preferences");

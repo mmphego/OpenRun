@@ -39,6 +39,14 @@ public class AiCoachUiTest {
       NativePlanningTest.shot(controller.get(),"ai-coach-large-font");
     }finally{RuntimeEnvironment.setFontScale(1f);}
   }
+  @Test public void askWithoutPlanReportsConnectionRequirementInsteadOfPlanRequirement(){
+    try(var c=Robolectric.buildActivity(AiCoachActivity.class).setup().visible()){
+      EditText question=org.robolectric.util.ReflectionHelpers.getField(c.get(),"question");question.setText("Break down my recent runs");
+      NativePlanningTest.click(c.get(),"Ask coach");
+      TextView status=org.robolectric.util.ReflectionHelpers.getField(c.get(),"status");
+      assertTrue(status.getText().toString().contains("API key and data-sharing consent"));assertFalse(status.getText().toString().contains("Create a running plan"));
+    }
+  }
   @Test public void blockedNotificationsSuppressCoachNotification()throws Exception{
     AiCoachJob.notifyResult(app,new org.json.JSONObject().put("notifications",false),"Updated");
     assertEquals(0,Shadows.shadowOf(app.getSystemService(NotificationManager.class)).size());
