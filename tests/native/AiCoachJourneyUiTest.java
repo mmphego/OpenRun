@@ -34,8 +34,14 @@ public class AiCoachJourneyUiTest {
     static volatile String prompt="";
     @Implementation protected static String generate(JSONObject settings,String value,AiCoachClient.RetryListener listener)throws Exception{
       listener.beforeAttempt();prompt=value;
-      if(value.startsWith("You are OpenRun's running coach."))return new JSONObject().put("answer","Your recent 5 km took 35 minutes: 7:00 min/km. Build consistency before chasing your goal.").toString();
-      JSONObject context=new JSONObject(value.substring(value.indexOf('\n')+1));
+      if(value.contains("Return JSON {answer:string}"))return new JSONObject().put("answer","Your recent 5 km took 35 minutes: 7:00 min/km. Build consistency before chasing your goal.").toString();
+      JSONObject context=(JSONObject)new JSONTokener(value.substring(value.indexOf('\n')+1)).nextValue();
+      if(context.has("upcoming")){
+        JSONObject next=context.getJSONArray("upcoming").getJSONObject(0);
+        return new JSONObject().put("explanation","Hold volume steady and keep this run conversational; review recovery after the run.")
+            .put("sessions",new JSONArray().put(new JSONObject().put("id",next.getString("id")).put("km",next.getDouble("km"))
+                .put("paceSecondsPerKm",450).put("reason","Recent running supports an easy effort at the current distance."))).toString();
+      }
       JSONArray baseline=context.getJSONArray("baselineSessions"),rows=new JSONArray();
       for(int i=0;i<baseline.length();i++){
         JSONObject old=baseline.getJSONObject(i);boolean demanding=ScheduleProposer.demanding(old.getString("title"))||old.getString("title").equals("Run / walk");
@@ -58,6 +64,49 @@ public class AiCoachJourneyUiTest {
     }
     fail("Synthetic provider request did not complete");
   }
+  static void generatePlan(RacePlanActivity activity)throws Exception{
+    ((EditText)AiPlanningUiTest.findDescription(activity.getWindow().getDecorView(),"Target distance (km)")).setText("10");
+    ((EditText)AiPlanningUiTest.findDescription(activity.getWindow().getDecorView(),"Target pace (min:sec per km)")).setText("6:30");
+    assertTrue(ProgressUiTest.all(activity.getWindow().getDecorView()).contains("1:05:00"));
+    NativePlanningTest.click(activity,"Continue with my AI goal");NativePlanningTest.click(activity,"Continue");
+    NativePlanningTest.click(activity,"AI personalised plan · OpenAI / Gemini");NativePlanningTest.click(activity,"Generate AI plan");awaitIdle(activity);
+  }
+  static void assertAcceptVisible(Activity activity){
+    android.view.View button=NativePlanningTest.find(activity.getWindow().getDecorView(),"Create my plan");
+    int[] location=new int[2];button.getLocationOnScreen(location);
+    assertTrue("Plan acceptance stays within the screen",location[1]>=0&&location[1]+button.getHeight()<=activity.getWindow().getDecorView().getHeight());
+  }
+  @Test public void largeFontPreviewKeepsTheAcceptActionVisible()throws Exception{
+    RuntimeEnvironment.setFontScale(1.6f);
+    try(var c=Robolectric.buildActivity(RacePlanActivity.class,new Intent().putExtra("planningMethod","ai")).setup().visible()){
+      generatePlan(c.get());NativePlanningTest.shot(c.get(),"ai-goal-preview-large-font");assertAcceptVisible(c.get());
+      assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("6:30"));assertNull(store.config());
+    }finally{RuntimeEnvironment.setFontScale(1f);}
+  }
+  @Test public void recoveryHomeExplainsTheHoldWithoutOfferingAPlanUpdate()throws Exception{
+    store.save(new PlanEngine.Config(8,3,12,10,LocalDate.now()));store.adapt(new AdaptiveCoach.Advice(0,true,"Pain reported"));
+    String before=store.backupPreferences().toString();
+    try(var c=Robolectric.buildActivity(AiCoachActivity.class).setup().visible()){
+      assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("Recovery comes first"));
+      assertNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Review my plan with AI"));
+      assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Ask coach"));assertEquals(before,store.backupPreferences().toString());
+      NativePlanningTest.shot(c.get(),"ai-coach-recovery-home");
+    }
+  }
+  @Test public void dashboardPlanReviewRequiresAcceptanceAndThenHidesTheAction()throws Exception{
+    store.save(new PlanEngine.Config(8,3,12,10,LocalDate.now().plusDays(1)));
+    String runs=store.runs().toString();
+    try(var c=Robolectric.buildActivity(AiCoachActivity.class).setup().visible()){
+      NativePlanningTest.click(c.get(),"Review my plan with AI");awaitIdle(c.get());
+      android.view.View review=NativePlanningTest.find(c.get().getWindow().getDecorView(),"Review proposed changes");
+      assertEquals(android.view.View.VISIBLE,review.getVisibility());assertFalse(store.aiHistoryReviewed());
+      NativePlanningTest.click(c.get(),"Review proposed changes");
+      ((AlertDialog)ShadowDialog.getLatestDialog()).getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertTrue(store.aiHistoryReviewed());assertEquals(runs,store.runs().toString());assertEquals(android.view.View.GONE,review.getVisibility());
+      assertTrue(store.plannedSessions().stream().anyMatch(s->WorkoutFactory.coachPace(s.instructions())==450));
+      NativePlanningTest.shot(c.get(),"ai-coach-review-accepted");
+    }
+  }
   @Test public void askAnswersRecentRunsWithoutAPlanAndDuringRecoveryHold()throws Exception{
     for(boolean hold:new boolean[]{false,true}){
       if(hold)store.adapt(new AdaptiveCoach.Advice(0,true,"Pain reported"));
@@ -74,21 +123,27 @@ public class AiCoachJourneyUiTest {
   }
   @Test public void goalsGenerateAcceptAndReopenTheActualAiSchedule()throws Exception{
     try(var c=Robolectric.buildActivity(RacePlanActivity.class,new Intent().putExtra("planningMethod","ai")).setup().visible()){
-      ((EditText)AiPlanningUiTest.findDescription(c.get().getWindow().getDecorView(),"Target distance (km)")).setText("10");
-      ((EditText)AiPlanningUiTest.findDescription(c.get().getWindow().getDecorView(),"Target pace (min:sec per km)")).setText("6:30");
-      NativePlanningTest.click(c.get(),"Continue with my AI goal");NativePlanningTest.click(c.get(),"Continue");
-      NativePlanningTest.click(c.get(),"AI personalised plan · OpenAI / Gemini");NativePlanningTest.click(c.get(),"Generate AI plan");awaitIdle(c.get());
+      generatePlan(c.get());
       assertTrue(Provider.prompt.contains("\"goalPaceSecondsPerKm\":390"));assertTrue(Provider.prompt.contains("\"goalKm\":10"));
       RaceTraining.Draft accepted=ReflectionHelpers.getField(c.get(),"preview");
       assertTrue(accepted.sessions().stream().anyMatch(s->WorkoutFactory.coachPace(s.instructions())==450));
       assertNull(store.config());c.recreate();
-      assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("10.0 km at 6:30"));
+      String previewText=ProgressUiTest.all(c.get().getWindow().getDecorView());
+      assertTrue(previewText.contains("10.0")&&previewText.contains("6:30")&&previewText.contains("Target distance")&&previewText.contains("Target pace"));
       NativePlanningTest.shot(c.get(),"ai-goal-generated-preview");
+      assertAcceptVisible(c.get());
       NativePlanningTest.click(c.get(),"Create my plan");((AlertDialog)ShadowDialog.getLatestDialog()).getButton(-1).performClick();
       Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
       RunStore reopened=new RunStore(RuntimeEnvironment.getApplication());
       assertEquals(accepted.sessions(),reopened.plannedSessions());assertEquals(390,reopened.options().getInt("goalPace"));assertEquals(1,reopened.runs().size());
       assertEquals("AI plan created",reopened.planChanges().getJSONObject(0).getString("kind"));
+      try(var home=Robolectric.buildActivity(AiCoachActivity.class).setup().visible()){
+        assertTrue(ProgressUiTest.all(home.get().getWindow().getDecorView()).contains("6:30"));
+        assertNotNull(NativePlanningTest.find(home.get().getWindow().getDecorView(),"Review my plan with AI"));
+        assertEquals(android.view.View.GONE,NativePlanningTest.find(home.get().getWindow().getDecorView(),"Review proposed changes").getVisibility());
+        NativePlanningTest.shot(home.get(),"ai-coach-plan-home");
+      }
+
     }
   }
 }

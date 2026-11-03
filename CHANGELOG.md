@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Coaching experience
+
+- Put the saved goal, progress, recovery state and coach questions on a dedicated coaching home; move credentials and review preferences into AI Connections.
+- Add named AI setup steps, readable distance/pace fields and target-time arithmetic, clearer loading/results, full-plan review and an always-visible preview acceptance action.
+- Use consistent native cards, typography, buttons and accessible text contrast; preserve large-font layouts, private-key handling and all training validation.
+- Refresh the illustrated user manual and native screenshot evidence.
+
 ## Unreleased — AI goal and conversation flow
 
 - Coach questions now use a read-only answer path, including before plan creation and during recovery holds; errors and answers scroll into view.

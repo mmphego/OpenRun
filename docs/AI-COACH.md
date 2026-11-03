@@ -1,12 +1,19 @@
 # AI Coach with your own API key
 
 AI Coach uses OpenAI or Google Gemini with your own API key. Local Gemma support
-has been removed; no model download or inference runtime is included. Open **AI Connections** from Profile settings to configure and test a provider without creating a plan. The Coach tab and plan onboarding continue to open the coaching screen. Select **OpenAI** or **Gemini**,
+has been removed; no model download or inference runtime is included. Open **AI Connections** from Profile settings to configure and test a provider without creating a plan. The Coach tab opens your coaching home. AI setup links open AI Connections while keeping your planning draft. Select **OpenAI** or **Gemini**,
 enter a model ID and your own API key, optionally set a default goal pace in min:sec/km,
 read and enable data-sharing consent, then save settings. Defaults are `gpt-5-mini`
 and `gemini-3.8-flash`; model access and availability depend on the provider account.
 The model ID is editable. API usage is billed by the provider; ChatGPT subscription
 billing is separate. No server deployment or downloaded model is needed.
+
+The coaching home puts your saved distance/pace goal, due-workout progress and
+questions together. Provider credentials are not part of that screen: use the
+**AI settings** icon or **Profile → AI Connections** for provider configuration,
+consent and post-run review preferences. A saved key is labelled **configured**,
+not a guarantee of current provider availability. Recovery holds are visible
+before coaching actions; manual plan-review actions are withheld during a hold.
 
 With no saved plan, **Create my AI running plan** opens **Your AI running goal**.
 Enter target distance (5–42.2 km) and target pace (3:00–30:00 min/km), for example
@@ -19,7 +26,7 @@ the internal deterministic schedule supplies a safety envelope; only the accepte
 AI schedule is saved. Provider failure leaves a clearly labelled standard-plan
 alternative that requires its own preview and acceptance.
 
-With an existing plan, **Personalise my existing plan with AI** proposes changes to
+With an existing plan, **Review my plan with AI** proposes changes to
 upcoming easy sessions; review and apply them explicitly. **Create a new AI goal
 plan** starts the distance/pace flow and only replaces the current schedule after
 acceptance. Both goals are stored with the plan and survive reopening and backup
@@ -65,7 +72,7 @@ remain separate acceptance checks.
 
 ## Automatic post-run reviews
 
-Enable **After each saved or imported run** to allow validated updates without
+Enable **Automatic plan reviews** to allow validated updates without
 confirming each one. Newly persisted running history or explicit run reflections schedule one network-constrained,
 persisted Android JobScheduler job. Foreground entry and reboot/update also check for
 unreviewed history. Runs imported from Health Connect or files use the same storage
