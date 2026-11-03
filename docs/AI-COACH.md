@@ -34,6 +34,8 @@ and next-run context. An answer cannot apply a schedule proposal. Questions are
 single-turn; conversation history is not stored or uploaded. Errors and results
 scroll into view instead of remaining above the question field.
 
+See the [illustrated AI flow in the user manual](USER-MANUAL.md#ai-flow-in-screenshots) for native screenshots of provider setup, goal entry, training days, plan preview and coach answers.
+
 ## Temporary provider failures
 
 Foreground connection tests, plan generation and coach questions make at most **three

@@ -109,6 +109,41 @@ AI Coach is optional and requires internet access and **your own provider API ke
 5. In AI Coach choose **Create my AI running plan** (or **Create a new AI goal plan** if a plan exists). Enter target distance and pace first, such as **10 km at 6:30 min/km**. Continue through recent-running baseline, training weeks and days, choose **AI personalised plan**, then **Generate AI plan**. Review the full schedule and confirm **Create my plan**. The exact accepted workouts and both goals are saved together.
 6. For an existing plan, choose **Personalise my existing plan with AI** and review any proposed adjustments. Use **Ask coach** for questions, including a breakdown of recent runs. Questions work without a plan and during recovery holds; answers do not change the schedule.
 
+### AI flow in screenshots
+
+These are actual Android Views rendered by Robolectric with synthetic running data.
+The generated plan and coach answer use a synthetic provider response. They show the
+implemented flow; they are not physical-device captures or evidence of live Gemini/OpenAI acceptance.
+API keys and personal activity data are excluded.
+
+**1. Configure the provider and consent.** Open Profile → AI Connections. This empty setup
+screen shows where to enter the model/key and opt into automatic post-run reviews; save and test
+using the buttons further down the screen.
+
+<img src="screenshots/ai-flow-connections.png" width="240" alt="AI Connections empty setup with provider, model, encrypted key field and consent controls">
+
+**2. Enter the desired distance and pace.** Start the AI plan and set both goals before generation.
+This example targets 10 km at 6:30 min/km.
+
+<img src="screenshots/ai-flow-goal.png" width="240" alt="AI goal form with target distance 10 km and target pace 6:30 per km">
+
+**3. Choose the training weeks and available days.** Select AI personalised plan to continue;
+the standard-plan alternative remains available.
+
+<img src="screenshots/ai-flow-schedule.png" width="240" alt="Fourteen-week setup with Tuesday, Thursday and Sunday selected and AI planning offered first">
+
+**4. Inspect the generated preview.** The saved goal, explanation and first-week workout
+instructions are visible together. Use **Review all workouts** further down the page before
+confirming **Create my plan**. Training paces start from recorded ability rather than immediately
+prescribing the desired goal pace.
+
+<img src="screenshots/ai-flow-preview.png" width="240" alt="AI plan preview for 10 km at 6:30 with an explanation and evidence-bounded 7:30 easy workout paces">
+
+**5. Ask about recent runs.** Questions also work before a plan exists. The answer appears below
+the question and does not change the schedule.
+
+<img src="screenshots/ai-flow-answer.png" width="240" alt="Ask coach showing a synthetic recent-run breakdown and confirmation that the plan is unchanged">
+
 Enable **After each saved or imported run** in AI Coach settings to schedule automatic reviews of upcoming easy sessions against the saved distance/pace goal. Pace targets follow recorded ability, with bounded gradual changes; choosing a faster goal alone does not authorise faster workouts. Android decides when background work runs, so updates are not immediate. Choose the failure policy in AI settings: keep the current plan, retry automatically for eligible transient failures, or pause AI reviews. Check plan-change history and notifications for results.
 
 **If AI returns HTTP 503:** this usually indicates the selected provider/model is unavailable, not necessarily an invalid key. Foreground requests retry eligible temporary errors with bounded backoff; persistent failure leaves the plan unchanged. Verify the exact model ID and provider access, then retry later or choose a supported model. HTTP 401/403 suggests an authentication/access problem; 429 may indicate rate or quota limits. Avoid repeatedly generating a plan while the provider is unavailable. See [AI Coach setup, retry policy and data disclosure](AI-COACH.md).
