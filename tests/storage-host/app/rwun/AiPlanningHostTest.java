@@ -16,7 +16,8 @@ public final class AiPlanningHostTest {
     try{action.run();throw new AssertionError("Expected rejection");}catch(IllegalArgumentException|IllegalStateException|JSONException expected){}
     check(before.equals(store.backupPreferences().toString()),"Rejected response leaves all saved data intact");
   }
-  static RaceTraining.Draft baseline(){return RaceTraining.goalDraft(LocalDate.now(),10,8,Set.of(DayOfWeek.TUESDAY,DayOfWeek.THURSDAY,DayOfWeek.SUNDAY),DayOfWeek.SUNDAY,12,PaceProfile.unset(),List.of(),store.resting(),"distance");}
+  // These fixtures deliberately complete future planned sessions; never depend on today being a rest day.
+  static RaceTraining.Draft baseline(){return RaceTraining.goalDraft(LocalDate.now().plusDays(1),10,8,Set.of(DayOfWeek.TUESDAY,DayOfWeek.THURSDAY,DayOfWeek.SUNDAY),DayOfWeek.SUNDAY,12,PaceProfile.unset(),List.of(),store.resting(),"distance");}
   static JSONObject response(RaceTraining.Draft baseline)throws Exception{
     JSONArray rows=new JSONArray();
     for(var s:baseline.sessions())rows.put(new JSONObject().put("id",s.id()).put("km",ScheduleProposer.demanding(s.title())||s.title().equals("Run / walk")?s.km():s.km()*.83).put("instructions","Keep a conversational effort; walk breaks are welcome."));
