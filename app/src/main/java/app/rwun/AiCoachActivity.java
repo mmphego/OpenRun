@@ -221,7 +221,7 @@ public final class AiCoachActivity extends Activity {
       JSONObject settings=vault.read();String fingerprint=store.proposalFingerprint();
       String response=AiCoachConversation.validate(AiCoachClient.generate(settings,AiCoachConversation.prompt(store,settings,value),retryProgress(settings)));
       synchronized(RunStore.LOCK){if(!settings.optString("revision").equals(vault.read().optString("revision")))throw new IllegalStateException("AI settings changed. Ask again.");if(!fingerprint.equals(store.proposalFingerprint()))throw new IllegalStateException("Your running history changed while the coach was answering. Ask again for current advice.");}
-      runOnUiThread(()->{if(isDestroyed())return;busy=false;answer.setText(response);status.setText("Coach answer ready. Your plan is unchanged.");reveal(answer);});
+      runOnUiThread(()->{if(isDestroyed())return;busy=false;answer.setText(CoachMarkdown.render(response));status.setText("Coach answer ready. Your plan is unchanged.");reveal(answer);});
     }catch(Exception e){runOnUiThread(()->{if(!isDestroyed()){busy=false;status.setText("Coach could not answer. "+e.getMessage());reveal(status);}});}});
   }
   private void generate(){
@@ -234,7 +234,7 @@ public final class AiCoachActivity extends Activity {
       JSONObject settings=vault.read();AiCoachPolicy.Request request=AiCoachPolicy.snapshot(store,settings,false);
       AiCoachPolicy.Proposal result=AiCoachPolicy.validate(request,AiCoachClient.generate(settings,AiCoachPolicy.prompt(request,null),retryProgress(settings)));
       synchronized(RunStore.LOCK){if(!settings.optString("revision").equals(vault.read().optString("revision")))throw new IllegalStateException("AI settings changed. Generate again.");vault.result(result.explanation());}
-      runOnUiThread(()->{if(isDestroyed())return;busy=false;pending=request;proposal=result;pendingSettingsRevision=settings.optString("revision");answer.setText(result.explanation()+"\n\n"+summary(result));status.setText("Plan proposal ready. Review it before applying.");reveal(answer);});
+      runOnUiThread(()->{if(isDestroyed())return;busy=false;pending=request;proposal=result;pendingSettingsRevision=settings.optString("revision");answer.setText(CoachMarkdown.render(result.explanation()+"\n\n"+summary(result)));status.setText("Plan proposal ready. Review it before applying.");reveal(answer);});
     }catch(Exception e){runOnUiThread(()->{if(!isDestroyed()){busy=false;status.setText(e instanceof java.io.IOException?e.getMessage():"Coach could not complete a valid proposal. "+e.getMessage());reveal(status);}});}});
   }
   private String summary(AiCoachPolicy.Proposal result){StringBuilder out=new StringBuilder();for(var s:result.sessions())out.append(s.date()).append(" · ").append(PlanEngine.distance(s.km())).append("\n").append(s.instructions()).append("\n\n");return out.length()==0?"No workout changes proposed.":out.toString();}
