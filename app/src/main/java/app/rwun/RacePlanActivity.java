@@ -145,7 +145,7 @@ public final class RacePlanActivity extends Activity {
    }
    LinearLayout why=CoachUi.card(body,false);CoachUi.copy(why,"WHY THIS PLAN",11,true);CoachUi.gap(why,10);
    TextView explanation=CoachUi.copy(why,"",15,false);explanation.setText(CoachMarkdown.render(aiExplanation));explanation.setMaxLines(4);explanation.setEllipsize(android.text.TextUtils.TruncateAt.END);
-   CoachUi.row(why,R.drawable.ic_info,"Read the full explanation","",()->{AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Why this plan").setMessage(aiExplanation+"\n\n"+plan.review().reason()+"\n\n"+plan.warning()).setPositiveButton("Done",null).create();dialog.show();CoachUi.styleDialog(dialog);});
+   CoachUi.row(why,R.drawable.ic_info,"Read the full explanation","",()->{AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Why this plan").setMessage(CoachMarkdown.render(aiExplanation+"\n\n"+plan.review().reason()+"\n\n"+plan.warning())).setPositiveButton("Done",null).create();dialog.show();CoachUi.styleDialog(dialog);});
    action("Review all workouts",()->showAiWorkouts(plan));
    text("Your first week",20,true);
    for(var session:plan.sessions())if(session.date().isBefore(plan.config().start().plusDays(7))){

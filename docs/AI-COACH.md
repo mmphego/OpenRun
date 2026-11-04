@@ -223,3 +223,9 @@ reported recovery feedback do not justify distance increases. Enable **After eac
 saved or imported run** in AI Coach settings for automatic adaptation; otherwise
 request changes manually. Qualified coaching review and physical-device/live
 provider acceptance remain outstanding.
+
+## Response formatting and generation errors
+
+Coach answers and plan explanations render headings, bold emphasis and bullet lists as native selectable Android text. This is a bounded Markdown subset; HTML is displayed literally and remote images or executable links are not loaded. Saved plan data is not rewritten by formatting.
+
+Provider errors retain their HTTP status and safe explanation. Timeouts and connection failures use network-specific messages instead of the generic file/storage error. Failed generation returns to an idle preview with retry and standard-plan choices; it never saves the unaccepted proposal. A provider outage can still prevent generation until that provider recovers.

@@ -119,13 +119,13 @@ public final class AiCoachActivity extends Activity {
     }else CoachUi.row(body,R.drawable.ic_calendar_month,"Build a standard plan","Available offline, without an API key",()->startActivity(new Intent(this,RacePlanActivity.class)));
     if(!saved.optString("lastResult").isBlank()){
       LinearLayout latest=CoachUi.card(body,false);CoachUi.copy(latest,"LATEST COACH REVIEW",11,true);CoachUi.gap(latest,8);
-      TextView excerpt=CoachUi.copy(latest,saved.optString("lastResult"),14,false);excerpt.setMaxLines(3);excerpt.setEllipsize(TextUtils.TruncateAt.END);
+      TextView excerpt=CoachUi.copy(latest,saved.optString("lastResult"),14,false);excerpt.setText(CoachMarkdown.render(saved.optString("lastResult")));excerpt.setMaxLines(3);excerpt.setEllipsize(TextUtils.TruncateAt.END);
       CoachUi.row(latest,R.drawable.ic_info,"Read the review","",()->showInfo("Latest coach review",saved.optString("lastResult")));
     }
     CoachUi.row(body,R.drawable.ic_info,"About AI coaching","Privacy, provider costs and training limits",()->showInfo("About AI coaching","Your selected provider receives recent running dates, distance, duration, pace, effort, fatigue, pain flags, goal and upcoming workouts after consent. Routes and heart-rate records are excluded. Typed questions are also sent. API usage is billed by your provider. AI can be inaccurate. Recorded ability, effort and recovery take priority; goal achievement is not guaranteed. Automatic reviews are opt-in and Android controls their timing. Holds cannot be cleared by AI."));
   }
   private void showInfo(String title,String message){
-    AlertDialog dialog=new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("Done",null).create();dialog.show();CoachUi.styleDialog(dialog);
+    AlertDialog dialog=new AlertDialog.Builder(this).setTitle(title).setMessage(CoachMarkdown.render(message)).setPositiveButton("Done",null).create();dialog.show();CoachUi.styleDialog(dialog);
   }
   private CheckBox consent(LinearLayout parent){
     CheckBox box=new CheckBox(this);box.setText("I agree to send recent run dates, distance, duration, pace, effort, fatigue, pain flags, goal and upcoming workouts to my selected AI provider. Routes and heart-rate records are excluded. Questions I type are also sent.");
@@ -240,7 +240,7 @@ public final class AiCoachActivity extends Activity {
   private String summary(AiCoachPolicy.Proposal result){StringBuilder out=new StringBuilder();for(var s:result.sessions())out.append(s.date()).append(" · ").append(PlanEngine.distance(s.km())).append("\n").append(s.instructions()).append("\n\n");return out.length()==0?"No workout changes proposed.":out.toString();}
   private void review(){
     if(pending==null||proposal==null)throw new IllegalStateException("Generate a fresh plan proposal first.");
-    AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Apply AI running plan?").setMessage(proposal.explanation()+"\n\n"+summary(proposal)).setNegativeButton("Keep current plan",null).setPositiveButton("Apply",(confirmed,which)->{try{
+    AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Apply AI running plan?").setMessage(CoachMarkdown.render(proposal.explanation()+"\n\n"+summary(proposal))).setNegativeButton("Keep current plan",null).setPositiveButton("Apply",(confirmed,which)->{try{
       synchronized(RunStore.LOCK){if(!vault.enabled()||!pendingSettingsRevision.equals(vault.read().optString("revision")))throw new IllegalStateException("AI settings changed. Generate a fresh proposal.");store.applyAiPlan(pending.fingerprint(),proposal.sessions(),proposal.explanation(),saved.getString("provider"),pending.runToken());}
       Reminders.schedule(this);pending=null;proposal=null;status.setText("AI plan saved. View changes and undo to inspect the update.");
     }catch(Exception e){status.setText(e.getMessage());}}).create();dialog.show();CoachUi.styleDialog(dialog);

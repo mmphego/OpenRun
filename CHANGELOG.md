@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — AI responses and generation errors
+
+- Render headings, bold emphasis and bullet lists in coach responses and plan explanations using native text spans.
+- Preserve provider failure details instead of mislabelling network errors as file/storage failures; clear stale generation progress after failure.
+- Add formatting, network-error and failed-generation/retry regressions.
+
 ## Unreleased — Coaching experience
 
 - Put the saved goal, progress, recovery state and coach questions on a dedicated coaching home; move credentials and review preferences into AI Connections.
