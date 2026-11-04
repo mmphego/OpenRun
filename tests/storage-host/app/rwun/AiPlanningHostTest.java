@@ -16,7 +16,8 @@ public final class AiPlanningHostTest {
     try{action.run();throw new AssertionError("Expected rejection");}catch(IllegalArgumentException|IllegalStateException|JSONException expected){}
     check(before.equals(store.backupPreferences().toString()),"Rejected response leaves all saved data intact");
   }
-  static RaceTraining.Draft baseline(){return RaceTraining.goalDraft(LocalDate.now(),10,8,Set.of(DayOfWeek.TUESDAY,DayOfWeek.THURSDAY,DayOfWeek.SUNDAY),DayOfWeek.SUNDAY,12,PaceProfile.unset(),List.of(),store.resting(),"distance");}
+  // These fixtures deliberately complete future planned sessions; never depend on today being a rest day.
+  static RaceTraining.Draft baseline(){return RaceTraining.goalDraft(LocalDate.now().plusDays(1),10,8,Set.of(DayOfWeek.TUESDAY,DayOfWeek.THURSDAY,DayOfWeek.SUNDAY),DayOfWeek.SUNDAY,12,PaceProfile.unset(),List.of(),store.resting(),"distance");}
   static JSONObject response(RaceTraining.Draft baseline)throws Exception{
     JSONArray rows=new JSONArray();
     for(var s:baseline.sessions())rows.put(new JSONObject().put("id",s.id()).put("km",ScheduleProposer.demanding(s.title())||s.title().equals("Run / walk")?s.km():s.km()*.83).put("instructions","Keep a conversational effort; walk breaks are welcome."));
@@ -93,8 +94,53 @@ public final class AiPlanningHostTest {
     JSONObject legacyData=legacy.v103();legacyData.put("overrides",new JSONObject().put(legacy.planId()+":"+original.id(),new JSONObject().put("date",original.date().toString()).put("km",3.141).put("factor",1).put("title",original.title()).put("instructions","Legacy reviewed guidance")));legacy.v103(legacyData);
     check(legacy.plannedSessions().get(0).km()==3.1,"Legacy overrides keep their prior rounding on upgrade");
     legacy.restorePreferences(legacy.backupPreferences());check(legacy.plannedSessions().get(0).km()==3.1,"Legacy precision survives backup restore without a destructive migration");
+    conversationAndGoals();
     transport();
     System.out.println("AI full planning: "+assertions+" assertions passed");
+  }
+  static void conversationAndGoals() throws Exception {
+    context=new Context(Files.createTempDirectory("ai-goals").toFile());store=new RunStore(context);
+    JSONObject defaults=new JSONObject().put("goalPace",500);
+    String empty=AiCoachConversation.prompt(store,defaults,"Break down my recent runs");
+    check(empty.contains("\"hasPlan\":false")&&empty.contains("\"recentRuns\":[]"),"Coach questions work without a plan or runs");
+    store.add(new RunStore.Run("unlinked-run",LocalDate.now().toString(),5,35,5,2,false,"Manual","route-private.jsonl",155,2100));
+    String before=store.backupPreferences().toString();String question=AiCoachConversation.prompt(store,defaults,"Break down my recent runs");
+    check(question.contains("420")&&!question.contains("route-private")&&!question.contains("155")&&!question.contains("unlinked-run"),"Conversation receives pace and summaries, excludes identifiers/routes/HR");
+    check(AiCoachConversation.validate("{\"answer\":\"Your recent 5 km took 35 minutes. Build consistency first.\"}").contains("35 minutes"),"Conversational answer does not require workout proposals");
+    check(store.backupPreferences().toString().equals(before),"Asking questions never changes the plan or activity history");
+    rejected(()->AiCoachConversation.validate("{\"answer\":\" \"}"));
+    rejected(()->AiCoachConversation.validate("{\"answer\":42}"));
+    rejected(()->AiCoachConversation.validate("{\"explanation\":\"change\",\"sessions\":[]}"));
+    rejected(()->AiCoachConversation.validate(new JSONObject().put("answer","a".repeat(8001)).toString()));
+    var b=baseline();JSONObject options=options(b).put("goalPace",330);JSONObject out=response(b);
+    int easy=0;while(ScheduleProposer.demanding(b.sessions().get(easy).title())||b.sessions().get(easy).title().equals("Run / walk"))easy++;
+    out.getJSONArray("sessions").getJSONObject(easy).put("paceSecondsPerKm",450);
+    var accepted=AiFullPlanPolicy.validate(b,out.toString(),420);
+    check(WorkoutFactory.coachPace(accepted.get(easy).instructions())==450,"Full AI plan accepts a numeric pace bounded by actual running");
+    rejected(()->AiFullPlanPolicy.validate(b,out.toString(),0));
+    JSONObject fast=new JSONObject(out.toString());fast.getJSONArray("sessions").getJSONObject(easy).put("paceSecondsPerKm",419);
+    rejected(()->AiFullPlanPolicy.validate(b,fast.toString(),420));
+    fast.getJSONArray("sessions").getJSONObject(easy).put("paceSecondsPerKm","450");rejected(()->AiFullPlanPolicy.validate(b,fast.toString(),420));
+    store.createStructuredPlan(store.proposalFingerprint(),b.config(),PaceProfile.unset(),null,options,accepted,"AI plan created","Working towards 10 km at 5:30; start with conversational running.","Synthetic evidence");
+    store=new RunStore(context);check(store.goalPace(defaults)==330&&store.config().goalKm()==10,"Plan owns distance and pace goals independently of provider defaults");
+    store.restorePreferences(store.backupPreferences());check(store.goalPace(defaults)==330&&store.plannedSessions().equals(accepted),"Pace goal and accepted AI paces survive restart/backup restore");
+    check(AiCoachPolicy.snapshot(store,defaults,true).payload().getInt("goalPaceSecondsPerKm")==330,"Automatic reviews use the saved plan goal");
+    store.add(new RunStore.Run("new-evidence",LocalDate.now().toString(),5,33,5,2,false,"Manual","",0,1950));
+    var request=AiCoachPolicy.snapshot(store,defaults,true);
+    var paced=request.sessions().stream().filter(s->WorkoutFactory.coachPace(s.instructions())==450).findFirst().orElseThrow();
+    String revision=new JSONObject().put("explanation","Recent pace improved; a small easy-pace step towards the saved goal, with unchanged volume.")
+        .put("sessions",new JSONArray().put(new JSONObject().put("id",paced.id()).put("km",paced.km()).put("paceSecondsPerKm",441).put("reason","New run supports a small pace step; conversational effort still takes priority."))).toString();
+    var proposal=AiCoachPolicy.validate(request,revision);
+    store.applyAiPlan(request.fingerprint(),proposal.sessions(),proposal.explanation(),"Synthetic",request.runToken());
+    check(store.aiHistoryReviewed()&&WorkoutFactory.coachPace(store.plannedSessions().stream().filter(s->s.id().equals(paced.id())).findFirst().orElseThrow().instructions())==441,"New running evidence supports a bounded goal-driven post-run pace update");
+    rejected(()->store.applyAiPlan(request.fingerprint(),proposal.sessions(),proposal.explanation(),"Synthetic",request.runToken()));
+    check(AiCoachConversation.prompt(store,defaults,"How am I progressing?").contains("\"goalPaceSecondsPerKm\":330"),"Conversation uses saved goal and progress");
+    JSONObject bad=store.options().put("goalPace",179);rejected(()->store.options(bad));
+    store.adapt(new AdaptiveCoach.Advice(0,true,"Pain reported"));
+    check(AiCoachConversation.prompt(store,defaults,"What next?").contains("\"trainingHold\":true"),"Coach can answer during a hold with explicit recovery context");
+    rejected(()->AiCoachPolicy.snapshot(store,defaults,true));
+    check(store.runs().size()==2,"Goal persistence, restore, adaptation and hold preserve completed runs");
+    store.save(new PlanEngine.Config(8,3,12,5,LocalDate.now()));check(!store.options().has("goalPace"),"An unrelated replacement does not inherit the old plan goal");
   }
   static final class FakeConnection extends java.net.HttpURLConnection {
     final java.io.ByteArrayOutputStream sent=new java.io.ByteArrayOutputStream();final int code;final String body;boolean disconnected;

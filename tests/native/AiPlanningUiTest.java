@@ -36,9 +36,13 @@ public class AiPlanningUiTest {
     RuntimeEnvironment.setFontScale(1.6f);
     try(var c=Robolectric.buildActivity(RacePlanActivity.class).setup().visible()){
       availability(c.get());NativePlanningTest.click(c.get(),"AI personalised plan · OpenAI / Gemini");
+      assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("Your AI running goal"));
+      ((android.widget.EditText)findDescription(c.get().getWindow().getDecorView(),"Target pace (min:sec per km)")).setText("6:30");
+      NativePlanningTest.click(c.get(),"Continue with my AI goal");
+      NativePlanningTest.click(c.get(),"AI personalised plan · OpenAI / Gemini");
       AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();assertTrue(ProgressUiTest.all(dialog.getWindow().getDecorView()).contains("Your running goal and training days will remain here"));
       dialog.getButton(-1).performClick();idle();assertEquals("connections",Shadows.shadowOf(c.get()).getNextStartedActivity().getStringExtra("screen"));
-      c.recreate();NativePlanningTest.click(c.get(),"Preview my plan");
+      c.recreate();NativePlanningTest.click(c.get(),"Preview standard plan");
       assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Review all workouts"));
       NativePlanningTest.shot(c.get(),"ai-planning-fallback-large-font");
       assertNull(store.config());
@@ -88,7 +92,12 @@ public class AiPlanningUiTest {
   @Test public void coachEntryStartsAiOnboardingWithoutSavingABaseline()throws Exception{
     Intent intent=new Intent().putExtra("planningMethod","ai");
     try(var c=Robolectric.buildActivity(RacePlanActivity.class,intent).setup().visible()){
-      availability(c.get());
+      assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("Your AI running goal"));
+      ((android.widget.EditText)findDescription(c.get().getWindow().getDecorView(),"Target distance (km)")).setText("10");
+      ((android.widget.EditText)findDescription(c.get().getWindow().getDecorView(),"Target pace (min:sec per km)")).setText("6:30");
+      NativePlanningTest.shot(c.get(),"ai-goal-distance-pace");
+      c.recreate();assertEquals("6:30",((android.widget.EditText)findDescription(c.get().getWindow().getDecorView(),"Target pace (min:sec per km)")).getText().toString());
+      NativePlanningTest.click(c.get(),"Continue with my AI goal");NativePlanningTest.click(c.get(),"Continue");
       assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("AI plan setup"));
       assertNull(store.config());assertEquals(0,store.planChanges().length());
       assertNotNull(NativePlanningTest.find(c.get().getWindow().getDecorView(),"Preview standard plan"));
@@ -98,6 +107,17 @@ public class AiPlanningUiTest {
       assertNull(store.config());
       NativePlanningTest.shot(c.get(),"ai-new-plan-coach-entry");
     }
+  }
+  static android.view.View findDescription(android.view.View v,String caption){if(caption.equals(String.valueOf(v.getContentDescription())))return v;if(v instanceof android.view.ViewGroup group)for(int i=0;i<group.getChildCount();i++){android.view.View found=findDescription(group.getChildAt(i),caption);if(found!=null)return found;}return null;}
+  @Test public void aiGoalRequiresValidPaceAndDistanceBeforeContinuing()throws Exception{
+    RuntimeEnvironment.setFontScale(1.6f);
+    try(var c=Robolectric.buildActivity(RacePlanActivity.class,new Intent().putExtra("planningMethod","ai")).setup().visible()){
+      NativePlanningTest.click(c.get(),"Continue with my AI goal");assertTrue(ProgressUiTest.all(ShadowDialog.getLatestDialog().getWindow().getDecorView()).contains("Enter target pace"));
+      ((AlertDialog)ShadowDialog.getLatestDialog()).getButton(-1).performClick();idle();
+      ((android.widget.EditText)findDescription(c.get().getWindow().getDecorView(),"Target pace (min:sec per km)")).setText("2:30");
+      NativePlanningTest.click(c.get(),"Continue with my AI goal");assertTrue(ProgressUiTest.all(ShadowDialog.getLatestDialog().getWindow().getDecorView()).contains("3:00 and 30:00"));
+      assertNull(store.config());NativePlanningTest.shot(c.get(),"ai-goal-large-font");
+    }finally{RuntimeEnvironment.setFontScale(1f);}
   }
   @Test public void connectionsScreenIsUsableWithoutAPlan()throws Exception{
     try(var c=Robolectric.buildActivity(AiCoachActivity.class,new Intent().putExtra("screen","connections")).setup().visible()){

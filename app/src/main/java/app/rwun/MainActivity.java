@@ -387,6 +387,7 @@ public final class MainActivity extends Activity {
     JSONObject race=store.v103().optJSONObject("race");boolean racePlan=race!=null&&race.optString("planId").equals(store.planId());
     summary.addView(text(racePlan?race.optString("name","Your race"):PlanEngine.distance(config.goalKm())+" journey",24,true));
     if(racePlan){summary.addView(text(race.optString("date")+" · "+PlanEngine.distance(config.goalKm())+" · "+race.optString("city"),15,false));long left=java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(),LocalDate.parse(race.optString("date")));summary.addView(text(left>=0?left+" days to race":"Race date passed",13,false));}
+    if(store.options().optInt("goalPace")>0)summary.addView(text("Target pace: "+PaceProfile.format(store.options().optInt("goalPace"))+" min/km · effort and recovery take priority",14,false));
     summary.addView(text("Week "+(current+1)+" of "+config.weeks()+" · "+config.days()+" runs per week",14,false));
     if(!tab.equals("Plan"))row(summary,R.drawable.ic_assignment,"View your plan","Workouts, progression and weekly schedule",()->{tab="Plan";planSchedule=true;week=current;render();});
   }
