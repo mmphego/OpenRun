@@ -32,8 +32,10 @@ public class AiCoachJourneyUiTest {
   @Implements(value=AiCoachClient.class,isInAndroidSdk=false)
   public static class Provider {
     static volatile String prompt="";
+    static volatile boolean unavailable;
     @Implementation protected static String generate(JSONObject settings,String value,AiCoachClient.RetryListener listener)throws Exception{
       listener.beforeAttempt();prompt=value;
+      if(unavailable)throw new AiCoachClient.ProviderFailure(503,"Gemini is temporarily unavailable (HTTP 503). Your plan is unchanged.");
       if(value.contains("Return JSON {answer:string}"))return new JSONObject().put("answer","Your recent 5 km took 35 minutes: 7:00 min/km. Build consistency before chasing your goal.").toString();
       JSONObject context=(JSONObject)new JSONTokener(value.substring(value.indexOf('\n')+1)).nextValue();
       if(context.has("upcoming")){
@@ -54,7 +56,7 @@ public class AiCoachJourneyUiTest {
   }
   @Before public void setup(){
     var app=RuntimeEnvironment.getApplication();app.getSharedPreferences("rwun",0).edit().clear().commit();app.getSharedPreferences("coach_vault",0).edit().clear().commit();
-    store=new RunStore(app);store.add(new RunStore.Run("history",LocalDate.now().minusDays(1).toString(),5,35));Provider.prompt="";
+    store=new RunStore(app);store.add(new RunStore.Run("history",LocalDate.now().minusDays(1).toString(),5,35));Provider.prompt="";Provider.unavailable=false;
   }
   static void awaitIdle(Activity activity)throws Exception{
     for(int i=0;i<250;i++){
@@ -75,6 +77,18 @@ public class AiCoachJourneyUiTest {
     android.view.View button=NativePlanningTest.find(activity.getWindow().getDecorView(),"Create my plan");
     int[] location=new int[2];button.getLocationOnScreen(location);
     assertTrue("Plan acceptance stays within the screen",location[1]>=0&&location[1]+button.getHeight()<=activity.getWindow().getDecorView().getHeight());
+  }
+  @Test public void providerOutageShowsItsStatusAndCanRetryWithoutSaving()throws Exception{
+    String before=store.backupPreferences().toString();Provider.unavailable=true;
+    try(var c=Robolectric.buildActivity(RacePlanActivity.class,new Intent().putExtra("planningMethod","ai")).setup().visible()){
+      generatePlan(c.get());AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();
+      String error=ProgressUiTest.all(dialog.getWindow().getDecorView());
+      assertTrue(error.contains("HTTP 503"));assertFalse(error.contains("storage"));
+      assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("Ready to generate."));
+      assertEquals(before,store.backupPreferences().toString());
+      Provider.unavailable=false;dialog.getButton(-2).performClick();awaitIdle(c.get());
+      assertTrue(ProgressUiTest.all(c.get().getWindow().getDecorView()).contains("Built around your goal."));assertNull(store.config());
+    }
   }
   @Test public void largeFontPreviewKeepsTheAcceptActionVisible()throws Exception{
     RuntimeEnvironment.setFontScale(1.6f);

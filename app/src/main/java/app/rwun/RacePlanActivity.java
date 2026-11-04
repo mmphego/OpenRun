@@ -114,9 +114,9 @@ public final class RacePlanActivity extends Activity {
          preview=new RaceTraining.Draft(baseline.config(),baseline.preferences(),validated,baseline.review(),baseline.warning());
          aiReady=true;aiRaw=raw;aiRevision=settings.optString("revision");aiExplanation=explanation;show();
        });
-     }catch(Exception e){runOnUiThread(()->{if(isFinishing()||isDestroyed()||generation!=aiGeneration)return;aiBusy=false;aiReady=false;
+     }catch(Exception e){runOnUiThread(()->{if(isFinishing()||isDestroyed()||generation!=aiGeneration)return;aiBusy=false;aiReady=false;show();
        new AlertDialog.Builder(this).setTitle("AI plan unavailable")
-         .setMessage(UserErrors.message(e)+"\n\nYour standard plan remains available. You can retry or choose it instead.")
+         .setMessage(AiCoachClient.failureMessage(e)+"\n\nYour standard plan remains available. You can retry or choose it instead.")
          .setPositiveButton("Use standard plan",(d,w)->{aiPlanning=false;show();})
          .setNegativeButton("Retry",(d,w)->generateAiPlan()).show();
      });}
@@ -144,8 +144,8 @@ public final class RacePlanActivity extends Activity {
      return;
    }
    LinearLayout why=CoachUi.card(body,false);CoachUi.copy(why,"WHY THIS PLAN",11,true);CoachUi.gap(why,10);
-   TextView explanation=CoachUi.copy(why,aiExplanation,15,false);explanation.setMaxLines(4);explanation.setEllipsize(android.text.TextUtils.TruncateAt.END);
-   CoachUi.row(why,R.drawable.ic_info,"Read the full explanation","",()->{AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Why this plan").setMessage(aiExplanation+"\n\n"+plan.review().reason()+"\n\n"+plan.warning()).setPositiveButton("Done",null).create();dialog.show();CoachUi.styleDialog(dialog);});
+   TextView explanation=CoachUi.copy(why,"",15,false);explanation.setText(CoachMarkdown.render(aiExplanation));explanation.setMaxLines(4);explanation.setEllipsize(android.text.TextUtils.TruncateAt.END);
+   CoachUi.row(why,R.drawable.ic_info,"Read the full explanation","",()->{AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Why this plan").setMessage(CoachMarkdown.render(aiExplanation+"\n\n"+plan.review().reason()+"\n\n"+plan.warning())).setPositiveButton("Done",null).create();dialog.show();CoachUi.styleDialog(dialog);});
    action("Review all workouts",()->showAiWorkouts(plan));
    text("Your first week",20,true);
    for(var session:plan.sessions())if(session.date().isBefore(plan.config().start().plusDays(7))){

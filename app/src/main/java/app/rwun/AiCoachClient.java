@@ -14,6 +14,14 @@ final class AiCoachClient {
     ProviderFailure(int status,String message,long retryAfterMillis){super(message);this.status=status;this.retryAfterMillis=retryAfterMillis;}
   }
   static final class InvalidResponse extends IOException {InvalidResponse(String message){super(message);}}
+  /** User-safe messages for network/provider failures; do not expose transport exception details. */
+  static String failureMessage(Throwable failure){
+    if(failure instanceof ProviderFailure)return failure.getMessage();
+    if(failure instanceof InvalidResponse)return failure.getMessage();
+    if(failure instanceof SocketTimeoutException)return "The AI provider took too long to respond. Try again later. Your saved plan is unchanged.";
+    if(failure instanceof IOException)return "The AI provider could not be reached. Check your internet connection and try again. Your saved plan is unchanged.";
+    return "The AI response could not be accepted. Review your settings and try again. Your saved plan is unchanged.";
+  }
   static boolean retryable(Throwable failure){
     if(failure instanceof InvalidResponse)return false;
     return failure instanceof ProviderFailure ? ((ProviderFailure)failure).status==429||((ProviderFailure)failure).status>=500 : failure instanceof IOException;
