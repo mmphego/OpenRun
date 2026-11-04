@@ -114,9 +114,9 @@ public final class RacePlanActivity extends Activity {
          preview=new RaceTraining.Draft(baseline.config(),baseline.preferences(),validated,baseline.review(),baseline.warning());
          aiReady=true;aiRaw=raw;aiRevision=settings.optString("revision");aiExplanation=explanation;show();
        });
-     }catch(Exception e){runOnUiThread(()->{if(isFinishing()||isDestroyed()||generation!=aiGeneration)return;aiBusy=false;aiReady=false;
+     }catch(Exception e){runOnUiThread(()->{if(isFinishing()||isDestroyed()||generation!=aiGeneration)return;aiBusy=false;aiReady=false;show();
        new AlertDialog.Builder(this).setTitle("AI plan unavailable")
-         .setMessage(UserErrors.message(e)+"\n\nYour standard plan remains available. You can retry or choose it instead.")
+         .setMessage(AiCoachClient.failureMessage(e)+"\n\nYour standard plan remains available. You can retry or choose it instead.")
          .setPositiveButton("Use standard plan",(d,w)->{aiPlanning=false;show();})
          .setNegativeButton("Retry",(d,w)->generateAiPlan()).show();
      });}
