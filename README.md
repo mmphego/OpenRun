@@ -145,6 +145,10 @@ python3 -m unittest discover -s tests/device -p 'test_*.py' -v
 
 Host regressions compile/run the existing Java test programs; the runner downloads two checksum-pinned test-only JARs and emits logs/JUnit XML under `build/reports/host`. Gradle tests include the recovered `tests/native` suites, Room upserts, both schema-1 migration paths, cross-provider merging, saved choices and database leases through Robolectric. Each test class runs in a fresh worker process; the live-provider test is skipped by default. Native UI renders are host evidence, not emulator or S23 acceptance. Android Lint is the current static analysis gate; no separate formatter or static analyser is claimed. Device QA utilities and the physical acceptance checklist are under [tests/device](tests/device/README.md) and [tests/s23](tests/s23/CHECKLIST.md).
 
+Use the [API/device acceptance matrix](tests/device/API-MATRIX.md) to record
+physical evidence across supported Android versions. Emulator and host results
+do not substitute for those observations.
+
 CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It verifies both debug APK signatures and ZIP alignment before uploading the app APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Pushes to main (including PR merges) and version tags run the separate signed release workflow after full checks. Each main build publishes a versioned APK, checksum and generated release notes to [Latest release](https://github.com/mmphego/OpenRun/releases/latest) after stable signing secrets and a certificate pin are configured. See [release setup and versioning](docs/RELEASING.md). [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
 
 ## Collaborate
