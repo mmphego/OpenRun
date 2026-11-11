@@ -14,7 +14,7 @@ public final class Reminders extends android.content.BroadcastReceiver {
    DailyHealthJob.schedule(c);AiCoachJob.schedule(c);
    schedule(c);
   }catch(Exception ignored){schedule(c);}}
- static void notifyDue(Context c,String action)throws Exception{synchronized(RunStore.LOCK){RunStore store=new RunStore(c);JSONObject d=store.v103(),r=d.optJSONObject("reminders");if(r==null||store.resting()||!allowed(c))return;ZonedDateTime now=ZonedDateTime.now();boolean move=MOVE.equals(action);ReminderPlan p=V103Data.plan(r);
+ static void notifyDue(Context c,String action)throws Exception{synchronized(RunStore.LOCK){RunStore store=new RunStore(c);JSONObject d=store.v103(),r=d.optJSONObject("reminders");if(r==null||store.resting()||!allowed(c))return;ZonedDateTime now=ZonedDateTime.now();boolean move=MOVE.equals(action);if(!channelAllowed(c,move?"movement":"workouts"))return;ReminderPlan p=V103Data.plan(r);
   if(move){if(new DailyHealthStore(c).settings().movement()||!p.movementWindow(now)||r.optString("skip").equals(now.toLocalDate().toString())||r.optLong("snooze")>System.currentTimeMillis())return;int count=r.optString("lastDay").equals(now.toLocalDate().toString())?r.optInt("count"):0;if(count>=12)return;}
   else{if(!p.workouts()||r.optString("lastWorkout").equals(now.toLocalDate().toString()))return;boolean due=store.plannedSessions().stream().anyMatch(s->s.date().equals(now.toLocalDate())&&!store.completed(store.planId()+":"+s.id())&&!store.skipped(store.planId()+":"+s.id()));int minute=now.getHour()*60+now.getMinute();if(!due||minute<p.workoutMinute()||minute>p.workoutMinute()+120)return;}
   JSONObject pending=d.optJSONObject("activeIndoor");boolean indoors=pending!=null;
@@ -35,6 +35,29 @@ public final class Reminders extends android.content.BroadcastReceiver {
   if(move){b.addAction(new Notification.Action.Builder(null,"Walk indoors",open(c,"indoor",1034)).build()).addAction(new Notification.Action.Builder(null,"Snooze 30 min",alarm(c,SNOOZE,1035)).build()).addAction(new Notification.Action.Builder(null,"Skip today",alarm(c,SKIP,1036)).build());}c.getSystemService(NotificationManager.class).notify(move?1031:1032,b.build());}}
  static void markDelivered(JSONObject r,boolean move,String date)throws Exception{if(move){int count=r.optString("lastDay").equals(date)?r.optInt("count"):0;r.put("lastDay",date).put("count",count+1);}else r.put("lastWorkout",date);}
  static boolean allowed(Context c){return (Build.VERSION.SDK_INT<33||c.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)==android.content.pm.PackageManager.PERMISSION_GRANTED)&&c.getSystemService(NotificationManager.class).areNotificationsEnabled();}
+ /** App permission and channel settings are independent Android gates. */
+ static boolean channelAllowed(Context c,String channel){
+  if(!allowed(c))return false;
+  NotificationChannel value=c.getSystemService(NotificationManager.class).getNotificationChannel(channel);
+  if(value==null)return true;
+  if(value.getImportance()==NotificationManager.IMPORTANCE_NONE)return false;
+  if(Build.VERSION.SDK_INT>=28&&value.getGroup()!=null){NotificationChannelGroup group=c.getSystemService(NotificationManager.class).getNotificationChannelGroup(value.getGroup());if(group!=null&&group.isBlocked())return false;}
+  return true;
+ }
+ static String notificationStatus(Context c,String channel){
+  if(!allowed(c))return "Notifications blocked for OpenRun. Allow notifications in Android Settings.";
+  if(!channelAllowed(c,channel))return (channel.equals("movement")?"Movement breaks":"Planned workouts")+" channel blocked. Enable this channel in Android Settings.";
+  return (channel.equals("movement")?"Movement breaks":"Planned workouts")+" notifications allowed. Sound and pop-up behaviour depend on Android settings and Do Not Disturb.";
+ }
+ static Intent channelSettings(Context c,String channel){return new Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,c.getPackageName()).putExtra(android.provider.Settings.EXTRA_CHANNEL_ID,channel);}
+ static String testMovement(Context c){
+  channels(c);
+  if(!channelAllowed(c,"movement"))return notificationStatus(c,"movement");
+  c.getSystemService(NotificationManager.class).notify(1044,new Notification.Builder(c,"movement").setSmallIcon(R.drawable.ic_directions_walk)
+   .setContentTitle("OpenRun · test movement reminder").setContentText("Test notification only. This does not check Health Connect steps.")
+   .setVisibility(Notification.VISIBILITY_PRIVATE).setAutoCancel(true).setContentIntent(open(c,"indoor",1044)).build());
+  return "Test notification posted. Check the notification shade; Android may silence sound or pop-ups. Health Connect movement detection was not tested.";
+ }
  static PendingIntent open(Context c,String destination,int id){Intent i=destination.equals("indoor")?new Intent(c,IndoorActivity.class):new Intent(c,MainActivity.class).putExtra("destination",destination);return PendingIntent.getActivity(c,id,i.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);}
  static PendingIntent finishReview(Context c,String id){Intent i=new Intent(c,IndoorActivity.class).putExtra("finishSession",id).setData(android.net.Uri.parse("rwun:indoor-review/"+id)).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);return PendingIntent.getActivity(c,1042,i,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);}
  static PendingIntent sessionToggle(Context c,String id){Intent i=new Intent(c,Reminders.class).setAction(TOGGLE).putExtra("session",id).setData(android.net.Uri.parse("rwun:indoor-toggle/"+id));return PendingIntent.getBroadcast(c,1041,i,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);}
