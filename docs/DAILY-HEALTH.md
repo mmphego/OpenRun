@@ -6,6 +6,12 @@ Open **Today → Movement & recovery** or **Profile → Movement & recovery**. B
 
 Choose working weekdays and same-day hours (`00:00`–`24:00` supports a full day), an inactivity interval of **60–720 minutes** (default 120) and a walking break of **3–60 minutes** (default three). Overnight windows are not supported. Enabling step-based monitoring turns off legacy fixed-time movement prompts; planned-workout reminders are unchanged.
 
+The movement screen shows setup status before the schedule: step access, background access, the OpenRun read switch and the Movement breaks notification channel are checked separately. Granted permissions are labelled as allowed rather than requested again. If reading is paused, use Health Connect data controls to resume it explicitly. Returning from Android settings refreshes status without clearing unsaved schedule edits. Permission results report whether access was actually granted.
+
+Movement & run reminders identifies the active mode. While Health Connect movement detection is enabled, fixed-time controls are disabled/hidden and cannot be saved as enabled; planned-workout reminders remain independent. Turning Health Connect movement detection off does not silently re-enable fixed-time prompts.
+
+Notification settings opens the relevant Android channel, with separate movement/workout status. Send a test reminder now checks app and channel permission before posting. A posted test does not establish Health Connect readiness, sound/pop-up delivery or step-data freshness. A blocked movement channel cancels monitoring and cannot consume a daily reminder allowance.
+
 Android notifications, Health Connect steps and separate background health reads require consent. Android 14+ framework Health Connect and supported background reads are needed for monitoring. Manual check-ins remain usable on Android 8+.
 
 An inexact JobScheduler job runs approximately every 15 minutes without network, GPS or a continuously running sensor service. The first alert waits a full interval after enabling/changing monitoring, the beginning of working hours, or an **Already moved** confirmation. Navigation does not continually reset the scheduled job.

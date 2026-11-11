@@ -108,7 +108,8 @@ public class IndoorRecordingTest {
   RuntimeEnvironment.setFontScale(1.6f);
   try(var activity=Robolectric.buildActivity(TrainingActivity.class,new Intent(app,TrainingActivity.class).putExtra("screen","reminders")).setup().visible()){
    View root=activity.get().getWindow().getDecorView();assertNotNull(NativePlanningTest.find(root,"Reminder schedule"));
-   assertNotNull(NativePlanningTest.find(root,"REMIND ME ABOUT"));assertNotNull(NativePlanningTest.find(root,"ACTIVE DAYS"));assertNotNull(NativePlanningTest.find(root,"TIMES"));
+   assertNotNull(NativePlanningTest.find(root,"MOVEMENT REMINDERS"));assertNotNull(NativePlanningTest.find(root,"SCHEDULED REMINDERS"));assertNotNull(NativePlanningTest.find(root,"FIXED-TIME MOVEMENT DAYS"));
+   assertNotNull(NativePlanningTest.edit(activity.get(),"Workout reminder · hour 0–23"));
    assertNotNull(NativePlanningTest.find(root,"MON"));assertNotNull(NativePlanningTest.find(root,"Save reminder preferences"));
    NativePlanningTest.shot(activity.get(),"reminder-schedule-clean-large-font");
   }finally{RuntimeEnvironment.setFontScale(1f);}
