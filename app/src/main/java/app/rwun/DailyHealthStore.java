@@ -44,7 +44,7 @@ final class DailyHealthStore {
         commit(preferences.edit().putString("day",day).putInt("count",count+1).putLong("delivered",now.toInstant().toEpochMilli()));
     }}
     void acknowledge(Instant now){synchronized(LOCK){commit(preferences.edit().putLong("acknowledged",now.toEpochMilli()).remove("snooze"));}}
-    void snooze(Instant now){synchronized(LOCK){commit(preferences.edit().putLong("snooze",now.plusSeconds(1800).toEpochMilli()).remove("delivered"));}}
+    void snooze(Instant now){synchronized(LOCK){commit(preferences.edit().putLong("snooze",now.plusSeconds(1800).toEpochMilli()));}}
     void skip(LocalDate day){synchronized(LOCK){commit(preferences.edit().putString("skip",day.toString()));}}
     void status(String text){synchronized(LOCK){commit(preferences.edit().putString("status",text));}}
     String status(){return preferences.getString("status","No movement check yet. Health Connect data may be missing or delayed.");}

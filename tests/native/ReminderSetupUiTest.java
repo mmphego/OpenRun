@@ -101,6 +101,9 @@ public class ReminderSetupUiTest {
             NativePlanningTest.edit(controller.get(),"Minimum steps per interval · 1–10000").setText("300");
             controller.recreate();assertEquals("300",NativePlanningTest.edit(controller.get(),"Minimum steps per interval · 1–10000").getText().toString());
             NativePlanningTest.click(controller.get(),"Save movement preferences");assertEquals(300,new DailyHealthStore(app).settings().minimumSteps());
+            NativePlanningTest.shot(controller.get(),"movement-custom-step-target-overview");
+            var target=NativePlanningTest.edit(controller.get(),"Minimum steps per interval · 1–10000");
+            ((ScrollView)target.getParent().getParent()).scrollTo(0,Math.max(0,target.getTop()-200));
             NativePlanningTest.shot(controller.get(),"movement-custom-step-target");
         }
     }

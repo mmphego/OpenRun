@@ -19,6 +19,11 @@ public final class MovementTargetTest {
   expect(DailyHealthRules.MovementState.WAITING,DailyHealthRules.movement(cfg,next,sample(next,0),enabled,0,delivered,0,"",8,false));
   expect(50,new DailyHealthRules.Settings(true,false,Set.of(1),480,1080,60,3).minimumSteps());
   for(int invalid:new int[]{0,-1,10001}){try{target(invalid);throw new AssertionError("Invalid target accepted: "+invalid);}catch(IllegalArgumentException expected){}}
+  var context=new android.content.Context(java.nio.file.Files.createTempDirectory("movement-store-test").toFile());
+  var store=new DailyHealthStore(context);store.settings(cfg,now.minusHours(3).toInstant());store.delivered(now);store.snooze(now.toInstant());
+  var snoozed=now.plusMinutes(30);
+  expect(DailyHealthRules.MovementState.WAITING,store.evaluate(snoozed,sample(snoozed,100),false));
+  expect(DailyHealthRules.MovementState.REMIND,store.evaluate(now.plusHours(1),sample(now.plusHours(1),100),false));
   System.out.println("Movement goal and repeat interval boundaries passed");
  }
 }
