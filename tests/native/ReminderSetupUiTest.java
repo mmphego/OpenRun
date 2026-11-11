@@ -21,7 +21,7 @@ public class ReminderSetupUiTest {
     Application app;
     @Before public void setup(){
         app=RuntimeEnvironment.getApplication();
-        for(String file:new String[]{"rwun",DailyHealthStore.FILE,"health-connect-controls"})app.getSharedPreferences(file,0).edit().clear().commit();
+        for(String file:new String[]{"spoken-reminder","rwun",DailyHealthStore.FILE,"health-connect-controls"})app.getSharedPreferences(file,0).edit().clear().commit();
         Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS);
         Shadows.shadowOf(app.getSystemService(NotificationManager.class)).setNotificationsEnabled(true);
         Reminders.channels(app);
@@ -73,7 +73,10 @@ public class ReminderSetupUiTest {
     @Test public void grantedPermissionsAreNotRequestedAgainAndResumePreservesDraft(){
         Shadows.shadowOf(app).grantPermissions(DailyHealthSource.STEPS,HealthJob.BACKGROUND);
         try(var controller=Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen","movement")).setup().visible()){
-            var activity=controller.get();Button steps=NativePlanningTest.find(activity.getWindow().getDecorView(),"Health Connect steps allowed");assertNotNull(steps);assertFalse(steps.isEnabled());
+            var activity=controller.get();Button steps=NativePlanningTest.find(activity.getWindow().getDecorView(),"Health Connect steps allowed");assertNotNull(steps);assertTrue("Granted step access remains manageable",steps.isEnabled());
+            NativePlanningTest.click(activity,"Health Connect steps allowed");assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
+            Button background=NativePlanningTest.find(activity.getWindow().getDecorView(),"Background health reads allowed");assertNotNull(background);assertTrue("Granted background access remains manageable",background.isEnabled());
+            NativePlanningTest.click(activity,"Background health reads allowed");assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
             NativePlanningTest.edit(activity,"Working hours start · HH:mm").setText("08:30");controller.pause();HealthPreferences.enabled(app,false,false);controller.resume();
             assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Health Connect reading paused"));assertEquals("08:30",NativePlanningTest.edit(activity,"Working hours start · HH:mm").getText().toString());
         }
@@ -84,4 +87,13 @@ public class ReminderSetupUiTest {
             NativePlanningTest.shot(controller.get(),"reminder-setup-large-font");assertFalse(new DailyHealthStore(app).settings().movement());
         }finally{RuntimeEnvironment.setFontScale(1f);}
     }
+    @Test public void spokenSoundFallsBackUntilAudioExists()throws Exception{
+        app.getSharedPreferences("spoken-reminder",0).edit().putBoolean("enabled",true).commit();
+        java.io.File audio=new java.io.File(app.getFilesDir(),"movement-reminder.wav");audio.delete();
+        assertEquals("movement",SpokenReminder.channel(app));
+        try(java.io.FileOutputStream out=new java.io.FileOutputStream(audio)){out.write(new byte[100]);}
+        assertEquals(SpokenReminder.CHANNEL,SpokenReminder.channel(app));
+        app.getSharedPreferences("spoken-reminder",0).edit().putBoolean("enabled",false).commit();assertEquals("movement",SpokenReminder.channel(app));audio.delete();
+    }
+
 }

@@ -31,6 +31,7 @@
  <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
  <queries><intent><action android:name="android.intent.action.TTS_SERVICE"/></intent></queries>
  <application android:name=".RwunApplication" android:usesCleartextTraffic="false" android:enableOnBackInvokedCallback="false" android:theme="@style/AppTheme" android:label="OpenRun" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="false" android:supportsRtl="true" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher">
+ <provider android:name=".ReminderSoundProvider" android:authorities="${applicationId}.reminder-sound" android:exported="false" android:grantUriPermissions="true"/>
   <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <activity android:name=".HealthPrivacyActivity" android:exported="true">
    <intent-filter><action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/></intent-filter>

@@ -18,7 +18,7 @@ public final class DailyHealthJob extends JobService {
     static void schedule(Context context){
         JobScheduler scheduler=context.getSystemService(JobScheduler.class);if(scheduler==null)return;
         boolean enabled;try{enabled=new DailyHealthStore(context).settings().movement();}catch(RuntimeException invalid){enabled=false;}
-        if(enabled&&permitted(context)&&Reminders.channelAllowed(context,"movement")){
+        if(enabled&&permitted(context)&&Reminders.channelAllowed(context,SpokenReminder.channel(context))){
             if(scheduler.getPendingJob(JOB_ID)==null)scheduler.schedule(new JobInfo.Builder(JOB_ID,new ComponentName(context,DailyHealthJob.class)).setPeriodic(15*60*1000L).setPersisted(true).build());
         }else{scheduler.cancel(JOB_ID);context.getSystemService(NotificationManager.class).cancel(NOTIFICATION_ID);}
     }
@@ -39,13 +39,13 @@ public final class DailyHealthJob extends JobService {
         DailyHealthStore store=new DailyHealthStore(context);CompletableFuture<Void> result;
         try{
             var cfg=store.settings();ZonedDateTime now=clock.get();long revision=store.revision();
-            if(store.evaluate(now,null,suppressed(context))!=DailyHealthRules.MovementState.UNKNOWN||!hasAccess.getAsBoolean()||!Reminders.channelAllowed(context,"movement")){
+            if(store.evaluate(now,null,suppressed(context))!=DailyHealthRules.MovementState.UNKNOWN||!hasAccess.getAsBoolean()||!Reminders.channelAllowed(context,SpokenReminder.channel(context))){
                 BUSY.set(false);return CompletableFuture.completedFuture(null);
             }
             Instant to=now.toInstant(),from=to.minusSeconds(cfg.inactivityMinutes()*60L);
             result=source.movement(from,to).handle((sample,error)->{
                 synchronized(DailyHealthStore.LOCK){
-                    if(!running.getAsBoolean()||revision!=store.revision()||!hasAccess.getAsBoolean()||!Reminders.channelAllowed(context,"movement"))return null;
+                    if(!running.getAsBoolean()||revision!=store.revision()||!hasAccess.getAsBoolean()||!Reminders.channelAllowed(context,SpokenReminder.channel(context)))return null;
                     ZonedDateTime checked=clock.get();var state=store.evaluate(checked,error==null?sample:null,suppressed(context));
                     if(state==DailyHealthRules.MovementState.REMIND){
                         deliver(context,store.settings());store.delivered(checked);
@@ -60,7 +60,7 @@ public final class DailyHealthJob extends JobService {
     static void deliver(Context context,DailyHealthRules.Settings cfg){
         Reminders.channels(context);
         PendingIntent walk=PendingIntent.getActivity(context,1051,new Intent(context,IndoorActivity.class).putExtra("goal",cfg.breakMinutes()),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-        var notification=new Notification.Builder(context,"movement").setSmallIcon(R.drawable.ic_directions_walk).setContentTitle("Time for a movement break?")
+        var notification=new Notification.Builder(context,SpokenReminder.channel(context)).setSmallIcon(R.drawable.ic_directions_walk).setContentTitle("Time for a movement break?")
                 .setContentText("Little movement recorded over about "+cfg.inactivityMinutes()+" minutes. Try a "+cfg.breakMinutes()+" minute walk.")
                 .setVisibility(Notification.VISIBILITY_PRIVATE).setAutoCancel(true)
                 .setContentIntent(PendingIntent.getActivity(context,1052,new Intent(context,DailyHealthActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT))
