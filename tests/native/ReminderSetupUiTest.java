@@ -31,6 +31,15 @@ public class ReminderSetupUiTest {
         NotificationManager manager=app.getSystemService(NotificationManager.class);
         manager.deleteNotificationChannel("movement");manager.createNotificationChannel(new NotificationChannel("movement","Movement breaks",NotificationManager.IMPORTANCE_NONE));
         assertFalse(Reminders.channelAllowed(app,"movement"));assertTrue(Reminders.testMovement(app).contains("channel blocked"));assertEquals(0,Shadows.shadowOf(manager).size());
+        java.time.ZonedDateTime now=java.time.ZonedDateTime.parse("2026-11-09T12:00:00Z");var cfg=DailyHealthRules.defaults();
+        new DailyHealthStore(app).settings(new DailyHealthRules.Settings(true,false,cfg.days(),cfg.startMinute(),cfg.endMinute(),60,3),now.minusHours(3).toInstant());
+        DailyHealthSource.Source source=new DailyHealthSource.Source(){
+            public java.util.concurrent.CompletableFuture<DailyHealthRules.Movement> movement(Instant from,Instant to){throw new AssertionError("Blocked notifications must not trigger a step read");}
+            public java.util.concurrent.CompletableFuture<String> recovery(Instant at,java.time.ZoneId zone,boolean sleep,boolean heart){throw new AssertionError("Unexpected recovery read");}
+        };
+        DailyHealthJob.check(app,source,()->true,()->true,()->now).join();
+        assertEquals(0,app.getSharedPreferences(DailyHealthStore.FILE,0).getInt("count",0));
+
         Intent intent=Reminders.channelSettings(app,"movement");assertEquals(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS,intent.getAction());assertEquals("movement",intent.getStringExtra(Settings.EXTRA_CHANNEL_ID));assertEquals(app.getPackageName(),intent.getStringExtra(Settings.EXTRA_APP_PACKAGE));
     }
     @Test public void testNotificationDoesNotClaimHealthConnectWasTested(){
