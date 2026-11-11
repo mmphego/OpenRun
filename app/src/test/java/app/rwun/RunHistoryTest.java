@@ -5,6 +5,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.Test;
 
@@ -29,5 +30,16 @@ public class RunHistoryTest {
     Map<YearMonth, List<RunStore.Run>> grouped = RunHistory.groupByMonth(filtered);
     assertEquals(List.of(later, early), grouped.get(YearMonth.of(2026, 1)));
     assertTrue(RunHistory.filter(all, "Intervals", RunHistory.ALL_YEARS, RunHistory.ALL_MONTHS, ignored -> 0).contains(later));
+  }
+
+  @Test
+  public void monthFilterValuesRemainIsoKeysInEveryLocale() {
+    Locale previous = Locale.getDefault();
+    try {
+      Locale.setDefault(Locale.forLanguageTag("ar"));
+      assertEquals("01", RunHistory.months().get(1));
+    } finally {
+      Locale.setDefault(previous);
+    }
   }
 }

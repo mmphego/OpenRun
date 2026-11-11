@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -40,7 +41,7 @@ final class RunHistory {
   static List<String> months() {
     List<String> result = new ArrayList<>();
     result.add(ALL_MONTHS);
-    for (int month = 1; month <= 12; month++) result.add(String.format("%02d", month));
+    for (int month = 1; month <= 12; month++) result.add(String.format(Locale.ROOT, "%02d", month));
     return result;
   }
 
