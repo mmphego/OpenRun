@@ -69,7 +69,7 @@ public final class DailyHealthActivity extends Activity {
         var cfg=store.settings();text("Movement breaks",26);
         text("Remind me after little recorded movement during working hours. Missing steps do not prove sitting. Delayed or insufficient data suppresses reminders. This replaces fixed-time movement prompts.",15);
         movementAccess=text("",15);movementAccess.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        stepAccess=action("Allow Health Connect step reads",()->{if(HealthAccess.granted(this,DailyHealthSource.STEPS))openHealthAccess();else requestHealth(DailyHealthSource.STEPS,302);});
+        stepAccess=action("Allow Health Connect step reads",()->{if(HealthAccess.granted(this,DailyHealthSource.STEPS)||!HealthPreferences.enabled(this,false))openHealthAccess();else requestHealth(DailyHealthSource.STEPS,302);});
         backgroundAccess=action("Allow background health reads",()->{if(HealthAccess.granted(this,HealthJob.BACKGROUND)){openHealthAccess();return;}if(!HealthAccess.granted(this,DailyHealthSource.STEPS))throw new IllegalStateException("Allow step reads first, then allow background health reads.");if(!HealthAccess.backgroundSupported(this))throw new IllegalStateException("Background health reads are unavailable on this Android version.");requestHealth(HealthJob.BACKGROUND,303);});
         action("Health Connect data controls",()->startActivity(new Intent(this,HealthConnectActivity.class)));
         action("Movement notification settings",()->{Reminders.channels(this);startActivity(Reminders.channelSettings(this,"movement"));});

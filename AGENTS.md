@@ -65,6 +65,8 @@ Use JDK 21, Python 3.12 and the Android SDK/Build Tools specified in the README 
 CI. Keep SDK paths, proxy settings and credentials local; never disable TLS checks.
 Install `server/requirements.txt` in a virtual environment for service checks.
 
+For bug fixes and new behavior, use test-driven development: write a meaningful failing regression first, observe its failure for the intended reason, implement the smallest fix, then run the regression and relevant suite. An environment failure is not a red test. Test user actions and resulting navigation/state, not merely labels or enabled flags. If execution is blocked, record that limit and keep the work unvalidated until CI runs.
+
 Run focused checks while iterating. For changes affecting application behavior,
 complete the relevant checks below; `bash scripts/check.sh` runs the full suite:
 
