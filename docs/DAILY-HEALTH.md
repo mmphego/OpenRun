@@ -70,3 +70,7 @@ References: [Health Connect reads/steps/aggregation](https://developer.android.c
 ## Recovery check-in controls
 
 The check-in uses visible single-choice chips instead of dropdowns. Skip maps to unknown, and the five fatigue/soreness levels retain their existing values. Rest, body and evening questions are grouped into cards; watch-data/privacy details expand only when requested. Save/review and continue-without-saving remain below the scrolling form. Sleep accepts 0–16 hours (including decimals) with inline validation. Unsaved choices survive recreation and expansion without being persisted as a check-in until Save. Large text uses two chip columns instead of three. Pain remains explicit and does not silently create or clear a training hold.
+
+## Spoken notification sound
+
+Configure spoken reminder creates a local WAV using the highest-quality installed offline voice for the device language. Enter up to 200 characters, such as “Get up and stretch a little”. This uses Android TTS; neural quality depends on the installed engine. Missing voices leave standard reminders available. The generated sound is used by test and movement notifications through a separate Android channel. Android controls notification volume, DND and channel sound overrides. Use standard sound disables the spoken channel selection. This does not bypass notification permissions or promise Samsung delivery.

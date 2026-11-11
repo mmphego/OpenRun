@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Make granted Health Connect permission controls open system access settings.
+- Add optional custom spoken movement notification sounds generated with installed offline TTS voices.
+
 - Clarify Health Connect movement setup with live permission and notification-channel status; preserve form drafts and position after permission requests.
 - Prevent fixed-time movement prompts being re-enabled while Health Connect detection is active, keeping planned-workout settings independent.
 - Open the correct Android notification channels and report blocked tests without claiming delivery; blocked movement channels no longer consume alert allowances.

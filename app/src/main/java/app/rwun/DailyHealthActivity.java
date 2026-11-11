@@ -69,10 +69,11 @@ public final class DailyHealthActivity extends Activity {
         var cfg=store.settings();text("Movement breaks",26);
         text("Remind me after little recorded movement during working hours. Missing steps do not prove sitting. Delayed or insufficient data suppresses reminders. This replaces fixed-time movement prompts.",15);
         movementAccess=text("",15);movementAccess.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        stepAccess=action("Allow Health Connect step reads",()->requestHealth(DailyHealthSource.STEPS,302));
-        backgroundAccess=action("Allow background health reads",()->{if(!HealthAccess.granted(this,DailyHealthSource.STEPS))throw new IllegalStateException("Allow step reads first, then allow background health reads.");if(!HealthAccess.backgroundSupported(this))throw new IllegalStateException("Background health reads are unavailable on this Android version.");requestHealth(HealthJob.BACKGROUND,303);});
+        stepAccess=action("Allow Health Connect step reads",()->{if(HealthAccess.granted(this,DailyHealthSource.STEPS))openHealthAccess();else requestHealth(DailyHealthSource.STEPS,302);});
+        backgroundAccess=action("Allow background health reads",()->{if(HealthAccess.granted(this,HealthJob.BACKGROUND)){openHealthAccess();return;}if(!HealthAccess.granted(this,DailyHealthSource.STEPS))throw new IllegalStateException("Allow step reads first, then allow background health reads.");if(!HealthAccess.backgroundSupported(this))throw new IllegalStateException("Background health reads are unavailable on this Android version.");requestHealth(HealthJob.BACKGROUND,303);});
         action("Health Connect data controls",()->startActivity(new Intent(this,HealthConnectActivity.class)));
         action("Movement notification settings",()->{Reminders.channels(this);startActivity(Reminders.channelSettings(this,"movement"));});
+        action("Configure spoken reminder",()->SpokenReminder.configure(this));
         action("Send a test reminder now",()->status.setText(Reminders.testMovement(this)));
         refreshMovementAccess();
         CheckBox enabled=check("Enable movement reminders",cfg.movement()),prompt=check("Offer a check-in before new sessions",cfg.checkin());
@@ -198,9 +199,10 @@ public final class DailyHealthActivity extends Activity {
         boolean available=HealthAccess.available(this),reading=HealthPreferences.enabled(this,false),steps=HealthAccess.granted(this,DailyHealthSource.STEPS),supported=HealthAccess.backgroundSupported(this),background=HealthAccess.granted(this,HealthJob.BACKGROUND);
         String readiness=!store.settings().movement()?"Movement reminders are off.":!available?"Setup incomplete: Health Connect is unavailable.":!reading?"Setup incomplete: Health Connect reading is paused. Open data controls to enable Read.":!steps?"Setup incomplete: allow Health Connect step reads.":!supported?"Setup incomplete: background health reads are unavailable on this Android version.":!background?"Setup incomplete: allow background health reads.":!Reminders.channelAllowed(this,"movement")?"Setup incomplete: movement notifications are blocked.":"Setup complete. Waiting for your working hours, a full inactivity interval and recent step data.";
         movementAccess.setText(readiness+"\nSteps: "+(steps?"allowed":"not allowed")+" · Background: "+(!supported?"unavailable":background?"allowed":"not allowed")+"\n"+Reminders.notificationStatus(this,"movement"));
-        stepAccess.setText(steps?"Health Connect steps allowed":!reading?"Health Connect reading paused":"Allow Health Connect step reads");stepAccess.setEnabled(available&&reading&&!steps);
-        backgroundAccess.setText(!supported?"Background health reads unavailable":background?"Background health reads allowed":"Allow background health reads");backgroundAccess.setEnabled(available&&reading&&steps&&supported&&!background);
+        stepAccess.setText(steps?"Health Connect steps allowed":!reading?"Health Connect reading paused":"Allow Health Connect step reads");stepAccess.setEnabled(available);
+        backgroundAccess.setText(!supported?"Background health reads unavailable":background?"Background health reads allowed":"Allow background health reads");backgroundAccess.setEnabled(available&&supported&&(background||reading&&steps));
     }
+    private void openHealthAccess(){SettingsNavigator.openHealth(action->{try{startActivity(new Intent(action));return true;}catch(android.content.ActivityNotFoundException|SecurityException unavailable){return false;}});status.setText("Review OpenRun permissions in Health Connect. Your movement preferences are kept.");}
     private void requestHealth(String permission,int code){
         if(!HealthAccess.available(this))throw new IllegalStateException("Health Connect is unavailable. Update Android or use the manual check-in.");
         if(!HealthPreferences.enabled(this,false))throw new IllegalStateException("Health Connect reading is paused. Enable Read from Health Connect in Health Connect data controls first.");
