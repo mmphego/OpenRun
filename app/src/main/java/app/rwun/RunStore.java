@@ -416,6 +416,19 @@ final class RunStore {
     commit(new PreferenceEdit(preferences).remove("active"));
   }
 
+  /** Clears a pending recorder state even when an interrupted write left malformed JSON behind. */
+  String discardCheckpoint() { synchronized(LOCK) {
+    String route = "";
+    try {
+      String candidate = new JSONObject(checkpoint()).optString("route", "");
+      if (candidate.matches("route-[a-zA-Z0-9-]+\\.jsonl")) route = candidate;
+    } catch (JSONException ignored) {
+      // A corrupt checkpoint must not permanently block future recordings.
+    }
+    clearCheckpoint();
+    return route;
+  }}
+
   PaceProfile profile() {
     return new PaceProfile(
         Math.round(preferences.getFloat("profileDistance", 5) * 10.0) / 10.0,

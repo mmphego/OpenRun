@@ -740,15 +740,9 @@ public final class MainActivity extends Activity {
                       .setPositiveButton(
                           "Discard",
                           (d, w) -> {
-                            try {
-                              JSONObject o = new JSONObject(store.checkpoint());
-                              String route = o.optString("route");
-                              if (route.matches("route-[a-zA-Z0-9-]+\\.jsonl")) deleteFile(route);
-                              store.clearCheckpoint();
-                              render();
-                            } catch (Exception e) {
-                              error(e);
-                            }
+                            String route = store.discardCheckpoint();
+                            if (!route.isEmpty()) deleteFile(route);
+                            render();
                           })
                       .show()));
     } else {
