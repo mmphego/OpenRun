@@ -73,7 +73,10 @@ public class ReminderSetupUiTest {
     @Test public void grantedPermissionsAreNotRequestedAgainAndResumePreservesDraft(){
         Shadows.shadowOf(app).grantPermissions(DailyHealthSource.STEPS,HealthJob.BACKGROUND);
         try(var controller=Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen","movement")).setup().visible()){
-            var activity=controller.get();Button steps=NativePlanningTest.find(activity.getWindow().getDecorView(),"Health Connect steps allowed");assertNotNull(steps);assertTrue(steps.isEnabled());NativePlanningTest.click(activity,"Health Connect steps allowed");assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
+            var activity=controller.get();Button steps=NativePlanningTest.find(activity.getWindow().getDecorView(),"Health Connect steps allowed");assertNotNull(steps);assertTrue("Granted step access remains manageable",steps.isEnabled());
+            NativePlanningTest.click(activity,"Health Connect steps allowed");assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
+            Button background=NativePlanningTest.find(activity.getWindow().getDecorView(),"Background health reads allowed");assertNotNull(background);assertTrue("Granted background access remains manageable",background.isEnabled());
+            NativePlanningTest.click(activity,"Background health reads allowed");assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
             NativePlanningTest.edit(activity,"Working hours start · HH:mm").setText("08:30");controller.pause();HealthPreferences.enabled(app,false,false);controller.resume();
             assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Health Connect reading paused"));assertEquals("08:30",NativePlanningTest.edit(activity,"Working hours start · HH:mm").getText().toString());
         }
