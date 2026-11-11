@@ -91,6 +91,27 @@ adb shell am instrument -w app.rwun.test/app.rwun.SmokeInstrumentation
 
 Do not use `connectedDebugAndroidTest` as a substitute for the command above: this project retains a custom Android instrumentation runner rather than an AndroidX/JUnit device test suite.
 
+### Local Wi-Fi ADB workflow
+
+The repository `Makefile` provides guarded local commands for a device already
+paired through Android's Wireless debugging. It always requires an explicit
+`ANDROID_SERIAL`, never selects the first available device, and installs with
+`adb install -r` so it does not clear OpenRun data. It does not pair a device or
+enable wireless debugging on its behalf.
+
+```bash
+make device-status
+ADB_ENDPOINT=192.168.1.50:43211 make connect-wifi
+ANDROID_SERIAL=192.168.1.50:43211 make run-wifi
+```
+
+Use `make help` for build, custom-instrumentation and local evidence-capture
+commands. Evidence can contain health and route data; choose a private output
+directory and review it before sharing.
+
+Run `make check` before opening a pull request to execute the same local host,
+Android, service and device-utility validation sequence documented below.
+
 ## Configuration
 
 - Core planning and recording work without an account or a service.
