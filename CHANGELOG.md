@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a configurable minimum step target per interval, preserving the existing 50-step default on upgrade.
+- Number repeat movement notifications and show the target; reminders repeat no faster than the configured interval (minimum 60 minutes), up to eight daily.
+
 - Make granted Health Connect permission controls open system access settings.
 - Add optional custom spoken movement notification sounds generated with installed offline TTS voices.
 

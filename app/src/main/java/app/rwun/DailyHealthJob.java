@@ -48,20 +48,21 @@ public final class DailyHealthJob extends JobService {
                     if(!running.getAsBoolean()||revision!=store.revision()||!hasAccess.getAsBoolean()||!Reminders.channelAllowed(context,SpokenReminder.channel(context)))return null;
                     ZonedDateTime checked=clock.get();var state=store.evaluate(checked,error==null?sample:null,suppressed(context));
                     if(state==DailyHealthRules.MovementState.REMIND){
-                        deliver(context,store.settings());store.delivered(checked);
-                        store.status("Movement reminder sent at "+checked.toLocalTime().withSecond(0).withNano(0)+". Low recorded steps; sitting is not established.");
+                        int number=store.nextReminderNumber(checked);deliver(context,store.settings(),number);store.delivered(checked);
+                        store.status("Movement reminder #"+number+" sent at "+checked.toLocalTime().withSecond(0).withNano(0)+". Low recorded steps; sitting is not established.");
                     }else if(state==DailyHealthRules.MovementState.UNKNOWN)store.status("Insufficient recent step data. No inactivity reminder sent. Sync your watch or check Health Connect access.");
-                    else if(state==DailyHealthRules.MovementState.MOVING)store.status("Recent movement recorded. No reminder needed.");
+                    else if(state==DailyHealthRules.MovementState.MOVING)store.status("Step target reached ("+sample.steps()+" / "+store.settings().minimumSteps()+"). No reminder needed.");
                 }return null;
             });
         }catch(RuntimeException error){BUSY.set(false);return HealthSync.failed(error);}
         return result.whenComplete((ignored,error)->BUSY.set(false));
     }
-    static void deliver(Context context,DailyHealthRules.Settings cfg){
+    static void deliver(Context context,DailyHealthRules.Settings cfg){deliver(context,cfg,new DailyHealthStore(context).nextReminderNumber(ZonedDateTime.now()));}
+    static void deliver(Context context,DailyHealthRules.Settings cfg,int number){
         Reminders.channels(context);
         PendingIntent walk=PendingIntent.getActivity(context,1051,new Intent(context,IndoorActivity.class).putExtra("goal",cfg.breakMinutes()),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-        var notification=new Notification.Builder(context,SpokenReminder.channel(context)).setSmallIcon(R.drawable.ic_directions_walk).setContentTitle("Time for a movement break?")
-                .setContentText("Little movement recorded over about "+cfg.inactivityMinutes()+" minutes. Try a "+cfg.breakMinutes()+" minute walk.")
+        var notification=new Notification.Builder(context,SpokenReminder.channel(context)).setSmallIcon(R.drawable.ic_directions_walk).setContentTitle("Movement reminder #"+number).setNumber(number)
+                .setContentText("Below your "+cfg.minimumSteps()+"-step target over "+cfg.inactivityMinutes()+" minutes. Try a "+cfg.breakMinutes()+" minute walk. Reminders repeat each interval until your recorded steps reach the target.")
                 .setVisibility(Notification.VISIBILITY_PRIVATE).setAutoCancel(true)
                 .setContentIntent(PendingIntent.getActivity(context,1052,new Intent(context,DailyHealthActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT))
                 .addAction(new Notification.Action.Builder(null,"Start walk",walk).build())

@@ -14,7 +14,7 @@ import java.util.*;
 public final class DailyHealthActivity extends Activity {
     private final UiKit.Palette palette=new UiKit.Palette(true);
     private DailyHealthStore store;private LinearLayout body,footer;private TextView status;
-    private TextView movementAccess;private Button stepAccess,backgroundAccess;
+    private TextView movementDetails;private TextView movementAccess;private Button stepAccess,backgroundAccess;
     private String screen="home";private Bundle draft=new Bundle();private int generation;
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);store=new DailyHealthStore(this);screen=getIntent().getStringExtra("screen");if(screen==null)screen="home";
@@ -26,7 +26,7 @@ public final class DailyHealthActivity extends Activity {
     private int dp(int n){return UiKit.dp(this,n);}
     private void navigate(String next){screen=next;draft=new Bundle();show();}
     private void show(){
-        generation++;movementAccess=null;stepAccess=null;backgroundAccess=null;LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(palette.background);
+        generation++;movementDetails=null;movementAccess=null;stepAccess=null;backgroundAccess=null;LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(palette.background);
         root.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(i.getSystemWindowInsetLeft(),i.getSystemWindowInsetTop(),i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i.consumeSystemWindowInsets();});
         LinearLayout bar=new LinearLayout(this);bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.addView(UiKit.iconButton(this,palette,R.drawable.ic_arrow_back,"Back",()->{if(screen.equals("home"))finish();else navigate("home");}),new LinearLayout.LayoutParams(dp(48),dp(48)));
@@ -80,14 +80,15 @@ public final class DailyHealthActivity extends Activity {
         List<CheckBox> days=new ArrayList<>();for(DayOfWeek day:DayOfWeek.values())days.add(check(day.toString(),cfg.days().contains(day.getValue())));
         EditText start=input("Working hours start · HH:mm",time(cfg.startMinute()),false),end=input("Working hours end · HH:mm (24:00 allowed)",time(cfg.endMinute()),false);
         EditText interval=input("Inactivity interval · minutes (minimum 60)",""+cfg.inactivityMinutes(),true),duration=input("Walking break · minutes (minimum 3)",""+cfg.breakMinutes(),true);
+        EditText steps=input("Minimum steps per interval · 1–10000",""+cfg.minimumSteps(),true);
         action("Save movement preferences",()->{
             Set<Integer> chosen=new HashSet<>();for(int i=0;i<days.size();i++)if(days.get(i).isChecked())chosen.add(i+1);
-            var next=new DailyHealthRules.Settings(enabled.isChecked(),prompt.isChecked(),chosen,minute(start.getText().toString()),minute(end.getText().toString()),Integer.parseInt(interval.getText().toString().trim()),Integer.parseInt(duration.getText().toString().trim()));
+            var next=new DailyHealthRules.Settings(enabled.isChecked(),prompt.isChecked(),chosen,minute(start.getText().toString()),minute(end.getText().toString()),Integer.parseInt(interval.getText().toString().trim()),Integer.parseInt(duration.getText().toString().trim()),Integer.parseInt(steps.getText().toString().trim()));
             store.settings(next,Instant.now());if(next.movement())disableLegacyMovement();Reminders.schedule(this);DailyHealthJob.schedule(this);
             if(next.movement()&&Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},301);
             refreshMovementAccess();status.setText(next.movement()?"Preferences saved. See setup status above. Checks need a full inactivity interval within working hours and recent step data.":"Saved. Movement reminders are off.");
         });
-        text(store.status(),14);text("Fewer than 50 recorded steps over your interval is treated as low movement. Recent short step records are required. The app cannot confirm that you carried your phone. Checks run about every 15 minutes and may be delayed by Android. Up to eight alerts daily; active or pending recordings and training holds suppress them.",14);
+        text(store.status(),14);movementDetails=text("Your saved step target is "+cfg.minimumSteps()+" steps per interval. Below this target, numbered reminders repeat after at least "+cfg.inactivityMinutes()+" minutes. Reaching the target suppresses the reminder for that interval. Recent short step records are required. The app cannot confirm that you carried your phone. Checks run about every 15 minutes and may be delayed by Android. Up to eight alerts daily; active or pending recordings and training holds suppress them.",14);
         action("Already moved · reset interval",()->{store.acknowledge(Instant.now());cancelReminder();status.setText("Interval reset from your confirmation. No steps were invented.");});
         action("Skip movement reminders today",()->{store.skip(LocalDate.now());cancelReminder();status.setText("Movement reminders skipped for today.");});
         action("Open notification settings",()->startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getPackageName())));
@@ -149,7 +150,7 @@ public final class DailyHealthActivity extends Activity {
             if(!hours.isEmpty()){try{slept=Double.parseDouble(hours.replace(',','.'));}catch(NumberFormatException invalid){sleep.setError("Enter hours from 0 to 16, or leave blank.");sleep.requestFocus();return;}}
             if(slept!=null&&(!Double.isFinite(slept)||slept<0||slept>16)){sleep.setError("Enter hours from 0 to 16, or leave blank.");sleep.requestFocus();return;}
             var value=new DailyHealthRules.Checkin(Instant.now(),slept,fatigue.getAsInt(),soreness.getAsInt(),DailyHealthRules.Answer.values()[alcohol.getAsInt()],DailyHealthRules.Answer.values()[illness.getAsInt()],pain.isChecked());
-            store.saveCheckin(value);var cfg=store.settings();if(prompt.isChecked()!=cfg.checkin())store.settings(new DailyHealthRules.Settings(cfg.movement(),prompt.isChecked(),cfg.days(),cfg.startMinute(),cfg.endMinute(),cfg.inactivityMinutes(),cfg.breakMinutes()),Instant.now());
+            store.saveCheckin(value);var cfg=store.settings();if(prompt.isChecked()!=cfg.checkin())store.settings(new DailyHealthRules.Settings(cfg.movement(),prompt.isChecked(),cfg.days(),cfg.startMinute(),cfg.endMinute(),cfg.inactivityMinutes(),cfg.breakMinutes(),cfg.minimumSteps()),Instant.now());
             DailyHealthJob.schedule(this);navigate("advice");
         }catch(RuntimeException error){status.setText(UserErrors.message(error));}});
         save.setBackground(UiKit.shape(this,palette.primary,16));save.setTextColor(palette.onPrimary);save.setCompoundDrawablesRelative(null,null,null,null);footer.addView(save);
@@ -196,6 +197,7 @@ public final class DailyHealthActivity extends Activity {
     }
     private void refreshMovementAccess(){
         if(movementAccess==null)return;
+        if(movementDetails!=null){var saved=store.settings();movementDetails.setText("Saved target: "+saved.minimumSteps()+" steps per "+saved.inactivityMinutes()+" minutes. Reminders repeat below this target, up to eight daily. Missing or stale data suppresses alerts. Active recordings and training holds suppress them.");}
         boolean available=HealthAccess.available(this),reading=HealthPreferences.enabled(this,false),steps=HealthAccess.granted(this,DailyHealthSource.STEPS),supported=HealthAccess.backgroundSupported(this),background=HealthAccess.granted(this,HealthJob.BACKGROUND);
         String readiness=!store.settings().movement()?"Movement reminders are off.":!available?"Setup incomplete: Health Connect is unavailable.":!reading?"Setup incomplete: Health Connect reading is paused. Open data controls to enable Read.":!steps?"Setup incomplete: allow Health Connect step reads.":!supported?"Setup incomplete: background health reads are unavailable on this Android version.":!background?"Setup incomplete: allow background health reads.":!Reminders.channelAllowed(this,"movement")?"Setup incomplete: movement notifications are blocked.":"Setup complete. Waiting for your working hours, a full inactivity interval and recent step data.";
         movementAccess.setText(readiness+"\nSteps: "+(steps?"allowed":"not allowed")+" · Background: "+(!supported?"unavailable":background?"allowed":"not allowed")+"\n"+Reminders.notificationStatus(this,"movement"));

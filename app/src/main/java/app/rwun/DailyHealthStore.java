@@ -16,15 +16,15 @@ final class DailyHealthStore {
         try {
             JSONObject json=new JSONObject(saved);Set<Integer> days=new HashSet<>();JSONArray list=json.getJSONArray("days");
             for(int i=0;i<list.length();i++)days.add(list.getInt(i));
-            return new DailyHealthRules.Settings(json.getBoolean("movement"),json.getBoolean("checkin"),days,json.getInt("start"),json.getInt("end"),json.getInt("inactivity"),json.getInt("break"));
+            return new DailyHealthRules.Settings(json.getBoolean("movement"),json.getBoolean("checkin"),days,json.getInt("start"),json.getInt("end"),json.getInt("inactivity"),json.getInt("break"),json.optInt("minimumSteps",50));
         }catch(Exception error){throw new IllegalStateException("Movement preferences could not be read. Your data has been kept.",error);}
     }
     void settings(DailyHealthRules.Settings value,Instant now) {
         synchronized(LOCK){try{
             var old=settings();boolean reset=old.movement()!=value.movement()||!old.days().equals(value.days())||old.startMinute()!=value.startMinute()
-                    ||old.endMinute()!=value.endMinute()||old.inactivityMinutes()!=value.inactivityMinutes();
+                    ||old.endMinute()!=value.endMinute()||old.inactivityMinutes()!=value.inactivityMinutes()||old.minimumSteps()!=value.minimumSteps();
             JSONObject json=new JSONObject().put("movement",value.movement()).put("checkin",value.checkin()).put("days",new JSONArray(value.days()))
-                    .put("start",value.startMinute()).put("end",value.endMinute()).put("inactivity",value.inactivityMinutes()).put("break",value.breakMinutes());
+                    .put("start",value.startMinute()).put("end",value.endMinute()).put("inactivity",value.inactivityMinutes()).put("break",value.breakMinutes()).put("minimumSteps",value.minimumSteps());
             var edit=preferences.edit().putString("settings",json.toString()).putLong("revision",revision()+1);
             if(reset)edit.putLong("enabledAt",now.toEpochMilli()).remove("delivered").remove("snooze").remove("skip").remove("status");
             commit(edit);
@@ -38,6 +38,7 @@ final class DailyHealthStore {
         return DailyHealthRules.movement(settings(),now,sample,preferences.getLong("enabledAt",now.toInstant().toEpochMilli()),preferences.getLong("acknowledged",0),
                 preferences.getLong("delivered",0),preferences.getLong("snooze",0),preferences.getString("skip",""),count,suppressed);
     }
+    int nextReminderNumber(ZonedDateTime now){return (now.toLocalDate().toString().equals(preferences.getString("day",""))?preferences.getInt("count",0):0)+1;}
     void delivered(ZonedDateTime now) {synchronized(LOCK){
         String day=now.toLocalDate().toString();int count=day.equals(preferences.getString("day",""))?preferences.getInt("count",0):0;
         commit(preferences.edit().putString("day",day).putInt("count",count+1).putLong("delivered",now.toInstant().toEpochMilli()));

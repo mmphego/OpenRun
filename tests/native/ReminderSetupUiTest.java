@@ -96,4 +96,30 @@ public class ReminderSetupUiTest {
         app.getSharedPreferences("spoken-reminder",0).edit().putBoolean("enabled",false).commit();assertEquals("movement",SpokenReminder.channel(app));audio.delete();
     }
 
+    @Test public void stepTargetSurvivesSaveAndRecreation()throws Exception{
+        try(var controller=Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen","movement")).setup().visible()){
+            NativePlanningTest.edit(controller.get(),"Minimum steps per interval · 1–10000").setText("300");
+            controller.recreate();assertEquals("300",NativePlanningTest.edit(controller.get(),"Minimum steps per interval · 1–10000").getText().toString());
+            NativePlanningTest.click(controller.get(),"Save movement preferences");assertEquals(300,new DailyHealthStore(app).settings().minimumSteps());
+            NativePlanningTest.shot(controller.get(),"movement-custom-step-target");
+        }
+    }
+    @Test public void legacySettingsKeepTheirStepThreshold()throws Exception{
+        detected(true);var prefs=app.getSharedPreferences(DailyHealthStore.FILE,0);var json=new org.json.JSONObject(prefs.getString("settings",""));json.remove("minimumSteps");prefs.edit().putString("settings",json.toString()).commit();
+        assertEquals(50,new DailyHealthStore(app).settings().minimumSteps());
+    }
+    @Test public void remindersIncrementOnlyAfterAnotherFullInterval()throws Exception{
+        java.time.ZonedDateTime[] clock={java.time.ZonedDateTime.parse("2026-11-09T12:00:00Z")};long[] steps={100};
+        DailyHealthStore store=new DailyHealthStore(app);store.settings(new DailyHealthRules.Settings(true,false,java.util.Set.of(1),480,1080,60,3,300),clock[0].minusHours(3).toInstant());
+        DailyHealthSource.Source source=new DailyHealthSource.Source(){
+            public java.util.concurrent.CompletableFuture<DailyHealthRules.Movement> movement(Instant from,Instant to){return java.util.concurrent.CompletableFuture.completedFuture(new DailyHealthRules.Movement(steps[0],to,from,to));}
+            public java.util.concurrent.CompletableFuture<String> recovery(Instant at,java.time.ZoneId zone,boolean sleep,boolean heart){throw new AssertionError("Unexpected recovery read");}
+        };
+        DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();
+        var manager=app.getSystemService(NotificationManager.class);assertEquals(1,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);
+        clock[0]=clock[0].plusMinutes(59);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertEquals(1,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);
+        clock[0]=clock[0].plusMinutes(1);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertEquals(2,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);
+        steps[0]=300;clock[0]=clock[0].plusHours(1);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertEquals(2,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);assertTrue(store.status().contains("Step target reached"));
+    }
+
 }
