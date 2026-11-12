@@ -78,3 +78,11 @@ Configure spoken reminder creates a local WAV using the highest-quality installe
 ### Configurable step target and repeat reminders
 
 Set Minimum steps per interval alongside the inactivity interval (minimum 60 minutes). For a 300-step target and 60-minute interval, fresh totals below 300 trigger a numbered movement notification. If still below the target after another full interval, notification #2 replaces #1 and alerts again through the active sound channel. Reaching 300 suppresses the next reminder; missing data never becomes zero. Numbering counts delivered reminders for the local day and resets the next day. Existing eight-alert daily limit, working hours, snooze, recording/hold suppression and Android scheduling delays still apply. Changing the target restarts the waiting interval; saving a recovery check-in preserves the target.
+
+## Notification and spoken-sound troubleshooting
+
+Send a test reminder now displays a result dialog at your current scroll position, including the installed build and sound status. It uses a separate high-importance test channel with the active movement sound; Android still controls pop-ups, volume, DND and notification cooldown. The test posts independently of working hours and step freshness, but does not bypass a blocked movement channel. A posted notification is not proof of audible playback.
+
+Preview spoken audio plays the generated file directly following a tap, independently of Android notification URI playback. This separates synthesis/file problems from channel and system playback problems. Creating a spoken sound allocates a new channel and versioned URI so an old immutable channel cannot retain a previous phrase or silent sound. The old spoken channel is removed after selection of the new one. New channels use high importance; Android notification settings remain authoritative.
+
+When Health Connect movement detection is active, fixed-time movement controls are hidden and replaced with an explanation and a link to the active movement settings. Other dark-toned buttons are normal enabled secondary actions, not disabled controls.

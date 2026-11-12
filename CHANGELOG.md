@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add immediate notification test results, a high-importance sound-matched test channel and direct spoken-audio preview.
+- Version spoken sound channels/URIs and renew exact URI grants, avoiding stale immutable sound settings.
+- Hide the inactive fixed-time switch when Health Connect detection controls reminders.
+
 - Add a configurable minimum step target per interval, preserving the existing 50-step default on upgrade.
 - Number repeat movement notifications and show the target; reminders repeat no faster than the configured interval (minimum 60 minutes), up to eight daily.
 

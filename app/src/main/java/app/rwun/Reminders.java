@@ -3,7 +3,17 @@ import android.app.*;import android.content.*;import android.os.*;import java.ti
 /** Inexact, opt-in local reminders. No movement inference and no background exercise start. */
 public final class Reminders extends android.content.BroadcastReceiver {
  static final String MOVE="app.rwun.MOVE",WORKOUT="app.rwun.WORKOUT",SNOOZE="app.rwun.SNOOZE",SKIP="app.rwun.SKIP",TOGGLE="app.rwun.INDOOR_TOGGLE";
- static void channels(Context c){if(SpokenReminder.channel(c).equals(SpokenReminder.CHANNEL)){android.net.Uri sound=android.net.Uri.parse("content://"+c.getPackageName()+".reminder-sound/movement.wav");c.grantUriPermission("android",sound,Intent.FLAG_GRANT_READ_URI_PERMISSION);c.grantUriPermission("com.android.systemui",sound,Intent.FLAG_GRANT_READ_URI_PERMISSION);}NotificationManager n=c.getSystemService(NotificationManager.class);n.createNotificationChannel(new NotificationChannel("movement","Movement breaks",NotificationManager.IMPORTANCE_DEFAULT));n.createNotificationChannel(new NotificationChannel("workouts","Planned workouts",NotificationManager.IMPORTANCE_DEFAULT));n.createNotificationChannel(new NotificationChannel("indoor","Indoor session timer",NotificationManager.IMPORTANCE_LOW));}
+ static void channels(Context c){
+  NotificationManager n=c.getSystemService(NotificationManager.class);
+  NotificationChannel spoken=n.getNotificationChannel(SpokenReminder.channel(c));
+  if(spoken!=null&&spoken.getSound()!=null&&(c.getPackageName()+".reminder-sound").equals(spoken.getSound().getAuthority())){
+   c.grantUriPermission("android",spoken.getSound(),Intent.FLAG_GRANT_READ_URI_PERMISSION);
+   c.grantUriPermission("com.android.systemui",spoken.getSound(),Intent.FLAG_GRANT_READ_URI_PERMISSION);
+  }
+  n.createNotificationChannel(new NotificationChannel("movement","Movement breaks",NotificationManager.IMPORTANCE_DEFAULT));
+  n.createNotificationChannel(new NotificationChannel("workouts","Planned workouts",NotificationManager.IMPORTANCE_DEFAULT));
+  n.createNotificationChannel(new NotificationChannel("indoor","Indoor session timer",NotificationManager.IMPORTANCE_LOW));
+ }
  static PendingIntent alarm(Context c,String action,int code){return PendingIntent.getBroadcast(c,code,new Intent(c,Reminders.class).setAction(action),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
  static void schedule(Context c){try{channels(c);AlarmManager manager=c.getSystemService(AlarmManager.class);manager.cancel(alarm(c,MOVE,1031));manager.cancel(alarm(c,WORKOUT,1032));JSONObject r=new RunStore(c).v103().optJSONObject("reminders");if(r==null)return;ReminderPlan p=V103Data.plan(r);ZonedDateTime now=ZonedDateTime.now();var next=new DailyHealthStore(c).settings().movement()?null:p.nextMovement(now,r.optString("skip"),r.optLong("snooze"));if(next!=null)manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,next.toInstant().toEpochMilli(),alarm(c,MOVE,1031));Set<LocalDate> dates=new HashSet<>();RunStore store=new RunStore(c);for(var s:store.plannedSessions())if(!store.skipped(store.planId()+":"+s.id())&&!store.completed(store.planId()+":"+s.id()))dates.add(s.date());var workout=p.nextWorkout(now,dates);if(workout!=null)manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,workout.toInstant().toEpochMilli(),alarm(c,WORKOUT,1032));}catch(Exception ignored){/* Settings UI reports permission/channel status. */}}
  public void onReceive(Context c,Intent intent){try{channels(c);String action=intent.getAction();RunStore store=new RunStore(c);
@@ -54,10 +64,35 @@ public final class Reminders extends android.content.BroadcastReceiver {
  static String testMovement(Context c){
   channels(c);
   if(!channelAllowed(c,SpokenReminder.channel(c)))return notificationStatus(c,SpokenReminder.channel(c));
-  c.getSystemService(NotificationManager.class).notify(1044,new Notification.Builder(c,SpokenReminder.channel(c)).setSmallIcon(R.drawable.ic_directions_walk)
+  NotificationManager manager=c.getSystemService(NotificationManager.class);
+  NotificationChannel active=manager.getNotificationChannel(SpokenReminder.channel(c));
+  String testId="movement-test-v2-"+Integer.toHexString(java.util.Objects.hash(SpokenReminder.channel(c),active==null?null:active.getSound()));
+  NotificationChannel test=new NotificationChannel(testId,"Movement reminder tests",NotificationManager.IMPORTANCE_HIGH);
+  if(active!=null)test.setSound(active.getSound(),active.getAudioAttributes());
+  manager.createNotificationChannel(test);
+  var testPrefs=c.getSharedPreferences("reminder-test",Context.MODE_PRIVATE);String previousTest=testPrefs.getString("channel","");
+  if(previousTest.startsWith("movement-test-v2-")&&!previousTest.equals(testId))manager.deleteNotificationChannel(previousTest);
+  testPrefs.edit().putString("channel",testId).apply();
+  if(!channelAllowed(c,testId))return "Test notification channel is blocked. Open Android notification settings.";
+  c.getSystemService(NotificationManager.class).notify(1044,new Notification.Builder(c,testId).setSmallIcon(R.drawable.ic_directions_walk)
    .setContentTitle("OpenRun · test movement reminder").setContentText("Test notification only. This does not check Health Connect steps.")
    .setVisibility(Notification.VISIBILITY_PRIVATE).setAutoCancel(true).setContentIntent(open(c,"indoor",1044)).build());
   return "Test notification posted. Check the notification shade; Android may silence sound or pop-ups. Health Connect movement detection was not tested.";
+ }
+ static void showTest(Activity activity){
+  String result;
+  try{result=testMovement(activity);}catch(RuntimeException error){result="Test failed: "+UserErrors.message(error);}
+  String active=SpokenReminder.channel(activity);
+  NotificationChannel channel=activity.getSystemService(NotificationManager.class).getNotificationChannel(active);
+  String audio=channel==null?"Channel not created":channel.getImportance()<NotificationManager.IMPORTANCE_DEFAULT||channel.getSound()==null?"This movement channel is silent. Enable Sound in Android notification settings.":"A sound is configured. Notification volume, Do Not Disturb and Android notification cooldown can still silence it.";
+  android.media.AudioManager audioManager=activity.getSystemService(android.media.AudioManager.class);
+  audio+="\nNotification volume: "+audioManager.getStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION)+" / "+audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_NOTIFICATION);
+  int filter=activity.getSystemService(NotificationManager.class).getCurrentInterruptionFilter();
+  audio+="\nDo Not Disturb: "+(filter==NotificationManager.INTERRUPTION_FILTER_ALL?"off":filter==NotificationManager.INTERRUPTION_FILTER_UNKNOWN?"unknown":"active / restricted");
+  AlertDialog.Builder dialog=new AlertDialog.Builder(activity).setTitle("Reminder test result").setMessage(AppVersion.label(activity)+"\n\n"+result+"\n\n"+audio+"\n\nPosting a notification does not prove its sound played.")
+   .setPositiveButton("Open notification settings",(d,w)->activity.startActivity(channelSettings(activity,"movement"))).setNegativeButton("Close",null);
+  if(!active.equals("movement"))dialog.setNeutralButton("Preview spoken audio",(d,w)->SpokenReminder.preview(activity));
+  dialog.show();
  }
  static PendingIntent open(Context c,String destination,int id){Intent i=destination.equals("indoor")?new Intent(c,IndoorActivity.class):new Intent(c,MainActivity.class).putExtra("destination",destination);return PendingIntent.getActivity(c,id,i.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);}
  static PendingIntent finishReview(Context c,String id){Intent i=new Intent(c,IndoorActivity.class).putExtra("finishSession",id).setData(android.net.Uri.parse("rwun:indoor-review/"+id)).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);return PendingIntent.getActivity(c,1042,i,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);}

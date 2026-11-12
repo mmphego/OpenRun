@@ -132,4 +132,29 @@ public class ReminderSetupUiTest {
         assertEquals("Test notifications must support heads-up presentation",NotificationManager.IMPORTANCE_HIGH,channel.getImportance());
     }
 
+    @Test public void testActionDisplaysFeedbackWithoutScrolling(){
+        try(var controller=Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen","movement")).setup().visible()){
+            NativePlanningTest.click(controller.get(),"Send a test reminder now");
+            var dialog=(AlertDialog)org.robolectric.shadows.ShadowDialog.getLatestDialog();assertTrue(dialog.isShowing());
+            assertEquals("Open notification settings",dialog.getButton(AlertDialog.BUTTON_POSITIVE).getText().toString());
+        }
+    }
+    @Test public void selectedSpokenChannelDrivesTestsAndSettings()throws Exception{
+        var file=new java.io.File(app.getFilesDir(),"movement-reminder.wav");try(var out=new java.io.FileOutputStream(file)){out.write(new byte[100]);}
+        String id="movement-spoken-version2";app.getSharedPreferences("spoken-reminder",0).edit().putBoolean("enabled",true).putString("channel",id).commit();
+        var sound=android.net.Uri.parse("content://app.rwun.reminder-sound/movement.wav?version=2");
+        var channel=new NotificationChannel(id,"Voice",NotificationManager.IMPORTANCE_HIGH);channel.setSound(sound,new android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION).build());
+        var manager=app.getSystemService(NotificationManager.class);manager.createNotificationChannel(channel);
+        assertEquals(id,Reminders.channelSettings(app,"movement").getStringExtra(Settings.EXTRA_CHANNEL_ID));
+        Reminders.testMovement(app);var notification=Shadows.shadowOf(manager).getNotification(1044);assertEquals(sound,manager.getNotificationChannel(notification.getChannelId()).getSound());file.delete();
+    }
+
+    @Test public void missingSpokenPreviewExplainsTheRequiredAction(){
+        new java.io.File(app.getFilesDir(),"movement-reminder.wav").delete();
+        try(var controller=Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen","movement")).setup().visible()){
+            NativePlanningTest.click(controller.get(),"Preview spoken audio");var dialog=(AlertDialog)org.robolectric.shadows.ShadowDialog.getLatestDialog();
+            assertTrue(((TextView)dialog.findViewById(android.R.id.message)).getText().toString().contains("Create a spoken sound first"));
+        }
+    }
+
 }

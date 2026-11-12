@@ -42,7 +42,7 @@ public final class DailyHealthActivity extends Activity {
         card.addView(UiKit.label(this,title,20,palette.ink,true));card.addView(UiKit.label(this,detail,15,palette.muted,false));
         LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.setMargins(0,dp(8),0,dp(8));body.addView(card,params);
     }
-    private Button action(String label,Runnable operation){Button button=UiKit.action(this,palette,label,()->{try{operation.run();}catch(RuntimeException e){status.setText(UserErrors.message(e));}});body.addView(button);return button;}
+    private Button action(String label,Runnable operation){Button button=UiKit.action(this,palette,label,()->{try{operation.run();}catch(RuntimeException e){status.setText(UserErrors.message(e));}});if(label.startsWith("Save ")||label.equals("Send a test reminder now")){button.setBackground(UiKit.shape(this,palette.primary,16));button.setTextColor(palette.onPrimary);}body.addView(button);return button;}
     private CheckBox check(String label,boolean on){
         CheckBox v=new CheckBox(this);v.setText(label);v.setTextColor(palette.ink);v.setMinHeight(dp(48));v.setChecked(draft.getBoolean(label,on));
         v.setOnCheckedChangeListener((button,value)->draft.putBoolean(label,value));body.addView(v);return v;
@@ -73,8 +73,9 @@ public final class DailyHealthActivity extends Activity {
         backgroundAccess=action("Allow background health reads",()->{if(HealthAccess.granted(this,HealthJob.BACKGROUND)){openHealthAccess();return;}if(!HealthAccess.granted(this,DailyHealthSource.STEPS))throw new IllegalStateException("Allow step reads first, then allow background health reads.");if(!HealthAccess.backgroundSupported(this))throw new IllegalStateException("Background health reads are unavailable on this Android version.");requestHealth(HealthJob.BACKGROUND,303);});
         action("Health Connect data controls",()->startActivity(new Intent(this,HealthConnectActivity.class)));
         action("Movement notification settings",()->{Reminders.channels(this);startActivity(Reminders.channelSettings(this,"movement"));});
+        action("Preview spoken audio",()->SpokenReminder.preview(this));
         action("Configure spoken reminder",()->SpokenReminder.configure(this));
-        action("Send a test reminder now",()->status.setText(Reminders.testMovement(this)));
+        action("Send a test reminder now",()->Reminders.showTest(this));
         refreshMovementAccess();
         CheckBox enabled=check("Enable movement reminders",cfg.movement()),prompt=check("Offer a check-in before new sessions",cfg.checkin());
         List<CheckBox> days=new ArrayList<>();for(DayOfWeek day:DayOfWeek.values())days.add(check(day.toString(),cfg.days().contains(day.getValue())));
@@ -201,8 +202,8 @@ public final class DailyHealthActivity extends Activity {
         boolean available=HealthAccess.available(this),reading=HealthPreferences.enabled(this,false),steps=HealthAccess.granted(this,DailyHealthSource.STEPS),supported=HealthAccess.backgroundSupported(this),background=HealthAccess.granted(this,HealthJob.BACKGROUND);
         String readiness=!store.settings().movement()?"Movement reminders are off.":!available?"Setup incomplete: Health Connect is unavailable.":!reading?"Setup incomplete: Health Connect reading is paused. Open data controls to enable Read.":!steps?"Setup incomplete: allow Health Connect step reads.":!supported?"Setup incomplete: background health reads are unavailable on this Android version.":!background?"Setup incomplete: allow background health reads.":!Reminders.channelAllowed(this,"movement")?"Setup incomplete: movement notifications are blocked.":"Setup complete. Waiting for your working hours, a full inactivity interval and recent step data.";
         movementAccess.setText(readiness+"\nSteps: "+(steps?"allowed":"not allowed")+" · Background: "+(!supported?"unavailable":background?"allowed":"not allowed")+"\n"+Reminders.notificationStatus(this,"movement"));
-        stepAccess.setText(steps?"Health Connect steps allowed":!reading?"Health Connect reading paused":"Allow Health Connect step reads");stepAccess.setEnabled(available||steps);
-        backgroundAccess.setText(background?"Background health reads allowed":!supported?"Background health reads unavailable":"Allow background health reads");backgroundAccess.setEnabled(background||available&&supported&&reading&&steps);
+        stepAccess.setText(steps?"Health Connect steps allowed":!reading?"Health Connect reading paused":"Allow Health Connect step reads");stepAccess.setEnabled(available||steps);stepAccess.setAlpha(stepAccess.isEnabled()?1f:0.45f);
+        backgroundAccess.setText(background?"Background health reads allowed":!supported?"Background health reads unavailable":"Allow background health reads");backgroundAccess.setEnabled(background||available&&supported&&reading&&steps);backgroundAccess.setAlpha(backgroundAccess.isEnabled()?1f:0.45f);
     }
     private void openHealthAccess(){SettingsNavigator.openHealth(action->{try{startActivity(new Intent(action));return true;}catch(android.content.ActivityNotFoundException|SecurityException unavailable){return false;}});status.setText("Review OpenRun permissions in Health Connect. Your movement preferences are kept.");}
     private void requestHealth(String permission,int code){
