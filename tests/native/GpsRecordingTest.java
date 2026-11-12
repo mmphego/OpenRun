@@ -24,6 +24,19 @@ public class GpsRecordingTest {
  @Test public void twoKilometreWalk()throws Exception{for(int i=0;i<=1000;i++){advance(1000+i*2000);service.onLocationChanged(point(i*2,1000+i*2000));}assertEquals(2,service.km(),.005);assertTrue(service.walking());recordingScreen("14-two-kilometre-walk");}
  @Test public void beforeStartAndFutureFixesDoNotCount(){advance(70000);service.onLocationChanged(point(500,-1000));service.onLocationChanged(point(800,100000));assertEquals(0,service.km(),0);}
  @Test public void duplicateAndOutOfOrderCallbacksDoNotDoubleCount(){advance(12000);service.onLocationChanged(List.of(point(0,1000),point(20,11000)));double distance=service.km();service.onLocationChanged(List.of(point(0,1000),point(20,11000)));assertEquals(distance,service.km(),0);}
+ @Test public void stalePauseNotificationCannotPauseNewRecording(){
+  Notification first=Shadows.shadowOf(app.getSystemService(NotificationManager.class)).getNotification(7);
+  Intent stale=Shadows.shadowOf(first.actions[0].actionIntent).getSavedIntent();
+  service.onStartCommand(stale,0,2);
+  assertTrue("The current recording notification must still pause its own recording",service.paused());
+  service.onStartCommand(stale,0,3);
+  assertFalse(service.paused());
+  service.discard();
+  service.onStartCommand(new Intent(app,TrackingService.class).setAction("START").putExtra("id","walk:gps-test-next").putExtra("request","gps-test-next"),0,4);
+  assertTrue(service.startFailure(),service.active());
+  service.onStartCommand(stale,0,5);
+  assertFalse("A previous recording notification must not pause the current recording",service.paused());
+ }
  @Test public void pauseAndResumeExcludeMovementWhilePaused(){advance(12000);service.onLocationChanged(List.of(point(0,1000),point(20,11000)));service.togglePause();advance(72000);service.onLocationChanged(point(400,60000));service.togglePause();service.onLocationChanged(point(450,65000));advance(73000);service.onLocationChanged(point(500,73000));advance(83000);service.onLocationChanged(point(520,83000));assertEquals(.040,service.km(),.002);}
  @Test public void longMissingIntervalDoesNotInventDistance(){advance(120000);service.onLocationChanged(List.of(point(0,1000),point(150,119000)));assertEquals(0,service.km(),0);}
  @Test public void poorAccuracyAndTeleportAreRejected(){advance(12000);Location poor=point(500,1000);poor.setAccuracy(100);service.onLocationChanged(poor);service.onLocationChanged(point(0,2000));service.onLocationChanged(point(2000,3000));assertEquals(0,service.km(),0);}

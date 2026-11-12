@@ -91,6 +91,27 @@ adb shell am instrument -w app.rwun.test/app.rwun.SmokeInstrumentation
 
 Do not use `connectedDebugAndroidTest` as a substitute for the command above: this project retains a custom Android instrumentation runner rather than an AndroidX/JUnit device test suite.
 
+### Local Wi-Fi ADB workflow
+
+The repository `Makefile` provides guarded local commands for a device already
+paired through Android's Wireless debugging. It always requires an explicit
+`ANDROID_SERIAL`, never selects the first available device, and installs with
+`adb install -r` so it does not clear OpenRun data. It does not pair a device or
+enable wireless debugging on its behalf.
+
+```bash
+make device-status
+ADB_ENDPOINT=192.168.1.50:43211 make connect-wifi
+ANDROID_SERIAL=192.168.1.50:43211 make run-wifi
+```
+
+Use `make help` for build, custom-instrumentation and local evidence-capture
+commands. Evidence can contain health and route data; choose a private output
+directory and review it before sharing.
+
+Run `make check` before opening a pull request to execute the same local host,
+Android, service and device-utility validation sequence documented below.
+
 ## Configuration
 
 - Core planning and recording work without an account or a service.
@@ -123,6 +144,10 @@ python3 -m unittest discover -s tests/device -p 'test_*.py' -v
 ```
 
 Host regressions compile/run the existing Java test programs; the runner downloads two checksum-pinned test-only JARs and emits logs/JUnit XML under `build/reports/host`. Gradle tests include the recovered `tests/native` suites, Room upserts, both schema-1 migration paths, cross-provider merging, saved choices and database leases through Robolectric. Each test class runs in a fresh worker process; the live-provider test is skipped by default. Native UI renders are host evidence, not emulator or S23 acceptance. Android Lint is the current static analysis gate; no separate formatter or static analyser is claimed. Device QA utilities and the physical acceptance checklist are under [tests/device](tests/device/README.md) and [tests/s23](tests/s23/CHECKLIST.md).
+
+Use the [API/device acceptance matrix](tests/device/API-MATRIX.md) to record
+physical evidence across supported Android versions. Emulator and host results
+do not substitute for those observations.
 
 CI runs on PRs and pushes to `main`, with read-only permissions and no secrets. It verifies both debug APK signatures and ZIP alignment before uploading the app APK for 14 days and reports for 7 days, including failure reports. Superseded CI runs are cancelled. Pushes to main (including PR merges) and version tags run the separate signed release workflow after full checks. Each main build publishes a versioned APK, checksum and generated release notes to [Latest release](https://github.com/mmphego/OpenRun/releases/latest) after stable signing secrets and a certificate pin are configured. See [release setup and versioning](docs/RELEASING.md). [Validation status](docs/PUBLICATION-VALIDATION.md) distinguishes completed checks from unavailable device/remote checks.
 

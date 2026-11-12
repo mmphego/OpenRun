@@ -94,7 +94,40 @@ final class RunStore {
   JSONObject cycling(){synchronized(LOCK){return object("cycling");}}
   void cycling(JSONObject d,boolean clear,boolean pain){synchronized(LOCK){try{CyclingData.validate(d);var e=new PreferenceEdit(preferences).putString("cycling",d.toString());if(clear)e.remove("active");if(pain)e.putBoolean("rest",true).putString("adaptReason","Pain reported during cycling. Review recovery before resuming training.");commit(e);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
   List<WeekBalance.Other> otherActivities(){return List.of();}
-  void refocus(Context context){synchronized(LOCK){try{if(preferences.getInt("focusVersion",0)>=1)return;JSONObject cycle=cycling();JSONArray archived=CyclingData.rows(cycle,"archivedRecordings");JSONObject indoor=cycle.optJSONObject("active");if(indoor!=null){indoor.put("archiveType","Indoor ride");archived.put(indoor);cycle.remove("active");}boolean clear=false;if(!checkpoint().isEmpty()){JSONObject record=new JSONObject(checkpoint());if(record.optBoolean("cycling")){record.put("archiveType","GPS ride");String route=record.optString("route");if(!route.isEmpty()&&!context.getFileStreamPath(route).isFile())record.put("missingRoute",route).put("route","");archived.put(record);clear=true;}}if(archived.length()>0)cycle.put("archivedRecordings",archived);CyclingData.validate(cycle);var e=new PreferenceEdit(preferences).putString("cycling",cycle.toString()).putInt("focusVersion",1);if(clear)e.remove("active");commit(e);}catch(Exception e){throw new IllegalStateException("Previous recording could not be archived safely",e);}}}
+  void refocus(Context context) { synchronized(LOCK) {
+    try {
+      if (preferences.getInt("focusVersion", 0) >= 1) return;
+      JSONObject cycle = cycling();
+      JSONArray archived = CyclingData.rows(cycle, "archivedRecordings");
+      JSONObject indoor = cycle.optJSONObject("active");
+      if (indoor != null) {
+        indoor.put("archiveType", "Indoor ride");
+        archived.put(indoor);
+        cycle.remove("active");
+      }
+      boolean clear = false;
+      if (!checkpoint().isEmpty()) try {
+        JSONObject record = new JSONObject(checkpoint());
+        if (record.optBoolean("cycling")) {
+          record.put("archiveType", "GPS ride");
+          String route = record.optString("route");
+          if (!route.isEmpty() && !context.getFileStreamPath(route).isFile())
+            record.put("missingRoute", route).put("route", "");
+          archived.put(record);
+          clear = true;
+        }
+      } catch (JSONException ignored) {
+        // Leave malformed checkpoints available for the recovery screen to discard.
+      }
+      if (archived.length() > 0) cycle.put("archivedRecordings", archived);
+      CyclingData.validate(cycle);
+      var edit = new PreferenceEdit(preferences).putString("cycling", cycle.toString()).putInt("focusVersion", 1);
+      if (clear) edit.remove("active");
+      commit(edit);
+    } catch (Exception error) {
+      throw new IllegalStateException("Previous recording could not be archived safely", error);
+    }
+  }}
   JSONArray walks(){return WalkData.outdoor(v103());}
   void addWalk(Run run){addWalk(run,null);}
   void addWalk(Run run,JSONObject reflection){synchronized(LOCK){try{JSONArray rows=walks();for(int i=0;i<rows.length();i++)if(rows.getJSONObject(i).getString("id").equals(run.sessionId()))throw new IllegalArgumentException("This walk is already saved");rows.put(WalkData.from(run));WalkData.validate(rows);JSONObject d=v103().put("walks",rows);captureGpsOrigin(d,run.sessionId());attachCoachReview(d,run.sessionId(),reflection);V103Data.validate(d);var e=new PreferenceEdit(preferences).putString("v103",d.toString());if(run.pain())e.putBoolean("rest",true).putString("adaptReason","Pain reported during walking. Review recovery before resuming training.");commit(e);}catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}}}
@@ -415,6 +448,19 @@ final class RunStore {
   void clearCheckpoint() {
     commit(new PreferenceEdit(preferences).remove("active"));
   }
+
+  /** Clears a pending recorder state even when an interrupted write left malformed JSON behind. */
+  String discardCheckpoint() { synchronized(LOCK) {
+    String route = "";
+    try {
+      String candidate = new JSONObject(checkpoint()).optString("route", "");
+      if (candidate.matches("route-[a-zA-Z0-9-]+\\.jsonl")) route = candidate;
+    } catch (JSONException ignored) {
+      // A corrupt checkpoint must not permanently block future recordings.
+    }
+    clearCheckpoint();
+    return route;
+  }}
 
   PaceProfile profile() {
     return new PaceProfile(

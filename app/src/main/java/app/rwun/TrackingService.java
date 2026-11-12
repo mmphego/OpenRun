@@ -52,6 +52,7 @@ public final class TrackingService extends Service implements LocationListener {
   private boolean distanceWarningSpoken;
   private int bpm, hrSum, hrCount, segment;
   private double target;
+  private String recordingToken = "";
   private String id = "",
       date = "",
       route = "",
@@ -134,6 +135,7 @@ public final class TrackingService extends Service implements LocationListener {
     String action = intent.getAction();
     if ("START".equals(action) && !active) {
       if(intent.getBooleanExtra("cycling",false)){stopSelf();return START_NOT_STICKY;}walking=intent.getStringExtra("id")!=null&&intent.getStringExtra("id").startsWith("walk:");
+      recordingToken=UUID.randomUUID().toString();
       startRequest=intent.getStringExtra("request");if(startRequest==null)startRequest="";startFailure="";
       connectedMode = false;
       try {
@@ -144,7 +146,7 @@ public final class TrackingService extends Service implements LocationListener {
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
       }
-    } else if ("PAUSE".equals(action) && active) {
+    } else if ("PAUSE".equals(action) && active && recordingToken.equals(intent.getStringExtra("recordingToken"))) {
       try{togglePause();}catch(RuntimeException e){status="Could not save pause state; recorded checkpoint remains available.";pauseForError();}
     } else if ("DISCARD".equals(action)) {
       discard();
@@ -157,16 +159,20 @@ public final class TrackingService extends Service implements LocationListener {
     PendingIntent pi =
         PendingIntent.getActivity(
             this, 1, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-    PendingIntent pause =
-        PendingIntent.getService(
-            this,
-            2,
-            new Intent(this, TrackingService.class).setAction("PAUSE"),
-            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent pause = pauseAction();
     Notification n = notification(pi,pause);
     if (Build.VERSION.SDK_INT >= 29)
       startForeground(7,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION | (connectedMode ? ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE : 0));
     else startForeground(7,n);
+  }
+
+  private PendingIntent pauseAction() {
+    Intent action = new Intent(this, TrackingService.class)
+        .setAction("PAUSE")
+        // Data participates in PendingIntent identity, preserving the original token in old notifications.
+        .setData(android.net.Uri.parse("openrun://recording/" + recordingToken + "/pause"))
+        .putExtra("recordingToken", recordingToken);
+    return PendingIntent.getService(this, 2, action, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
   }
 
   private Notification notification(PendingIntent pi,PendingIntent pause){
@@ -181,7 +187,7 @@ public final class TrackingService extends Service implements LocationListener {
             .addAction(new Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(this,R.drawable.ic_directions_run),"View / finish",pi).build()).build();
   }
 
-  private void refreshNotification(){if(active){PendingIntent open=PendingIntent.getActivity(this,1,new Intent(this,MainActivity.class).putExtra("destination","Run").addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);PendingIntent pause=PendingIntent.getService(this,2,new Intent(this,TrackingService.class).setAction("PAUSE"),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);getSystemService(NotificationManager.class).notify(7,notification(open,pause));}}
+  private void refreshNotification(){if(active){PendingIntent open=PendingIntent.getActivity(this,1,new Intent(this,MainActivity.class).putExtra("destination","Run").addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);getSystemService(NotificationManager.class).notify(7,notification(open,pauseAction()));}}
 
 
   private void begin(Intent i) {

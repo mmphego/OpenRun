@@ -13,7 +13,9 @@ class ServiceTest(unittest.TestCase):
         if token:headers['Authorization']='Bearer '+token
         try:
             with urlopen(Request(self.url+path,data=data,method=method,headers=headers),timeout=10) as response:return response.status,response.read(),response.headers
-        except HTTPError as error:return error.code,error.read(),error.headers
+        except HTTPError as error:
+            try:return error.code,error.read(),error.headers
+            finally:error.close()
     def account(self,email='runner@example.com'):
         status,raw,_=self.request('/v1/register','POST',{'email':email,'password':'a sufficiently long password'});self.assertEqual(status,200);return json.loads(raw)['token']
     def test_auth_backup_conflict_isolation_delete(self):
@@ -32,6 +34,11 @@ class ServiceTest(unittest.TestCase):
         token=self.account();self.assertEqual(self.request('/v1/login','POST',{'email':'runner@example.com','password':'a sufficiently long password'})[0],200)
         self.assertEqual(self.request('/v1/login','POST',{'email':'runner@example.com','password':'an incorrect long password'})[0],401)
         self.assertEqual(self.request('/v1/logout','POST',b'',token)[0],200);self.assertEqual(self.request('/v1/integrations',token=token)[0],401)
+    def test_database_connections_close_after_request_scope(self):
+        with self.server.service.db() as db:
+            connection=db
+            db.execute('SELECT 1')
+        with self.assertRaises(app.sqlite3.ProgrammingError):connection.execute('SELECT 1')
     def test_integration_blockers_and_input_limits(self):
         token=self.account();code,raw,_=self.request('/v1/integrations',token=token);self.assertEqual(code,200);self.assertFalse(json.loads(raw)['garmin_connected'])
         self.assertEqual(self.request('/v1/strava/start','POST',b'',token)[0],503)

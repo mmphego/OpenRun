@@ -740,15 +740,9 @@ public final class MainActivity extends Activity {
                       .setPositiveButton(
                           "Discard",
                           (d, w) -> {
-                            try {
-                              JSONObject o = new JSONObject(store.checkpoint());
-                              String route = o.optString("route");
-                              if (route.matches("route-[a-zA-Z0-9-]+\\.jsonl")) deleteFile(route);
-                              store.clearCheckpoint();
-                              render();
-                            } catch (Exception e) {
-                              error(e);
-                            }
+                            String route = store.discardCheckpoint();
+                            if (!route.isEmpty()) deleteFile(route);
+                            render();
                           })
                       .show()));
     } else {
@@ -978,11 +972,9 @@ public final class MainActivity extends Activity {
     if(store.v103().has("undo"))content.addView(button("Undo most recent deletion · 15 minutes",()->{store.undoDelete();render();}));
     List<RunStore.Run> runs=store.runs();
     if(runs.isEmpty()){emptyProgress();return;}
-    TreeSet<String> years=new TreeSet<>(Comparator.reverseOrder());TreeSet<String> types=new TreeSet<>();
-    for(var run:runs){years.add(run.date().substring(0,4));types.add(run.workoutType());}
-    List<String> typeOptions=new ArrayList<>(List.of("All workouts"));typeOptions.addAll(types);
-    List<String> yearOptions=new ArrayList<>(List.of("All years"));yearOptions.addAll(years);
-    List<String> monthOptions=new ArrayList<>(List.of("All months"));for(int m=1;m<=12;m++)monthOptions.add(String.format(Locale.US,"%02d",m));
+    List<String> typeOptions=RunHistory.workoutTypes(runs);
+    List<String> yearOptions=RunHistory.years(runs);
+    List<String> monthOptions=RunHistory.months();
     // A horizontally scrolling row keeps full filter labels readable on narrow phones.
     HorizontalScrollView filterScroll=new HorizontalScrollView(this);filterScroll.setHorizontalScrollBarEnabled(false);
     LinearLayout filters=new LinearLayout(this);
@@ -990,14 +982,9 @@ public final class MainActivity extends Activity {
     progressFilter(filters,"Year",yearOptions,filterYear,v->{filterYear=v;render();});
     progressFilter(filters,"Month",monthOptions,filterMonth,v->{filterMonth=v;render();});
     filterScroll.addView(filters);content.addView(filterScroll);
-    runs=runs.stream().filter(r->filterType.equals("All workouts")||r.workoutType().equals(filterType))
-        .filter(r->filterYear.equals("All years")||r.date().startsWith(filterYear))
-        .filter(r->filterMonth.equals("All months")||r.date().substring(5,7).equals(filterMonth))
-        .sorted(Comparator.comparing(RunStore.Run::date).thenComparingLong(this::activityStarted).reversed())
-        .collect(java.util.stream.Collectors.toList());
+    runs=RunHistory.filter(runs,filterType,filterYear,filterMonth,this::activityStarted);
     if(runs.isEmpty()){content.addView(text("No activities match these filters.",17,true));content.addView(button("Clear filters",()->{filterType="All workouts";filterYear="All years";filterMonth="All months";render();}));return;}
-    Map<YearMonth,List<RunStore.Run>> months=new LinkedHashMap<>();
-    for(var run:runs)months.computeIfAbsent(YearMonth.from(LocalDate.parse(run.date())),key->new ArrayList<>()).add(run);
+    Map<YearMonth,List<RunStore.Run>> months=RunHistory.groupByMonth(runs);
     for(var month:months.entrySet()){
       LinearLayout heading=new LinearLayout(this);heading.setGravity(Gravity.CENTER_VERTICAL);heading.setPadding(0,dp(22),0,0);
       TextView name=ProgressViews.label(this,month.getKey().format(DateTimeFormatter.ofPattern("MMMM yyyy")),20,ink,true);

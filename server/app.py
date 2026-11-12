@@ -2,6 +2,7 @@
 from __future__ import annotations
 import base64, hashlib, hmac, json, os, secrets, sqlite3, threading, time
 from collections import defaultdict, deque
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
@@ -23,8 +24,18 @@ CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT,expires INT
 CREATE TABLE IF NOT EXISTS backups(user TEXT PRIMARY KEY,revision INTEGER,payload BLOB,updated INTEGER);
 CREATE TABLE IF NOT EXISTS oauth(state TEXT PRIMARY KEY,user TEXT,expires INTEGER);
 CREATE TABLE IF NOT EXISTS strava(user TEXT PRIMARY KEY,payload BLOB);''')
+    @contextmanager
     def db(self):
-        db=sqlite3.connect(self.path,timeout=15);db.execute('PRAGMA foreign_keys=ON');return db
+        db=sqlite3.connect(self.path,timeout=15)
+        try:
+            db.execute('PRAGMA foreign_keys=ON')
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
     @staticmethod
     def digest(password,salt):return hashlib.pbkdf2_hmac('sha256',password.encode(),bytes.fromhex(salt),600000).hex()
     def authenticate(self,authorization):
