@@ -14,10 +14,21 @@ import java.util.*;
 final class SpokenReminder {
  private static final java.util.concurrent.atomic.AtomicBoolean BUSY=new java.util.concurrent.atomic.AtomicBoolean();
  static final String CHANNEL="movement-spoken";
- static String channel(Context c){return c.getSharedPreferences("spoken-reminder",0).getBoolean("enabled",false)&&new File(c.getFilesDir(),"movement-reminder.wav").isFile()?CHANNEL:"movement";}
+ static String channel(Context c){return c.getSharedPreferences("spoken-reminder",0).getBoolean("enabled",false)&&new File(c.getFilesDir(),"movement-reminder.wav").isFile()?c.getSharedPreferences("spoken-reminder",0).getString("channel",CHANNEL):"movement";}
+ static void preview(Activity activity){
+  File file=new File(activity.getFilesDir(),"movement-reminder.wav");
+  if(!file.isFile()){new AlertDialog.Builder(activity).setMessage("No spoken audio exists yet. Create a spoken sound first.").setPositiveButton("Close",null).show();return;}
+  android.media.MediaPlayer player=new android.media.MediaPlayer();
+  try{
+   player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+   player.setDataSource(file.getAbsolutePath());player.setOnCompletionListener(p->p.release());
+   player.setOnErrorListener((p,what,extra)->{p.release();Toast.makeText(activity,"Audio preview failed. Recreate the spoken sound.",Toast.LENGTH_LONG).show();return true;});
+   player.setOnPreparedListener(p->{if(activity.isFinishing()||activity.isDestroyed())p.release();else p.start();});player.prepareAsync();
+  }catch(Exception unavailable){player.release();Toast.makeText(activity,"Audio preview failed. Recreate the spoken sound.",Toast.LENGTH_LONG).show();}
+ }
  static void configure(Activity a){
   var prefs=a.getSharedPreferences("spoken-reminder",0);EditText phrase=new EditText(a);phrase.setText(prefs.getString("phrase","Get up and stretch a little"));phrase.setMaxLines(3);
-  new AlertDialog.Builder(a).setTitle("Spoken movement reminder").setMessage("Uses an installed offline voice. Voice quality depends on your TTS engine. Android controls volume, Do Not Disturb and notification sound. Changing an existing spoken phrase requires disabling and re-enabling sound in this channel's Android settings on some devices.")
+  new AlertDialog.Builder(a).setTitle("Spoken movement reminder").setMessage("Uses an installed offline voice. Voice quality depends on your TTS engine. Android controls volume, Do Not Disturb and notification sound. Creating a spoken sound creates a new Android sound channel so a previous cached sound cannot be reused.")
    .setView(phrase).setNegativeButton("Cancel",null).setNeutralButton("Use standard sound",(d,w)->{prefs.edit().putBoolean("enabled",false).apply();DailyHealthJob.schedule(a);Reminders.schedule(a);})
    .setPositiveButton("Create spoken sound",(d,w)->{String value=phrase.getText().toString().trim();if(value.isEmpty()||value.length()>200){Toast.makeText(a,"Enter 1–200 characters",Toast.LENGTH_LONG).show();return;}render(a,value);}).show();
  }
@@ -36,10 +47,13 @@ final class SpokenReminder {
     public void onStart(String id){}
     public void onError(String id){main.post(fail);}
     public void onDone(String id){main.post(()->{if(finished.get())return;engine[0].shutdown();File target=new File(c.getFilesDir(),"movement-reminder.wav");if(!pending.isFile()||pending.length()<44||!pending.renameTo(target)){fail.run();return;}
-     Uri uri=Uri.parse("content://"+c.getPackageName()+".reminder-sound/movement.wav");
+     String channelId=CHANNEL+"-"+java.util.UUID.randomUUID();
+     Uri uri=Uri.parse("content://"+c.getPackageName()+".reminder-sound/movement.wav?version="+channelId);
      c.grantUriPermission("android",uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);c.grantUriPermission("com.android.systemui",uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);
-     NotificationChannel channel=new NotificationChannel(CHANNEL,"Spoken movement reminders",NotificationManager.IMPORTANCE_DEFAULT);channel.setSound(uri,new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());c.getSystemService(NotificationManager.class).createNotificationChannel(channel);
-     c.getSharedPreferences("spoken-reminder",0).edit().putString("phrase",phrase).putBoolean("enabled",true).apply();finished.set(true);BUSY.set(false);DailyHealthJob.schedule(c);Reminders.schedule(c);Toast.makeText(c,"Spoken reminder saved. Send a test reminder to check the voice and channel sound.",Toast.LENGTH_LONG).show();
+     NotificationChannel channel=new NotificationChannel(channelId,"Spoken movement reminders",NotificationManager.IMPORTANCE_HIGH);channel.setSound(uri,new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());c.getSystemService(NotificationManager.class).createNotificationChannel(channel);
+     String previous=c.getSharedPreferences("spoken-reminder",0).getString("channel",CHANNEL);
+     c.getSharedPreferences("spoken-reminder",0).edit().putString("channel",channelId).putString("phrase",phrase).putBoolean("enabled",true).apply();
+     if(previous.startsWith(CHANNEL)&&!previous.equals(channelId))c.getSystemService(NotificationManager.class).deleteNotificationChannel(previous);finished.set(true);BUSY.set(false);DailyHealthJob.schedule(c);Reminders.schedule(c);if(!a.isFinishing()&&!a.isDestroyed())new AlertDialog.Builder(a).setTitle("Spoken sound ready").setMessage("The audio file was generated. Preview it first, then test notification playback. These are separate checks.").setPositiveButton("Preview audio",(d,w)->preview(a)).setNeutralButton("Test notification",(d,w)->Reminders.showTest(a)).setNegativeButton("Done",null).show();
     });}
    });
    if(engine[0].synthesizeToFile(phrase,new Bundle(),pending,"movement")!=TextToSpeech.SUCCESS)fail.run();

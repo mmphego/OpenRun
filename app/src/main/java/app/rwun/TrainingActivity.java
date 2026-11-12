@@ -43,10 +43,10 @@ public final class TrainingActivity extends Activity {
   LinearLayout mode=card();cardText(mode,"MOVEMENT REMINDERS",12,false);
   cardText(mode,detected?"Health Connect movement detection":"Scheduled movement prompts",19,true);
   cardText(mode,detected?"Your working days, hours and inactivity interval are managed in Movement & recovery. Fixed-time prompts are off.":"Fixed-time prompts do not check your steps. For reminders based on recorded movement, set up Health Connect movement detection.",14,false);
-  mode.addView(UiKit.choice(this,p,"Set up Health Connect movement reminders",()->startActivity(new Intent(this,DailyHealthActivity.class).putExtra("screen","movement"))));
+  mode.addView(UiKit.choice(this,p,detected?"Manage movement detection":"Set up Health Connect movement reminders",()->startActivity(new Intent(this,DailyHealthActivity.class).putExtra("screen","movement"))));
   JSONObject r=store.v103().optJSONObject("reminders");if(r==null)r=V103Data.reminderDefaults();ReminderPlan cfg=V103Data.plan(r);
   LinearLayout types=card();cardText(types,"SCHEDULED REMINDERS",12,false);
-  Switch movement=toggle(types,"Fixed-time movement prompts",cfg.movement()&&!detected);movement.setEnabled(!detected);if(detected)movement.setChecked(false);
+  Switch movement=toggle(types,"Fixed-time movement prompts",cfg.movement()&&!detected);movement.setEnabled(!detected);if(detected){movement.setChecked(false);movement.setVisibility(View.GONE);cardText(types,"Fixed-time prompts are replaced by Health Connect movement detection. Manage movement settings above.",14,false);}
   Switch workouts=toggle(types,"Planned workout reminder",cfg.workouts());
   LinearLayout daysCard=card();cardText(daysCard,"FIXED-TIME MOVEMENT DAYS",12,false);daysCard.setVisibility(detected?View.GONE:View.VISIBLE);
   List<CheckBox> weekdays=new ArrayList<>();LinearLayout dayRow=null;
@@ -78,7 +78,7 @@ public final class TrainingActivity extends Activity {
   body.addView(quietAction("Movement notification settings",false,()->{Reminders.channels(this);startActivity(Reminders.channelSettings(this,"movement"));}));
   body.addView(quietAction("Workout notification settings",false,()->{Reminders.channels(this);startActivity(Reminders.channelSettings(this,"workouts"));}));
   body.addView(quietAction("Open OpenRun notification settings",false,()->startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getPackageName()))));
-  body.addView(quietAction("Send a test reminder now",false,()->{status.setText(Reminders.testMovement(this));refreshNotificationStatus();}));
+  body.addView(quietAction("Send a test reminder now",false,()->{Reminders.showTest(this);refreshNotificationStatus();}));
  }
  private void refreshNotificationStatus(){if(notification!=null)notification.setText(Reminders.notificationStatus(this,"movement")+"\n"+Reminders.notificationStatus(this,"workouts"));}
  public void onRequestPermissionsResult(int code,String[] permissions,int[] result){super.onRequestPermissionsResult(code,permissions,result);if(code==103){Reminders.schedule(this);DailyHealthJob.schedule(this);refreshNotificationStatus();status.setText(Reminders.allowed(this)?"Notifications allowed. Check channel status and send a test reminder.":"Preferences are saved, but notifications remain blocked. Open notification settings to enable them.");}}

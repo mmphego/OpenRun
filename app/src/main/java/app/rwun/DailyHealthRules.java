@@ -6,12 +6,14 @@ import java.util.*;
 /** Pure, explainable wellness heuristics. Never diagnoses or edits training. */
 final class DailyHealthRules {
     record Settings(boolean movement, boolean checkin, Set<Integer> days, int startMinute,
-                    int endMinute, int inactivityMinutes, int breakMinutes) {
+                    int endMinute, int inactivityMinutes, int breakMinutes, int minimumSteps) {
+        Settings(boolean movement,boolean checkin,Set<Integer> days,int startMinute,int endMinute,int inactivityMinutes,int breakMinutes){this(movement,checkin,days,startMinute,endMinute,inactivityMinutes,breakMinutes,50);}
         Settings {
             if(days==null || days.isEmpty() || days.stream().anyMatch(d->d<1||d>7)
                     || startMinute<0 || endMinute>1440 || startMinute>=endMinute
+                    || minimumSteps<1 || minimumSteps>10000
                     || inactivityMinutes<60 || inactivityMinutes>720 || breakMinutes<3 || breakMinutes>60)
-                throw new IllegalArgumentException("Choose days, a daytime window, 60–720 minutes without movement and a 3–60 minute break.");
+                throw new IllegalArgumentException("Choose days, a daytime window, 60–720 minutes without movement a 3–60 minute break and 1–10,000 steps.");
             days=Set.copyOf(days);
         }
         boolean inWindow(ZonedDateTime now) {
@@ -42,7 +44,7 @@ final class DailyHealthRules {
                 ||deliveredAt>0&&ms-deliveredAt<interval)return MovementState.WAITING;
         if(sample==null||!sample.fresh(at)||Duration.between(sample.from(),sample.to()).toMillis()<interval
                 ||sample.to().isBefore(at.minus(Duration.ofMinutes(2))))return MovementState.UNKNOWN;
-        return sample.steps()<50?MovementState.REMIND:MovementState.MOVING;
+        return sample.steps()<cfg.minimumSteps()?MovementState.REMIND:MovementState.MOVING;
     }
     enum Answer { UNKNOWN, NO, YES }
     record Checkin(Instant at,Double sleepHours,int fatigue,int soreness,Answer alcohol,Answer illness,boolean pain) {

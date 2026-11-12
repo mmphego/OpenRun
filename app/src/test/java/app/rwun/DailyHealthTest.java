@@ -27,10 +27,11 @@ public class DailyHealthTest {
         store.saveCheckin(new DailyHealthRules.Checkin(now.plusSeconds(10),null,1,1,DailyHealthRules.Answer.NO,DailyHealthRules.Answer.NO,false));
         assertEquals(DailyHealthRules.Answer.NO,store.checkin(now.plusSeconds(10)).alcohol());assertNull(store.checkin(now.plus(Duration.ofDays(8))));assertFalse(context.getSharedPreferences(DailyHealthStore.FILE,0).contains("checkin"));
     }
-    @Test public void snoozeRechecksAfterThirtyMinutes(){
+    @Test public void snoozeCannotShortenTheConfiguredMinimumInterval(){
         var at=now.atZone(ZoneId.of("Africa/Johannesburg"));store.settings(cfg(true),now.minus(Duration.ofHours(3)));store.delivered(at);store.snooze(now);
         Instant later=now.plusSeconds(31*60);var sample=new DailyHealthRules.Movement(0L,later,later.minusSeconds(3600),later);
-        assertEquals(DailyHealthRules.MovementState.WAITING,store.evaluate(at.plusMinutes(29),null,false));assertEquals(DailyHealthRules.MovementState.REMIND,new DailyHealthStore(context).evaluate(at.plusMinutes(31),sample,false));
+        assertEquals(DailyHealthRules.MovementState.WAITING,store.evaluate(at.plusMinutes(29),null,false));assertEquals(DailyHealthRules.MovementState.WAITING,new DailyHealthStore(context).evaluate(at.plusMinutes(31),sample,false));
+        Instant due=now.plusSeconds(60*60);var ready=new DailyHealthRules.Movement(0L,due,due.minusSeconds(3600),due);assertEquals(DailyHealthRules.MovementState.REMIND,new DailyHealthStore(context).evaluate(at.plusMinutes(60),ready,false));
         store.acknowledge(later);assertEquals(DailyHealthRules.MovementState.WAITING,store.evaluate(at.plusMinutes(32),sample,false));
     }
     @Test public void checkinToggleDoesNotRestartMonitoringWindow(){

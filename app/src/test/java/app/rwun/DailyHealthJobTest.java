@@ -38,7 +38,7 @@ public class DailyHealthJobTest {
     }
     @Test public void knownLowMovementNotifiesOnceAndActionPreservesConfiguredGoal(){
         Source source=new Source();var work=check(source,new AtomicBoolean(true),new AtomicBoolean(true));complete(source,0L);work.join();assertEquals(1,count());
-        Notification notification=Shadows.shadowOf(notifications).getNotification(DailyHealthJob.NOTIFICATION_ID);assertEquals("Time for a movement break?",notification.extras.getString(Notification.EXTRA_TITLE));
+        Notification notification=Shadows.shadowOf(notifications).getNotification(DailyHealthJob.NOTIFICATION_ID);assertEquals("Movement reminder #1",notification.extras.getString(Notification.EXTRA_TITLE));assertEquals(1,notification.number);
         assertEquals(3,Shadows.shadowOf(notification.actions[0].actionIntent).getSavedIntent().getIntExtra("goal",0));
         Source repeated=new Source();check(repeated,new AtomicBoolean(true),new AtomicBoolean(true)).join();assertEquals(0,repeated.calls);assertEquals(1,count());
     }
