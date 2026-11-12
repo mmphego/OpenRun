@@ -125,4 +125,11 @@ public class ReminderSetupUiTest {
         steps[0]=300;clock[0]=clock[0].plusHours(1);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertEquals(2,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);assertTrue(store.status().contains("Step target reached"));
     }
 
+    @Test public void testUsesAVisibleHighImportanceChannel(){
+        Reminders.testMovement(app);
+        var notification=Shadows.shadowOf(app.getSystemService(NotificationManager.class)).getNotification(1044);
+        var channel=app.getSystemService(NotificationManager.class).getNotificationChannel(notification.getChannelId());
+        assertEquals("Test notifications must support heads-up presentation",NotificationManager.IMPORTANCE_HIGH,channel.getImportance());
+    }
+
 }
