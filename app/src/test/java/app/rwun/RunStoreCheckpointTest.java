@@ -32,6 +32,15 @@ public class RunStoreCheckpointTest {
   }
 
   @Test
+  public void refocusDoesNotBlockStartupWhenCheckpointIsMalformed() {
+    store.checkpoint("not-json");
+
+    store.refocus(RuntimeEnvironment.getApplication());
+
+    assertEquals("not-json", store.checkpoint());
+  }
+
+  @Test
   public void discardingValidCheckpointReturnsOnlySafeRouteName() {
     store.checkpoint("{\"route\":\"route-safe.jsonl\"}");
 
