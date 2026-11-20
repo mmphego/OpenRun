@@ -10,7 +10,7 @@ public final class Reminders extends android.content.BroadcastReceiver {
    c.grantUriPermission("android",spoken.getSound(),Intent.FLAG_GRANT_READ_URI_PERMISSION);
    c.grantUriPermission("com.android.systemui",spoken.getSound(),Intent.FLAG_GRANT_READ_URI_PERMISSION);
   }
-  n.createNotificationChannel(new NotificationChannel("movement","Movement breaks",NotificationManager.IMPORTANCE_DEFAULT));
+  NotificationChannel movement=new NotificationChannel("movement","Movement breaks",NotificationManager.IMPORTANCE_DEFAULT);movement.enableVibration(true);movement.setVibrationPattern(new long[]{0,500,250,500,250,500});n.createNotificationChannel(movement);
   n.createNotificationChannel(new NotificationChannel("workouts","Planned workouts",NotificationManager.IMPORTANCE_DEFAULT));
   n.createNotificationChannel(new NotificationChannel("indoor","Indoor session timer",NotificationManager.IMPORTANCE_LOW));
  }

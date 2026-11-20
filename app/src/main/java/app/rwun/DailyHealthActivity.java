@@ -58,7 +58,7 @@ public final class DailyHealthActivity extends Activity {
     }
     private void home(){
         text("Make room for recovery",27);note("Private by design","Movement and check-in information stays on this phone. No location history, uploads or model training for this feature.");
-        var cfg=store.settings();note("Movement breaks",cfg.movement()?"After about "+cfg.inactivityMinutes()+" minutes with little recorded movement · "+cfg.breakMinutes()+" minute walking goal.":"Off · choose your working days and hours to begin.");
+        var cfg=store.settings();note("Movement breaks",cfg.movement()?"Check every "+cfg.checkMinutes()+" minutes · "+cfg.breakSteps()+" step walking break.":"Off · choose your working days and hours to begin.");
         action("Configure movement breaks",()->navigate("movement"));
         note("Before your next session",cfg.checkin()?"An optional recovery check-in is offered before new sessions. Your plan changes only after review.":"Check-ins are available here. Enable the pre-session prompt in movement preferences or when saving a check-in.");
         action("Pre-run recovery check-in",()->navigate("checkin"));if(store.checkin(Instant.now())!=null)action("Review latest check-in",()->navigate("advice"));
@@ -67,7 +67,7 @@ public final class DailyHealthActivity extends Activity {
     }
     private void movement(){
         var cfg=store.settings();text("Movement breaks",26);
-        text("Remind me after little recorded movement during working hours. Missing steps do not prove sitting. Delayed or insufficient data suppresses reminders. This replaces fixed-time movement prompts.",15);
+        text("Remind me after little recorded movement during working hours. Missing steps do not prove sitting. If steps are unavailable or delayed, you will still be reminded. This replaces fixed-time movement prompts.",15);
         movementAccess=text("",15);movementAccess.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         stepAccess=action("Allow Health Connect step reads",()->{if(HealthAccess.granted(this,DailyHealthSource.STEPS)||!HealthPreferences.enabled(this,false))openHealthAccess();else requestHealth(DailyHealthSource.STEPS,302);});
         backgroundAccess=action("Allow background health reads",()->{if(HealthAccess.granted(this,HealthJob.BACKGROUND)){openHealthAccess();return;}if(!HealthAccess.granted(this,DailyHealthSource.STEPS))throw new IllegalStateException("Allow step reads first, then allow background health reads.");if(!HealthAccess.backgroundSupported(this))throw new IllegalStateException("Background health reads are unavailable on this Android version.");requestHealth(HealthJob.BACKGROUND,303);});
@@ -80,17 +80,20 @@ public final class DailyHealthActivity extends Activity {
         CheckBox enabled=check("Enable movement reminders",cfg.movement()),prompt=check("Offer a check-in before new sessions",cfg.checkin());
         List<CheckBox> days=new ArrayList<>();for(DayOfWeek day:DayOfWeek.values())days.add(check(day.toString(),cfg.days().contains(day.getValue())));
         EditText start=input("Working hours start · HH:mm",time(cfg.startMinute()),false),end=input("Working hours end · HH:mm (24:00 allowed)",time(cfg.endMinute()),false);
-        EditText interval=input("Inactivity interval · minutes (minimum 60)",""+cfg.inactivityMinutes(),true),duration=input("Walking break · minutes (minimum 3)",""+cfg.breakMinutes(),true);
-        EditText steps=input("Minimum steps per interval · 1–10000",""+cfg.minimumSteps(),true);
+        EditText interval=input("Step lookback · minutes (60–720)",""+cfg.inactivityMinutes(),true);
+        EditText steps=input("Minimum steps in the lookback window · 1–10000",""+cfg.minimumSteps(),true);
+        EditText breakSteps=input("Walking break target · steps (1–10000)",""+cfg.breakSteps(),true);
+        EditText check=input("Check interval · minutes (1–1440)",""+cfg.checkMinutes(),true);
+        EditText repeat=input("Repeat reminder · minutes (1–1440)",""+cfg.repeatMinutes(),true);
+        EditText snooze=input("Snooze duration · minutes (1–1440)",""+cfg.snoozeMinutes(),true);
         action("Save movement preferences",()->{
             Set<Integer> chosen=new HashSet<>();for(int i=0;i<days.size();i++)if(days.get(i).isChecked())chosen.add(i+1);
-            var next=new DailyHealthRules.Settings(enabled.isChecked(),prompt.isChecked(),chosen,minute(start.getText().toString()),minute(end.getText().toString()),Integer.parseInt(interval.getText().toString().trim()),Integer.parseInt(duration.getText().toString().trim()),Integer.parseInt(steps.getText().toString().trim()));
+            var next=new DailyHealthRules.Settings(enabled.isChecked(),prompt.isChecked(),chosen,minute(start.getText().toString()),minute(end.getText().toString()),Integer.parseInt(interval.getText().toString().trim()),cfg.breakMinutes(),Integer.parseInt(steps.getText().toString().trim()),Integer.parseInt(breakSteps.getText().toString().trim()),Integer.parseInt(check.getText().toString().trim()),Integer.parseInt(repeat.getText().toString().trim()),Integer.parseInt(snooze.getText().toString().trim()));
             store.settings(next,Instant.now());if(next.movement())disableLegacyMovement();Reminders.schedule(this);DailyHealthJob.schedule(this);
             if(next.movement()&&Build.VERSION.SDK_INT>=33&&checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},301);
-            refreshMovementAccess();status.setText(next.movement()?"Preferences saved. See setup status above. Checks need a full inactivity interval within working hours and recent step data.":"Saved. Movement reminders are off.");
+            refreshMovementAccess();status.setText(next.movement()?"Preferences saved. See setup status above. Checks may be delayed by Android. Missing step data triggers a reminder.":"Saved. Movement reminders are off.");
         });
-        text(store.status(),14);movementDetails=text("Your saved step target is "+cfg.minimumSteps()+" steps per interval. Below this target, numbered reminders repeat after at least "+cfg.inactivityMinutes()+" minutes. Reaching the target suppresses the reminder for that interval. Recent short step records are required. The app cannot confirm that you carried your phone. Checks run about every 15 minutes and may be delayed by Android. Up to eight alerts daily; active or pending recordings and training holds suppress them.",14);
-        action("Already moved · reset interval",()->{store.acknowledge(Instant.now());cancelReminder();status.setText("Interval reset from your confirmation. No steps were invented.");});
+        text(store.status(),14);movementDetails=text("Checks are approximate and may be delayed by Android. When step data is unavailable, a reminder is still sent. Break steps are tracked from the first reminder. Active recordings and training holds suppress alerts. Notification vibration depends on Android settings.",14);
         action("Skip movement reminders today",()->{store.skip(LocalDate.now());cancelReminder();status.setText("Movement reminders skipped for today.");});
         action("Open notification settings",()->startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getPackageName())));
         action("Planned workout & scheduled reminders",()->startActivity(new Intent(this,TrainingActivity.class).putExtra("screen","reminders")));
@@ -151,7 +154,7 @@ public final class DailyHealthActivity extends Activity {
             if(!hours.isEmpty()){try{slept=Double.parseDouble(hours.replace(',','.'));}catch(NumberFormatException invalid){sleep.setError("Enter hours from 0 to 16, or leave blank.");sleep.requestFocus();return;}}
             if(slept!=null&&(!Double.isFinite(slept)||slept<0||slept>16)){sleep.setError("Enter hours from 0 to 16, or leave blank.");sleep.requestFocus();return;}
             var value=new DailyHealthRules.Checkin(Instant.now(),slept,fatigue.getAsInt(),soreness.getAsInt(),DailyHealthRules.Answer.values()[alcohol.getAsInt()],DailyHealthRules.Answer.values()[illness.getAsInt()],pain.isChecked());
-            store.saveCheckin(value);var cfg=store.settings();if(prompt.isChecked()!=cfg.checkin())store.settings(new DailyHealthRules.Settings(cfg.movement(),prompt.isChecked(),cfg.days(),cfg.startMinute(),cfg.endMinute(),cfg.inactivityMinutes(),cfg.breakMinutes(),cfg.minimumSteps()),Instant.now());
+            store.saveCheckin(value);var cfg=store.settings();if(prompt.isChecked()!=cfg.checkin())store.settings(new DailyHealthRules.Settings(cfg.movement(),prompt.isChecked(),cfg.days(),cfg.startMinute(),cfg.endMinute(),cfg.inactivityMinutes(),cfg.breakMinutes(),cfg.minimumSteps(),cfg.breakSteps(),cfg.checkMinutes(),cfg.repeatMinutes(),cfg.snoozeMinutes()),Instant.now());
             DailyHealthJob.schedule(this);navigate("advice");
         }catch(RuntimeException error){status.setText(UserErrors.message(error));}});
         save.setBackground(UiKit.shape(this,palette.primary,16));save.setTextColor(palette.onPrimary);save.setCompoundDrawablesRelative(null,null,null,null);footer.addView(save);
@@ -198,9 +201,9 @@ public final class DailyHealthActivity extends Activity {
     }
     private void refreshMovementAccess(){
         if(movementAccess==null)return;
-        if(movementDetails!=null){var saved=store.settings();movementDetails.setText("Saved target: "+saved.minimumSteps()+" steps per "+saved.inactivityMinutes()+" minutes. Reminders repeat below this target, up to eight daily. Missing or stale data suppresses alerts. Active recordings and training holds suppress them.");}
+        if(movementDetails!=null){var saved=store.settings();movementDetails.setText("Lookback target: "+saved.minimumSteps()+" steps per "+saved.inactivityMinutes()+" minutes. Break target: "+saved.breakSteps()+" steps. Checks every "+saved.checkMinutes()+" minutes; reminders repeat every "+saved.repeatMinutes()+" minutes. Android may delay checks. Missing data still triggers reminders.");}
         boolean available=HealthAccess.available(this),reading=HealthPreferences.enabled(this,false),steps=HealthAccess.granted(this,DailyHealthSource.STEPS),supported=HealthAccess.backgroundSupported(this),background=HealthAccess.granted(this,HealthJob.BACKGROUND);
-        String readiness=!store.settings().movement()?"Movement reminders are off.":!available?"Setup incomplete: Health Connect is unavailable.":!reading?"Setup incomplete: Health Connect reading is paused. Open data controls to enable Read.":!steps?"Setup incomplete: allow Health Connect step reads.":!supported?"Setup incomplete: background health reads are unavailable on this Android version.":!background?"Setup incomplete: allow background health reads.":!Reminders.channelAllowed(this,"movement")?"Setup incomplete: movement notifications are blocked.":"Setup complete. Waiting for your working hours, a full inactivity interval and recent step data.";
+        String readiness=!store.settings().movement()?"Movement reminders are off.":!available?"Step data unavailable; reminders will still be sent.":!reading?"Health Connect reading is paused; reminders will still be sent.":!steps?"Step access is missing; reminders will still be sent.":!supported?"Background health reads are unavailable; reminders will still be sent.":!background?"Background step access is missing; reminders will still be sent.":!Reminders.channelAllowed(this,"movement")?"Setup incomplete: movement notifications are blocked.":"Setup complete. Checks run during working hours; Android may delay them.";
         movementAccess.setText(readiness+"\nSteps: "+(steps?"allowed":"not allowed")+" · Background: "+(!supported?"unavailable":background?"allowed":"not allowed")+"\n"+Reminders.notificationStatus(this,"movement"));
         stepAccess.setText(steps?"Health Connect steps allowed":!reading?"Health Connect reading paused":"Allow Health Connect step reads");stepAccess.setEnabled(available||steps);stepAccess.setAlpha(stepAccess.isEnabled()?1f:0.45f);
         backgroundAccess.setText(background?"Background health reads allowed":!supported?"Background health reads unavailable":"Allow background health reads");backgroundAccess.setEnabled(background||available&&supported&&reading&&steps);backgroundAccess.setAlpha(backgroundAccess.isEnabled()?1f:0.45f);

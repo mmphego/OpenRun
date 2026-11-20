@@ -17,14 +17,14 @@ public class DailyHealthUiTest {
     @Before public void setup(){context=RuntimeEnvironment.getApplication();context.getSharedPreferences("rwun",0).edit().clear().commit();context.getSharedPreferences(DailyHealthStore.FILE,0).edit().clear().commit();}
     org.robolectric.android.controller.ActivityController<DailyHealthActivity> open(String screen){return Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen",screen)).setup().visible();}
     @Test public void overviewAndWorkingHoursRender()throws Exception{
-        try(var controller=open("home")){NativePlanningTest.shot(controller.get(),"daily-health-home");NativePlanningTest.click(controller.get(),"Configure movement breaks");assertNotNull(NativePlanningTest.edit(controller.get(),"Inactivity interval · minutes (minimum 60)"));NativePlanningTest.shot(controller.get(),"daily-health-working-hours");}
+        try(var controller=open("home")){NativePlanningTest.shot(controller.get(),"daily-health-home");NativePlanningTest.click(controller.get(),"Configure movement breaks");assertNotNull(NativePlanningTest.edit(controller.get(),"Step lookback · minutes (60–720)"));NativePlanningTest.shot(controller.get(),"daily-health-working-hours");}
     }
     @Test public void invalidMinimumsAreRejectedAndDraftSurvivesRotation(){
         try(var controller=open("movement")){
-            var activity=controller.get();NativePlanningTest.edit(activity,"Inactivity interval · minutes (minimum 60)").setText("59");NativePlanningTest.click(activity,"Save movement preferences");assertFalse(new DailyHealthStore(context).settings().movement());
-            NativePlanningTest.edit(activity,"Inactivity interval · minutes (minimum 60)").setText("60");NativePlanningTest.edit(activity,"Walking break · minutes (minimum 3)").setText("3");
+            var activity=controller.get();NativePlanningTest.edit(activity,"Step lookback · minutes (60–720)").setText("59");NativePlanningTest.click(activity,"Save movement preferences");assertFalse(new DailyHealthStore(context).settings().movement());
+            NativePlanningTest.edit(activity,"Step lookback · minutes (60–720)").setText("60");NativePlanningTest.edit(activity,"Walking break target · steps (1–10000)").setText("75");
             ((CheckBox)NativePlanningTest.find(activity.getWindow().getDecorView(),"Offer a check-in before new sessions")).setChecked(true);
-            controller.recreate();activity=controller.get();assertEquals("60",NativePlanningTest.edit(activity,"Inactivity interval · minutes (minimum 60)").getText().toString());
+            controller.recreate();activity=controller.get();assertEquals("60",NativePlanningTest.edit(activity,"Step lookback · minutes (60–720)").getText().toString());
             NativePlanningTest.click(activity,"Save movement preferences");assertEquals(60,new DailyHealthStore(context).settings().inactivityMinutes());assertTrue(new DailyHealthStore(context).settings().checkin());
         }
     }

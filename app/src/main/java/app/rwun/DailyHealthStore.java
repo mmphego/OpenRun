@@ -16,36 +16,38 @@ final class DailyHealthStore {
         try {
             JSONObject json=new JSONObject(saved);Set<Integer> days=new HashSet<>();JSONArray list=json.getJSONArray("days");
             for(int i=0;i<list.length();i++)days.add(list.getInt(i));
-            return new DailyHealthRules.Settings(json.getBoolean("movement"),json.getBoolean("checkin"),days,json.getInt("start"),json.getInt("end"),json.getInt("inactivity"),json.getInt("break"),json.optInt("minimumSteps",50));
+            return new DailyHealthRules.Settings(json.getBoolean("movement"),json.getBoolean("checkin"),days,json.getInt("start"),json.getInt("end"),json.getInt("inactivity"),json.getInt("break"),json.optInt("minimumSteps",50),json.optInt("breakSteps",50),json.optInt("checkMinutes",10),json.optInt("repeatMinutes",10),json.optInt("snoozeMinutes",15));
         }catch(Exception error){throw new IllegalStateException("Movement preferences could not be read. Your data has been kept.",error);}
     }
     void settings(DailyHealthRules.Settings value,Instant now) {
         synchronized(LOCK){try{
-            var old=settings();boolean reset=old.movement()!=value.movement()||!old.days().equals(value.days())||old.startMinute()!=value.startMinute()
-                    ||old.endMinute()!=value.endMinute()||old.inactivityMinutes()!=value.inactivityMinutes()||old.minimumSteps()!=value.minimumSteps();
+            var old=settings();boolean reset=old.movement()!=value.movement();
             JSONObject json=new JSONObject().put("movement",value.movement()).put("checkin",value.checkin()).put("days",new JSONArray(value.days()))
-                    .put("start",value.startMinute()).put("end",value.endMinute()).put("inactivity",value.inactivityMinutes()).put("break",value.breakMinutes()).put("minimumSteps",value.minimumSteps());
+                    .put("start",value.startMinute()).put("end",value.endMinute()).put("inactivity",value.inactivityMinutes()).put("break",value.breakMinutes()).put("minimumSteps",value.minimumSteps()).put("breakSteps",value.breakSteps()).put("checkMinutes",value.checkMinutes()).put("repeatMinutes",value.repeatMinutes()).put("snoozeMinutes",value.snoozeMinutes());
             var edit=preferences.edit().putString("settings",json.toString()).putLong("revision",revision()+1);
-            if(reset)edit.putLong("enabledAt",now.toEpochMilli()).remove("delivered").remove("snooze").remove("skip").remove("status");
+            if(reset)edit.putLong("enabledAt",now.toEpochMilli()).remove("delivered").remove("snooze").remove("skip").remove("status").remove("breakStart").remove("breakDay");
             commit(edit);
         }catch(JSONException error){throw new IllegalArgumentException(error);}}
     }
     long revision(){return preferences.getLong("revision",0);}
     boolean recoveryReads(){return preferences.getBoolean("recoveryReads",false);}
     void recoveryReads(boolean on){synchronized(LOCK){commit(preferences.edit().putBoolean("recoveryReads",on).putLong("revision",revision()+1));}}
-    DailyHealthRules.MovementState evaluate(ZonedDateTime now,DailyHealthRules.Movement sample,boolean suppressed) {
-        int count=now.toLocalDate().toString().equals(preferences.getString("day",""))?preferences.getInt("count",0):0;
-        return DailyHealthRules.movement(settings(),now,sample,preferences.getLong("enabledAt",now.toInstant().toEpochMilli()),preferences.getLong("acknowledged",0),
-                preferences.getLong("delivered",0),preferences.getLong("snooze",0),preferences.getString("skip",""),count,suppressed);
-    }
     int nextReminderNumber(ZonedDateTime now){return (now.toLocalDate().toString().equals(preferences.getString("day",""))?preferences.getInt("count",0):0)+1;}
     void delivered(ZonedDateTime now) {synchronized(LOCK){
         String day=now.toLocalDate().toString();int count=day.equals(preferences.getString("day",""))?preferences.getInt("count",0):0;
         commit(preferences.edit().putString("day",day).putInt("count",count+1).putLong("delivered",now.toInstant().toEpochMilli()));
     }}
-    void acknowledge(Instant now){synchronized(LOCK){commit(preferences.edit().putLong("acknowledged",now.toEpochMilli()).remove("snooze"));}}
-    void snooze(Instant now){synchronized(LOCK){commit(preferences.edit().putLong("snooze",now.plusSeconds(1800).toEpochMilli()));}}
+    void snooze(Instant now){synchronized(LOCK){commit(preferences.edit().putLong("snooze",now.plusSeconds(settings().snoozeMinutes()*60L).toEpochMilli()));}}
     void skip(LocalDate day){synchronized(LOCK){commit(preferences.edit().putString("skip",day.toString()));}}
+    Instant breakStart(ZonedDateTime now){
+        long start=preferences.getLong("breakStart",0);
+        return start>0 && now.toLocalDate().toString().equals(preferences.getString("breakDay",""))
+                && !Instant.ofEpochMilli(start).isBefore(settings().windowStart(now)) && !Instant.ofEpochMilli(start).isAfter(now.toInstant()) ? Instant.ofEpochMilli(start) : null;
+    }
+    void startBreak(ZonedDateTime now){synchronized(LOCK){commit(preferences.edit().putLong("breakStart",now.toInstant().toEpochMilli()).putString("breakDay",now.toLocalDate().toString()));}}
+    void finishBreak(){synchronized(LOCK){commit(preferences.edit().remove("breakStart").remove("breakDay").remove("snooze"));}}
+    boolean alertDue(ZonedDateTime now){long ms=now.toInstant().toEpochMilli();if(!now.toLocalDate().toString().equals(preferences.getString("day","")))return true;long last=preferences.getLong("delivered",0);return ms>=preferences.getLong("snooze",0)&&(last<=0||ms-last>=settings().repeatMinutes()*60000L);}
+    boolean eligible(ZonedDateTime now,boolean suppressed){return settings().movement()&&settings().inWindow(now)&&!suppressed&&!now.toLocalDate().toString().equals(preferences.getString("skip",""));}
     void status(String text){synchronized(LOCK){commit(preferences.edit().putString("status",text));}}
     String status(){return preferences.getString("status","No movement check yet. Health Connect data may be missing or delayed.");}
     void saveCheckin(DailyHealthRules.Checkin value){synchronized(LOCK){try{
