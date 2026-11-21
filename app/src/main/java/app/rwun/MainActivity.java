@@ -30,6 +30,7 @@ public final class MainActivity extends Activity {
   private long progressRender;
   private ImageButton appLeft;
   private boolean planSchedule,creatingPlan;
+  private String editPlanFingerprint="";
   private int setupStep;
   private String draftVolume="12",draftWeeks="8",draftDays="3",draftTime="";
   private int draftGoal,draftBenchmark;
@@ -80,7 +81,7 @@ public final class MainActivity extends Activity {
     store = new RunStore(this);store.refocus(this);getSystemService(NotificationManager.class).cancel(1101);store.purgeWalkUndo(this);store.purgeUndo(this,false);Reminders.schedule(this);
     if(state==null&&store.config()==null)setupStep=-1;
     if (state != null) {
-      planSchedule=state.getBoolean("planSchedule",false);creatingPlan=state.getBoolean("creatingPlan",false);setupStep=state.getInt("setupStep",0);
+      planSchedule=state.getBoolean("planSchedule",false);creatingPlan=state.getBoolean("creatingPlan",false);editPlanFingerprint=state.getString("editPlanFingerprint","");setupStep=state.getInt("setupStep",0);
       draftVolume=state.getString("draftVolume","12");draftWeeks=state.getString("draftWeeks","8");draftDays=state.getString("draftDays","3");draftTime=state.getString("draftTime","");draftGoal=state.getInt("draftGoal");draftBenchmark=state.getInt("draftBenchmark");draftSpeed=state.getBoolean("draftSpeed");draftReturn=state.getBoolean("draftReturn");draftStart=LocalDate.parse(state.getString("draftStart",LocalDate.now().toString()));
       startingRun=state.getBoolean("startingRun");resumeRunFromSettings=state.getBoolean("resumeRunFromSettings");startRequest=state.getString("startRequest","");startDeadline=state.getLong("startDeadline");
       progressActivityId=state.getString("progressActivityId", "");
@@ -139,7 +140,7 @@ public final class MainActivity extends Activity {
   @Override
   protected void onSaveInstanceState(Bundle out) {
     super.onSaveInstanceState(out);
-    out.putBoolean("planSchedule",planSchedule);out.putBoolean("creatingPlan",creatingPlan);out.putInt("setupStep",setupStep);out.putString("draftVolume",draftVolume);out.putString("draftWeeks",draftWeeks);out.putString("draftDays",draftDays);out.putString("draftTime",draftTime);out.putInt("draftGoal",draftGoal);out.putInt("draftBenchmark",draftBenchmark);out.putBoolean("draftSpeed",draftSpeed);out.putBoolean("draftReturn",draftReturn);out.putString("draftStart",draftStart.toString());
+    out.putBoolean("planSchedule",planSchedule);out.putBoolean("creatingPlan",creatingPlan);out.putString("editPlanFingerprint",editPlanFingerprint);out.putInt("setupStep",setupStep);out.putString("draftVolume",draftVolume);out.putString("draftWeeks",draftWeeks);out.putString("draftDays",draftDays);out.putString("draftTime",draftTime);out.putInt("draftGoal",draftGoal);out.putInt("draftBenchmark",draftBenchmark);out.putBoolean("draftSpeed",draftSpeed);out.putBoolean("draftReturn",draftReturn);out.putString("draftStart",draftStart.toString());
     out.putBoolean("startingRun",startingRun);out.putBoolean("resumeRunFromSettings",resumeRunFromSettings);out.putString("startRequest",startRequest);out.putLong("startDeadline",startDeadline);
     out.putString("progressActivityId",progressActivityId);
     out.putString("filterType",filterType);out.putString("filterYear",filterYear);out.putString("filterMonth",filterMonth);
@@ -278,6 +279,7 @@ public final class MainActivity extends Activity {
     TextView welcome=text("Welcome back!",22,true);welcome.setGravity(Gravity.CENTER);LinearLayout.LayoutParams wl=new LinearLayout.LayoutParams(-1,-2);wl.setMargins(0,dp(8),0,dp(4));hero.addView(welcome,wl);
     TextView description=text("Let’s make a plan for your next start line.",17,false);description.setGravity(Gravity.CENTER);hero.addView(description);content.addView(hero,new LinearLayout.LayoutParams(-1,-2));
     planHubChoice("Start new plan",this::beginPlan);
+    planHubChoice("Manage plan",this::showPlanManagement);
     planHubChoice("Restart current plan",this::confirmRestart);
     planHubChoice("Continue plan",()->{planSchedule=true;render();});
     content.addView(button("Plan changes",this::planChanges));
@@ -285,6 +287,29 @@ public final class MainActivity extends Activity {
     content.addView(button("Training preferences",()->openFeatures("plan")));
   }
   private void planHubChoice(String label,Runnable action){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(16),dp(10),dp(16),dp(10));row.setMinimumHeight(dp(56));row.setBackground(PlanningUi.shape(this,PlanningUi.CARD,18,true));TextView title=text(label,16,false);title.setTextColor(palette.ink);row.addView(title,new LinearLayout.LayoutParams(0,-2,1));ImageView arrow=new ImageView(this);arrow.setImageDrawable(UiKit.icon(this,R.drawable.ic_chevron_right,palette.muted,25));row.addView(arrow,new LinearLayout.LayoutParams(dp(28),dp(28)));row.setClickable(true);row.setFocusable(true);row.setContentDescription(label);row.setOnClickListener(v->{try{action.run();}catch(RuntimeException e){error(e);}});LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,0,0,dp(8));content.addView(row,lp);}
+
+  private void showPlanManagement(){
+    String[] actions={"Edit plan",store.planPaused()?"Resume plan":"Pause plan","Delete plan"};
+    new AlertDialog.Builder(this).setTitle("Manage plan").setItems(actions,(dialog,choice)->{try{if(choice==0)editPlan();else if(choice==1)confirmPlanPause();else confirmDeletePlan();}catch(RuntimeException e){error(e);}}).setNegativeButton("Cancel",null).show();
+  }
+  private void editPlan(){
+    ensurePlanEditable();
+    var current=store.config();var profile=store.profile();int goal=-1,benchmark=0;
+    for(int i=0;i<goals().length;i++){if(Math.abs(goals()[i]-current.goalKm())<.01)goal=i;if(Math.abs(goals()[i]-profile.distanceKm())<.01)benchmark=i;}
+    if(goal<0){new AlertDialog.Builder(this).setTitle("Edit this goal").setMessage("This plan has a custom race distance. Start a new plan to choose a new goal and review its schedule.").setPositiveButton("Start new plan",(d,w)->beginPlan()).setNegativeButton("Cancel",null).show();return;}
+    editPlanFingerprint=store.proposalFingerprint();draftGoal=goal;draftBenchmark=benchmark;draftVolume=Double.toString(current.weeklyKm());draftWeeks=Integer.toString(current.weeks());draftDays=Integer.toString(current.days());draftTime=profile.seconds()==0?"":Double.toString(profile.seconds()/60.0);draftSpeed=profile.speedWork();draftReturn=false;draftStart=current.start().isBefore(LocalDate.now())?LocalDate.now():current.start();setupStep=0;creatingPlan=true;render();
+  }
+  private void confirmPlanPause(){
+    ensurePlanEditable();boolean pause=!store.planPaused();String fingerprint=store.proposalFingerprint();
+    new AlertDialog.Builder(this).setTitle(pause?"Pause this plan?":"Resume this plan?")
+      .setMessage(pause?"Planned workout reminders and starts pause. The calendar dates do not move; your activities and any recovery hold remain.":"The existing dates remain unchanged. Any separate recovery hold stays active.")
+      .setNegativeButton("Cancel",null).setPositiveButton(pause?"Pause plan":"Resume plan",(d,w)->{try{ensurePlanEditable();store.setPlanPaused(fingerprint,pause);Reminders.schedule(this);WorkoutWidget.updateAll(this);render();}catch(RuntimeException e){error(e);}}).show();
+  }
+  private void confirmDeletePlan(){
+    ensurePlanEditable();String fingerprint=store.proposalFingerprint();
+    new AlertDialog.Builder(this).setTitle("Delete this plan?").setMessage("The current schedule and its workout changes will be removed. Saved activities, routes and any recovery hold are kept. This cannot be undone.")
+      .setNegativeButton("Keep plan",null).setPositiveButton("Delete plan",(d,w)->{try{ensurePlanEditable();store.deletePlan(fingerprint);config=null;creatingPlan=false;setupStep=-1;planSchedule=false;Reminders.schedule(this);WorkoutWidget.updateAll(this);render();}catch(RuntimeException e){error(e);}}).show();
+  }
 
   private void confirmRestart(){
     try{ensurePlanEditable();}catch(RuntimeException e){error(e);return;}
@@ -326,8 +351,9 @@ public final class MainActivity extends Activity {
     }else{
       PlanEngine.Config next=draftConfig();PaceProfile profile=draftProfile();content.addView(text("Your plan, at a glance",30,true));LinearLayout summary=card();summary.addView(text(PlanEngine.distance(next.goalKm())+" goal",23,true));summary.addView(text(next.weeks()+" weeks · "+next.days()+" runs per week",16,false));summary.addView(text(draftReturn?"Return to running · run / walk":"Race preparation",15,false));summary.addView(text("Starts "+next.start().format(DateTimeFormatter.ofPattern("d MMM yyyy")),15,false));
       content.addView(text("WEEK ONE PREVIEW",12,false));for(var session:OnboardingPlan.sessions(next,profile,draftReturn))if(session.date().isBefore(next.start().plusDays(7))){LinearLayout run=card();run.addView(text(session.title(),18,true));run.addView(text(session.date().format(DateTimeFormatter.ofPattern("EEE, d MMM"))+" · "+PlanEngine.distance(session.km()),15,false));}
+      if(config!=null)content.addView(text("Saving replaces the current schedule, including moved and skipped workouts and race details. The replacement is active; saved activities and recovery holds are kept.",15,false));
       content.addView(text("These rule-based plans use conservative progression; they have not been validated as equivalent to professional coaching. Your existing activity history is kept.",13,false));
-      content.addView(button("Build my plan",()->{ensurePlanEditable();store.createPlan(next,profile,draftReturn);store.event("plan_created");config=store.config();creatingPlan=false;planSchedule=true;week=0;tab="Plan";render();}));return;
+      content.addView(button("Build my plan",()->{ensurePlanEditable();if(creatingPlan&&!editPlanFingerprint.equals(store.proposalFingerprint()))throw new IllegalStateException("Your plan or activity history changed. Reopen Edit plan to review it again.");store.createPlan(next,profile,draftReturn);store.event("plan_created");config=store.config();creatingPlan=false;planSchedule=true;week=0;tab="Plan";render();}));return;
     }
     content.addView(button("Continue",()->{
       if(setupStep==1){double volume=Double.parseDouble(draftVolume);if(!Double.isFinite(volume)||volume<4||volume>120)throw new IllegalArgumentException("Weekly distance must be between 4 and 120 km.");draftProfile();}
@@ -348,7 +374,7 @@ public final class MainActivity extends Activity {
 
   private void openTraining(String screen){refreshFeatures=true;startActivity(new Intent(this,TrainingActivity.class).putExtra("screen",screen));}
 
-  private void openIndoor(String planned){refreshFeatures=true;Intent i=new Intent(this,IndoorActivity.class);if(planned!=null)i.putExtra("planned",planned);startActivity(i);}
+  private void openIndoor(String planned){if(planned!=null&&store.planPaused())throw new IllegalStateException("Resume your plan before starting a planned workout.");refreshFeatures=true;Intent i=new Intent(this,IndoorActivity.class);if(planned!=null)i.putExtra("planned",planned);startActivity(i);}
   private void openFreeIndoorWalk(){refreshFeatures=true;startActivity(new Intent(this,IndoorActivity.class).putExtra("goal",0));}
   private void chooseWalk(){
     if(store.indoorPending()){openIndoor(null);return;}
@@ -373,7 +399,7 @@ public final class MainActivity extends Activity {
     if(store.resting()){LinearLayout hold=card();hold.addView(text("Training paused",20,true));hold.addView(text(store.adaptation(),15,false));}
     if((tracker!=null&&tracker.active())||store.indoorPending()||!store.checkpoint().isEmpty())content.addView(button("Return to your session",()->{if(store.indoorPending())openIndoor(null);else{tab="Run";render();}}));
     freeActivityActions();
-    var next=sessions().stream().filter(s->!s.date().isBefore(LocalDate.now())&&!store.completed(key(s))&&!store.skipped(key(s))).findFirst().orElse(null);
+    var next=(store.planPaused()?java.util.stream.Stream.<PlanEngine.Session>empty():sessions().stream()).filter(s->!s.date().isBefore(LocalDate.now())&&!store.completed(key(s))&&!store.skipped(key(s))).findFirst().orElse(null);
     LinearLayout hero=card();hero.setBackground(rounded(palette.tonal));hero.addView(text(next==null?"MAKE ROOM TO MOVE":"YOUR NEXT RUN",12,true));hero.addView(text(next==null?"A little movement counts.":next.title(),28,true));
     hero.addView(text(next==null?"Choose a run, a walk, or a few minutes on your walking pad.":PlanEngine.distance(next.km())+" · "+next.date().format(DateTimeFormatter.ofPattern("EEE, d MMM")),16,false));
     if(next!=null)hero.addView(button("View workout",()->detail(next)));
@@ -385,7 +411,7 @@ public final class MainActivity extends Activity {
   }
 
   private PlanEngine.Session nextCoachedSession() {
-    return sessions().stream().filter(s->!s.date().isBefore(LocalDate.now())&&!store.completed(key(s))&&!store.skipped(key(s))).findFirst().orElse(null);
+    return (store.planPaused()?java.util.stream.Stream.<PlanEngine.Session>empty():sessions().stream()).filter(s->!s.date().isBefore(LocalDate.now())&&!store.completed(key(s))&&!store.skipped(key(s))).findFirst().orElse(null);
   }
 
   private void planOverview() {
@@ -459,7 +485,7 @@ public final class MainActivity extends Activity {
     content.addView(text(start.format(DateTimeFormatter.ofPattern("d MMM"))+" – "+end.minusDays(1).format(DateTimeFormatter.ofPattern("d MMM yyyy")),14,false));
     LinearLayout days=new LinearLayout(this);
     for(int i=0;i<7;i++){LocalDate date=start.plusDays(i);boolean today=date.equals(LocalDate.now());LinearLayout day=column();day.setGravity(Gravity.CENTER);day.setPadding(0,dp(8),0,dp(8));day.setBackground(rounded(today?palette.tonal:palette.surface));TextView weekday=text(date.format(DateTimeFormatter.ofPattern("EEEEE")),11,false);weekday.setGravity(Gravity.CENTER);day.addView(weekday);TextView number=text(""+date.getDayOfMonth(),16,true);number.setGravity(Gravity.CENTER);day.addView(number);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(dp(2),dp(4),dp(2),dp(8));days.addView(day,lp);}content.addView(days);
-    if (store.resting())
+    if (store.resting()||store.planPaused())
       content.addView(text("Training paused. Distances are reference only.", 16, true));
     for (int d = 0; d < 7; d++) {
       LocalDate date = start.plusDays(d);
@@ -630,6 +656,7 @@ public final class MainActivity extends Activity {
   }
   private void prepareStart(String id,double target){
     if(startingRun){tab="Run";render();return;}
+    if(store.planPaused()&&id.startsWith(store.planId()+":"))throw new IllegalStateException("Resume your plan before starting a planned workout.");
     if(store.skipped(id))throw new IllegalStateException("Unskip this workout before starting it.");
     walkMode=id.startsWith("walk:");pendingId=id;pendingTarget=target;
     if(!canStartRun())return;
