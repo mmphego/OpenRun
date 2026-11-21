@@ -88,6 +88,8 @@ public class HomeNavigationUiTest {
       for(String title:new String[]{"Home","Plan","Calendar","Progress","Coach"})navigation(activity,title);
       assertTrue(navigation(activity,"Home").isSelected());
       assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Movement reminders"));
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Start free run"));
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Start free walk"));
       assertTrue("Home actions should fit at default font size",scroll.getChildAt(0).getHeight()<=scroll.getHeight());
     }
   }
@@ -98,7 +100,7 @@ public class HomeNavigationUiTest {
       NativePlanningTest.click(activity,"Plan");
       assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"What are you training for?"));
       NativePlanningTest.click(activity,"Home");
-      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Start a walk"));
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Start free walk"));
       controller.recreate();activity=controller.get();layout(activity,360,780,"home-after-recreation");
       assertTrue(navigation(activity,"Home").isSelected());
       assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Create my plan"));
@@ -113,7 +115,7 @@ public class HomeNavigationUiTest {
         NativePlanningTest.click(activity,title);layout(activity,360,780,"no-plan-"+title.toLowerCase());
         assertTrue(navigation(activity,title).isSelected());
         NativePlanningTest.click(activity,"Home");
-        assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Start a walk"));
+        assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Start free walk"));
       }
     }
   }
@@ -142,6 +144,8 @@ public class HomeNavigationUiTest {
       assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Continue plan"));
       NativePlanningTest.click(activity,"Home");
       assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Your training, today."));
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Start free run"));
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Start free walk"));
       assertEquals(planId,store.planId());
     }
   }

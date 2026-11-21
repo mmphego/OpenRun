@@ -87,7 +87,7 @@ Check normal and enlarged Samsung text/display settings in Plan, race/manual onb
 ## Walking-pad regression — 1.4.4 (NOT EXECUTED)
 
 1. Save any current recording, upgrade without uninstalling, and verify old plan and walks remain.
-2. Today → Start walk → Walking pad: no location prompt or GPS dashboard. Count phone steps starts selected. Grant Physical activity permission and start. Declining must leave the start screen, with an explanation.
+2. Today → Start free walk → Walking pad: no location prompt or GPS dashboard. Count phone steps starts selected. Grant Physical activity permission and start. Declining must leave the start screen, with an explanation.
 3. Put the S23 in the same pocket used for the reported walk. Walk 100–200 steps and confirm the count increases before a longer session. Record app steps, manually observed steps, pad speed and distance, and the phone/One UI version.
 4. Lock the phone and walk on the pad for 10 minutes; unlock and allow the counter to deliver its sample. Count and estimated distance should advance. Check notification and preserve logs if either stays at zero. Do not mark a host simulation as a hardware pass.
 5. On a controlled no-steps session, verify NO STEPS YET appears after 30 seconds and the notification says no steps detected while the process is awake. No spoken warning is promised.

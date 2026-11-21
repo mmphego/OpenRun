@@ -28,19 +28,19 @@ final class IndoorCoaching {
  }
  static String cueKey(JSONObject a,WorkoutFactory.Workout def,long seconds){
   if(def!=null)return "step:"+a.optInt("step");
-  return seconds>=a.optInt("goal")*60L?"goal":"start";
+  return a.optInt("goal")>0&&seconds>=a.optInt("goal")*60L?"goal":"start";
  }
  static String cue(JSONObject a,WorkoutFactory.Workout def,long seconds){
   if(def!=null){int n=a.optInt("step");return n>=def.steps().size()?"Workout steps complete. Finish and review when ready.":def.steps().get(n).title()+". "+def.steps().get(n).target();}
-  return seconds>=a.optInt("goal")*60L?"Your indoor time goal is reached. Finish and review when ready, or continue if you choose.":"Indoor "+a.optString("kind").toLowerCase(java.util.Locale.ROOT)+" started. Begin gently. Keep your phone in your pocket for steps.";
+  return a.optInt("goal")>0&&seconds>=a.optInt("goal")*60L?"Your indoor time goal is reached. Finish and review when ready, or continue if you choose.":"Indoor "+a.optString("kind").toLowerCase(java.util.Locale.ROOT)+" started. Begin gently. Keep your phone in your pocket for steps.";
  }
  static boolean needsAudio(RunStore store,JSONObject a,long seconds){
   if(!store.audio()||a==null||a.optBoolean("paused")||seconds>=MAX_AUDIO_SECONDS)return false;
   var def=definition(store,a);
-  return def==null?seconds<a.optInt("goal")*60L+30:a.optInt("step")<def.steps().size()||!a.optString("coachCueKey").equals("step:"+a.optInt("step"));
+  return def==null?(a.optInt("goal")==0?seconds<30&&!a.optString("coachCueKey").equals("start"):seconds<a.optInt("goal")*60L+30):a.optInt("step")<def.steps().size()||!a.optString("coachCueKey").equals("step:"+a.optInt("step"));
  }
  static boolean needsAwake(JSONObject a,WorkoutFactory.Workout def,long seconds){
-  if(def==null)return seconds<a.optInt("goal")*60L;
+  if(def==null)return a.optInt("goal")>0&&seconds<a.optInt("goal")*60L;
   int n=a.optInt("step");return n<def.steps().size()&&def.steps().get(n).seconds()>0;
  }
 }

@@ -9,12 +9,14 @@ final class PendingSession {
   if(a.optBoolean("paused")&&paused>0)return nowWall>=paused&&nowWall-paused>=30*60*1000L;
   long seconds=a.optLong("seconds");
   if(a.has("resumed")&&!a.optBoolean("paused")&&a.optInt("boot")==boot)seconds+=Math.max(0,nowElapsed-a.optLong("resumed"))/1000;
-  if(!a.optBoolean("paused")&&a.has("goal")){
+  if(!a.optBoolean("paused")&&a.has("goal")&&a.optInt("goal")>0){
    long limit=a.optInt("goal")*60L+30*60;
    long movement=Math.max(a.optLong("stepResume"),a.optLong("stepMovementNanos",a.optLong("stepEvent")));
    long quiet=movement>0?Math.max(0,nowElapsed-movement/1000000)/1000:seconds;
    if(seconds>=limit&&(!a.optBoolean("phoneSteps")||quiet>=30*60))return true;
   }
+  // An open-ended time-only timer has no sensor service and therefore no heartbeat.
+  if(a.has("goal")&&a.optInt("goal")==0&&!a.optBoolean("phoneSteps")&&!a.optBoolean("paused"))return false;
   if(a.has("lastMovementSeconds")&&seconds>=60*60&&seconds-a.optLong("lastMovementSeconds")>=30*60)return true;
   if(heartbeat>0)return nowWall>=heartbeat&&nowWall-heartbeat>=15*60*1000L;
   long anchor=started>0?started:firstSeen;

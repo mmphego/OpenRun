@@ -303,7 +303,7 @@ public final class MainActivity extends Activity {
       content.addView(text("Your next start line.",22,true));content.addView(text("A plan for your running. Room to walk every day.",17,false));PlanningUi.gap(this,content,12);
       content.addView(PlanningUi.compactChoice(this,R.drawable.ic_volume_up,"AI Coach","Use your own OpenAI or Gemini API key.",()->startActivity(new Intent(this,AiCoachActivity.class))));
       content.addView(PlanningUi.compactChoice(this,R.drawable.ic_assignment,"Create my plan","Choose your goal or find a race.",()->openRace("goal")));
-      content.addView(PlanningUi.compactChoice(this,R.drawable.ic_directions_walk,"Start a walk","Choose walking pad or outdoors.",this::chooseWalk));
+      freeActivityActions();
       content.addView(PlanningUi.compactChoice(this,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor time, steps and optional distance.",()->openIndoor(null)));
       content.addView(button("Movement reminders",()->openTraining("reminders")));return;
     }
@@ -349,14 +349,22 @@ public final class MainActivity extends Activity {
   private void openTraining(String screen){refreshFeatures=true;startActivity(new Intent(this,TrainingActivity.class).putExtra("screen",screen));}
 
   private void openIndoor(String planned){refreshFeatures=true;Intent i=new Intent(this,IndoorActivity.class);if(planned!=null)i.putExtra("planned",planned);startActivity(i);}
+  private void openFreeIndoorWalk(){refreshFeatures=true;startActivity(new Intent(this,IndoorActivity.class).putExtra("goal",0));}
   private void chooseWalk(){
     if(store.indoorPending()){openIndoor(null);return;}
     if((tracker!=null&&tracker.active())||!store.checkpoint().isEmpty()){tab="Run";render();return;}
     new AlertDialog.Builder(this).setTitle("Where are you walking?")
-      .setItems(new String[]{"Walking pad · phone steps","Outdoors · GPS"},(dialog,which)->{
-        try{if(which==0)openIndoor(null);
+      .setItems(new String[]{"Walking pad · phone steps · no time goal","Outdoors · GPS · open distance"},(dialog,which)->{
+        try{if(which==0)openFreeIndoorWalk();
         else{walkMode=true;prepareStart("walk:"+UUID.randomUUID(),0);}}catch(RuntimeException e){error(e);}
       }).setNegativeButton("Cancel",null).show();
+  }
+  private void freeActivityActions(){
+    LinearLayout start=new LinearLayout(this);
+    Button run=button("Start free run",()->{walkMode=false;prepareStart("free:"+UUID.randomUUID(),0);});
+    Button walk=button("Start free walk",this::chooseWalk);
+    LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,-2,1);a.setMargins(0,dp(6),dp(5),dp(6));start.addView(run,a);
+    LinearLayout.LayoutParams b=new LinearLayout.LayoutParams(0,-2,1);b.setMargins(dp(5),dp(6),0,dp(6));start.addView(walk,b);content.addView(start);
   }
   private void today() {
     content.addView(text("Your training, today.",30,true));
@@ -364,12 +372,12 @@ public final class MainActivity extends Activity {
     content.addView(text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),14,false));
     if(store.resting()){LinearLayout hold=card();hold.addView(text("Training paused",20,true));hold.addView(text(store.adaptation(),15,false));}
     if((tracker!=null&&tracker.active())||store.indoorPending()||!store.checkpoint().isEmpty())content.addView(button("Return to your session",()->{if(store.indoorPending())openIndoor(null);else{tab="Run";render();}}));
+    freeActivityActions();
     var next=sessions().stream().filter(s->!s.date().isBefore(LocalDate.now())&&!store.completed(key(s))&&!store.skipped(key(s))).findFirst().orElse(null);
     LinearLayout hero=card();hero.setBackground(rounded(palette.tonal));hero.addView(text(next==null?"MAKE ROOM TO MOVE":"YOUR NEXT RUN",12,true));hero.addView(text(next==null?"A little movement counts.":next.title(),28,true));
     hero.addView(text(next==null?"Choose a run, a walk, or a few minutes on your walking pad.":PlanEngine.distance(next.km())+" · "+next.date().format(DateTimeFormatter.ofPattern("EEE, d MMM")),16,false));
     if(next!=null)hero.addView(button("View workout",()->detail(next)));
     coachPreview();
-    LinearLayout start=new LinearLayout(this);Button run=button("Start run",()->{walkMode=false;prepareStart("free:"+UUID.randomUUID(),0);}),walk=button("Start walk",this::chooseWalk);LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,-2,1);a.setMargins(0,dp(6),dp(5),dp(6));start.addView(run,a);LinearLayout.LayoutParams b=new LinearLayout.LayoutParams(0,-2,1);b.setMargins(dp(5),dp(6),0,dp(6));start.addView(walk,b);content.addView(start);
     LinearLayout indoor=card();row(indoor,R.drawable.ic_directions_walk,"Walking pad & treadmill","Phone steps and estimated distance · no GPS",()->openIndoor(null));
     weeklySummary();WalkData.Week w=WalkData.week(store.v103(),LocalDate.now());LinearLayout walking=card();walking.addView(text("WALKING · LAST 7 DAYS",11,true));walking.addView(text(w.seconds()/60+" minutes · "+w.days()+" active days",21,true));walking.addView(text("Everyday movement, kept separate from running mileage.",14,false));
     LinearLayout tools=card();row(tools,R.drawable.ic_calendar_month,"Movement & recovery","Working-hour movement breaks and recovery check-ins",()->startActivity(new Intent(this,DailyHealthActivity.class)));
@@ -602,10 +610,10 @@ public final class MainActivity extends Activity {
   private void enableLocation(){
     if(gpsDialog!=null&&gpsDialog.isShowing())return;
     gpsDialog=new AlertDialog.Builder(this).setTitle("Turn on location to start")
-      .setMessage("Your session has not started. GPS recording needs device Location switched on. Enable it in Android Settings, then return to OpenRun; we’ll continue starting this run.")
+      .setMessage("Your session has not started. GPS recording needs device Location switched on. Enable it in Android Settings, then return to OpenRun; we’ll continue starting this "+(walkMode?"walk.":"run."))
       .setNegativeButton("Not now",null).setPositiveButton("Open location settings",(d,w)->{
         try{resumeRunFromSettings=true;startActivity(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS));}
-        catch(ActivityNotFoundException|SecurityException blocked){resumeRunFromSettings=false;new AlertDialog.Builder(this).setTitle("Enable Location manually").setMessage("Open Android Settings → Location and turn it on, then return and tap Start free run again. No run is recording yet.").setPositiveButton("OK",null).show();}
+        catch(ActivityNotFoundException|SecurityException blocked){resumeRunFromSettings=false;new AlertDialog.Builder(this).setTitle("Enable Location manually").setMessage("Open Android Settings → Location and turn it on, then return and start your "+(walkMode?"walk":"run")+" again. No session is recording yet.").setPositiveButton("OK",null).show();}
       }).create();gpsDialog.setOnDismissListener(d->gpsDialog=null);gpsDialog.show();
   }
   private boolean canStartRun(){
@@ -647,7 +655,7 @@ public final class MainActivity extends Activity {
     if(tab.equals("Run"))render();
     if(outcome==RunStartGate.Outcome.RECORDING){Toast.makeText(this,(walkMode?"Outdoor walk":"Run")+" recording started. GPS measures outdoor movement; use Indoors for a walking pad.",Toast.LENGTH_LONG).show();return;}
     String message=outcome==RunStartGate.Outcome.FAILED?tracker.startFailure():"The recorder has not confirmed a start. Check the Run screen and notification before trying again. No recording has been confirmed.";
-    new AlertDialog.Builder(this).setTitle(outcome==RunStartGate.Outcome.FAILED?"Run did not start":"Check recording status").setMessage(message).setPositiveButton("OK",null).show();
+    new AlertDialog.Builder(this).setTitle(outcome==RunStartGate.Outcome.FAILED?(walkMode?"Walk did not start":"Run did not start"):"Check recording status").setMessage(message).setPositiveButton("OK",null).show();
   }
 
   @Override
@@ -657,7 +665,7 @@ public final class MainActivity extends Activity {
       if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
           == PackageManager.PERMISSION_GRANTED) {try{prepareStart(pendingId, pendingTarget);}catch(RuntimeException e){error(e);}}
       else new AlertDialog.Builder(this).setTitle("Precise location is needed")
-        .setMessage("Your session has not started. In App permissions → Location, allow access while using OpenRun and enable precise location. Return here to continue starting your run.")
+        .setMessage("Your session has not started. In App permissions → Location, allow access while using OpenRun and enable precise location. Return here to continue starting your "+(walkMode?"walk.":"run."))
         .setNegativeButton("Not now",null).setPositiveButton("Open app permissions",(d,w)->{try{resumeRunFromSettings=true;startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException|SecurityException e){resumeRunFromSettings=false;error(new IllegalStateException("Open Android Settings → Apps → OpenRun → Permissions → Location manually, then try again."));}}).show();
     }
     if (request == 101) {if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)Toast.makeText(this,"Notification controls will be hidden until notifications are enabled in app settings.",Toast.LENGTH_LONG).show();try{startRecording();}catch(RuntimeException e){error(e);}}
@@ -667,7 +675,7 @@ public final class MainActivity extends Activity {
   private void updateDashboard() {
     if(dashboard!=null)dashboard.update(tracker,store.audio());
     if(pauseControl!=null&&tracker!=null){
-      String label=tracker.paused()?"Resume run":"Pause run";pauseControl.setText(label);
+      String label=tracker.paused()?(tracker.walking()?"Resume walk":"Resume run"):(tracker.walking()?"Pause walk":"Pause run");pauseControl.setText(label);
       pauseControl.setCompoundDrawablesRelative(UiKit.icon(this,tracker.paused()?R.drawable.ic_play_arrow:R.drawable.ic_pause,palette.primary,22),null,null,null);
     }
   }

@@ -33,6 +33,8 @@ The current focus is **running and walking**. Historical cycling and strength su
 
 Home, Plan, Calendar, Progress and Coach remain available in the bottom navigation, including before a plan is created. Home returns to the entry screen; the settings icon opens Profile. Compact entry cards keep common actions visible on typical phone screens, with scrolling retained for smaller screens and larger accessibility fonts.
 
+Home offers **Start free run** and **Start free walk** without a planned workout. Outdoor sessions have open distance; the free walking-pad choice defaults to **No time goal**, with timed goals still available. An open-ended time-only indoor session has no sensor-service heartbeat or goal deadline, so an unfinished-session reminder cannot reliably detect abandonment while it remains unpaused; finish or pause it when done. Reboot and paused-session recovery rules still apply.
+
 ## UI images
 
 These are real Android Views from the Rwun baseline rendered by the existing Robolectric Native Graphics tests with synthetic data, **not photographs, mockups, emulator captures or S23 acceptance evidence**. They show the recovered Rwun 1.4.4 planning and walking screens. The new provider catalogue screen is not pictured.

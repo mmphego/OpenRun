@@ -33,17 +33,18 @@ final class RunDashboard extends LinearLayout {
     boolean failed=tracker!=null&&!tracker.startFailure().isEmpty()&&!active;
     boolean locationOn=false;try{locationOn=getContext().getSystemService(android.location.LocationManager.class).isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);}catch(RuntimeException ignored){}
     boolean precise=getContext().checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED;
-    state.setText(active?(tracker.paused()?"PAUSED":tracker.distanceNeedsAttention()?"CHECK DISTANCE":"RECORDING") : !locationOn?"LOCATION IS OFF":!precise?"PRECISE LOCATION NEEDED":failed?"RUN DID NOT START":(walking?"READY TO WALK":"READY TO RUN"));
+    state.setText(active?(tracker.paused()?"PAUSED":tracker.distanceNeedsAttention()?"CHECK DISTANCE":"RECORDING") : !locationOn?"LOCATION IS OFF":!precise?"PRECISE LOCATION NEEDED":failed?(walking?"WALK DID NOT START":"RUN DID NOT START"):(walking?"READY TO WALK":"READY TO RUN"));
     state.setTextColor(active&&tracker.distanceNeedsAttention()?colors.danger:colors.primary);
-    distance.setText(String.format(Locale.US,"%.2f",tracker==null?0:tracker.km()));
+    distance.setText(String.format(Locale.US,"%.2f",active?tracker.km():0));
     distance.setContentDescription("Distance, "+distance.getText()+" kilometres");
-    long sec=tracker==null?0:tracker.seconds();time.setText(String.format(Locale.US,"%02d:%02d:%02d",sec/3600,sec/60%60,sec%60));
-    pace.setText(tracker==null?"—":PaceProfile.format(tracker.currentPace()));
-    phase.setText(active?tracker.phase():!locationOn?"Turn on location to run":!precise?"Location permission needed":failed?"Start blocked":walking?"Ready to walk":"Ready to run");
-    String remaining=active?tracker.remaining():!locationOn?"Tap Start free run to open Android Location settings. No run is recording.":!precise?"Tap Start free run to grant precise location. No run is recording.":"Start outdoors with precise location enabled.";
+    long sec=active?tracker.seconds():0;time.setText(String.format(Locale.US,"%02d:%02d:%02d",sec/3600,sec/60%60,sec%60));
+    pace.setText(active?PaceProfile.format(tracker.currentPace()):"—");
+    phase.setText(active?tracker.phase():!locationOn?(walking?"Turn on location to walk":"Turn on location to run"):!precise?"Location permission needed":failed?"Start blocked":walking?"Ready to walk":"Ready to run");
+    String start=walking?"Start outdoor walk":"Start free run";
+    String remaining=active?tracker.remaining():!locationOn?"Tap "+start+" to open Android Location settings. No session is recording.":!precise?"Tap "+start+" to grant precise location. No session is recording.":"Start outdoors with precise location enabled.";
     String range=active?tracker.paceTarget():"";target.setText(remaining+(range.isEmpty()?"":"\nTarget "+range));
     heart.setText(tracker!=null&&tracker.bpm()>0?tracker.bpm()+" bpm":"Heart rate not connected");
-    gps.setText(tracker==null?"Outdoor GPS · walking pad sessions use phone steps or machine distance.":tracker.status());
+    gps.setText(active||failed?tracker.status():"Outdoor GPS · walking pad sessions use phone steps or machine distance.");
     gps.setTextColor(active&&tracker.distanceNeedsAttention()?colors.danger:colors.muted);
     String nextCue=active?tracker.lastCue():"";if(!android.text.TextUtils.equals(cue.getText(),nextCue))cue.setText(nextCue);cue.setVisibility(active?VISIBLE:GONE);
     voice.setText(tracker==null?"Audio unavailable · check voice settings":tracker.voiceStatus());

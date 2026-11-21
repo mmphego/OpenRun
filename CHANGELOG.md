@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Make free run and free walk easy to find on Home. Free runs and walking-pad walks can start without a goal, and walk controls use walk labels.
+
 - Add configurable movement check, break-step, repeat and snooze intervals; remind on unavailable step data and track breaks until completion. Android can delay checks.
 
 - Add immediate notification test results, a high-importance sound-matched test channel and direct spoken-audio preview.
