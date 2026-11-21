@@ -4,21 +4,15 @@ Open **Today → Movement & recovery** or **Profile → Movement & recovery**. B
 
 ## Movement
 
-Choose working weekdays and same-day hours (`00:00`–`24:00` supports a full day), an inactivity interval of **60–720 minutes** (default 120) and a walking break of **3–60 minutes** (default three). Overnight windows are not supported. Enabling step-based monitoring turns off legacy fixed-time movement prompts; planned-workout reminders are unchanged.
+Choose working weekdays and same-day hours (`00:00`–`24:00` supports a full day). Configure the lookback (60–720 minutes; default 60 for new installations), minimum lookback steps (default 50), break target (default 50), check interval (default 10 minutes), repeat interval (default 10 minutes), and snooze (default 15 minutes). Step targets and intervals are independent. Existing lookback and step settings are preserved on upgrade. Overnight windows are not supported. Enabling monitoring turns off legacy fixed-time prompts; planned-workout reminders are unchanged.
 
-The movement screen shows setup status before the schedule: step access, background access, the OpenRun read switch and the Movement breaks notification channel are checked separately. Granted permissions are labelled as allowed rather than requested again. If reading is paused, use Health Connect data controls to resume it explicitly. Returning from Android settings refreshes status without clearing unsaved schedule edits. Permission results report whether access was actually granted.
+Android's JobScheduler runs one-shot checks on a best-effort basis. Android can delay them because of Doze, battery restrictions, force-stop or other platform policies; the configured interval is not a delivery guarantee. No background GPS or continuously running sensor service is used. A notification requires app and channel permission. The notification channel controls sound and vibration, and Android may override either; newly created channels request a bounded vibration pattern.
 
-Movement & run reminders identifies the active mode. While Health Connect movement detection is enabled, fixed-time controls are disabled/hidden and cannot be saved as enabled; planned-workout reminders remain independent. Turning Health Connect movement detection off does not silently re-enable fixed-time prompts.
+Health Connect aggregates steps across sources rather than manually summing overlapping phone/watch totals. Below the configured lookback target, OpenRun starts a break at the time of the first reminder and tracks a separate aggregate from then until the break target is reached. A completion notification confirms recorded progress. Health Connect publishers may delay syncing or provide coarse intervals, so counts and completion can be delayed or approximate. A fresh short record is needed to establish freshness; missing, stale, incomplete, denied or failed reads trigger a reminder explicitly labelled unverified rather than being treated as zero steps. A break remains active when its progress cannot be verified.
 
-Notification settings opens the relevant Android channel, with separate movement/workout status. Send a test reminder now checks app and channel permission before posting. A posted test does not establish Health Connect readiness, sound/pop-up delivery or step-data freshness. A blocked movement channel cancels monitoring and cannot consume a daily reminder allowance.
+Snooze pauses alerts while checks and break tracking continue. Unfinished breaks repeat at the configured interval, with no daily cap, until confirmed complete. Working hours, skip today, active/pending recordings and training holds suppress alerts; an unfinished break does not carry into the next working day. The existing boot receiver restores scheduling. Permissions, a paused Health Connect read switch, or an unavailable provider prevent reads but do not disable reminders. Low recorded movement does not establish sitting or phone carriage.
 
-Android notifications, Health Connect steps and separate background health reads require consent. Android 14+ framework Health Connect and supported background reads are needed for monitoring. Manual check-ins remain usable on Android 8+.
-
-An inexact JobScheduler job runs approximately every 15 minutes without network, GPS or a continuously running sensor service. The first alert waits a full interval after enabling/changing monitoring, the beginning of working hours, or an **Already moved** confirmation. Navigation does not continually reset the scheduled job.
-
-Health Connect aggregates steps across sources; OpenRun does not manually sum overlapping phone/watch totals. Fewer than your configured **minimum steps per interval** (1–10,000; existing settings retain 50) over the trailing interval is treated as low **recorded** movement. It does not establish sitting, continuous inactivity or phone carriage. Freshness also requires a short step record (15 minutes or less) ending within the last 20 minutes. Broad daily watch summaries cannot establish recent freshness. Missing, stale, failed, future or truncated reads suppress alerts instead of becoming zero steps. Providers that do not publish zero-step intervals may never provide a sufficiently fresh low-movement signal. The UI explains insufficient data; no sitting claim is substituted.
-
-Notifications offer **Start walk**, **Already moved** and **Snooze 30 min**. Start walk opens the indoor timer with the configured goal and requires an explicit start. Already moved resets the interval without inventing steps. Snooze delays checks by at least 30 minutes without shortening the full configured interval since the last reminder. Skip today is available in preferences. Alerts repeat no more frequently than the configured interval, up to eight per local day. Active/pending recordings, training holds, quiet hours and unavailable/revoked permissions suppress delivery. Completing an indoor activity acknowledges movement. The existing boot receiver restores scheduling; force-stop, battery restrictions and sync delays affect delivery.
+The movement screen shows setup status for step access, background access, the OpenRun read switch and the movement notification channel. Returning from Android settings refreshes status without clearing unsaved edits. A test notification does not establish Health Connect readiness or prove vibration or sound playback.
 
 Garmin Connect can publish supported data to Health Connect following device sync and configuration. This is historical data, not continuous watch access or a direct Garmin account integration. Verify data availability on the actual device. Live compatible Bluetooth heart-rate recording is separate.
 
@@ -38,7 +32,7 @@ Optional, individually authorised sleep and resting-heart-rate context is read o
 
 Feature state is absent from `RunStore.backupPreferences()`, portable/cloud backups, activity exports, optional metrics and local/server AI summaries. Android backup/device transfer is already disabled/excluded for the app. This feature sends no network requests, health uploads or model-training input, collects no GPS/venue history and makes no alcohol inference. Existing race/map/account networking and upstream publishing apps such as Garmin Connect remain separate.
 
-Delete the latest check-in or all feature data through **Data, permissions & deletion**. Erasing all feature data disables monitoring and prompts, retaining workouts and Health Connect records. Permission revocation stops future reads, not saved answers. In-flight results are discarded following configuration changes, deletion, cancellation or revoked access. Notifications include no alcohol/illness answers and use private lock-screen visibility.
+Delete the latest check-in or all feature data through **Data, permissions & deletion**. Erasing all feature data disables monitoring and prompts, retaining workouts and Health Connect records. Permission revocation stops future reads, not saved answers. In-flight results are discarded following configuration changes, deletion or cancellation; revoked access is treated as unavailable data. Notifications include no alcohol/illness answers and use private lock-screen visibility.
 
 ## Components
 
@@ -47,7 +41,7 @@ Delete the latest check-in or all feature data through **Data, permissions & del
 | `DailyHealthRules` | Pure movement-window, freshness and recovery rules |
 | `DailyHealthStore` | Separate durable settings, check-in expiry and deletion |
 | `DailyHealthSource` | Bounded official Health Connect reads and aggregation |
-| `DailyHealthJob`, `DailyHealthActions` | Permission-gated scheduling, cooldown and notifications |
+| `DailyHealthJob`, `DailyHealthActions` | Best-effort scheduling, break tracking, cooldown and notifications |
 | `DailyHealthActivity`, `RecoveryPrompt` | Native preferences, optional check-in and explanations |
 
 ## Verification and physical acceptance
@@ -58,9 +52,9 @@ Before release, use an S23 and an older Android device to verify:
 
 1. Same-signature upgrades preserve history and interrupted recordings.
 2. Steps/background reads/notifications can each be denied and revoked, including during an active read; unsupported services remain explicit.
-3. A 60-minute interval and three-minute walking goal work with fresh low-step records. Compare records with Health Connect; repeat with a phone left on a desk and watch awaiting sync. Missing/stale/daily-only data must suppress alerts.
-4. Working days, quiet hours, snooze, already moved, skip today, repeat limits, reboot, clock/time-zone changes, force-stop and Samsung battery settings behave as documented. Measure approximate delivery.
-5. Suggested walks require explicit start, preserve the configured duration, and record normally. Active/pending recordings and holds suppress movement notifications.
+3. Compare the lookback and break totals with Health Connect. Repeat with a phone left on a desk, delayed watch sync, missing permissions and stale records; unavailable data must produce an unverified reminder.
+4. Working days, quiet hours, snooze, skip today, repeats, reboot, clock/time-zone changes, force-stop and Samsung battery settings behave as documented. Measure approximate delivery.
+5. A break starts with its first reminder and completes when recorded steps reach its target, including while snoozed. Active/pending recordings and holds suppress alerts.
 6. Optional check-ins before both recorders never silently alter training or clear a hold. Pain holds require confirmation.
 7. Sleep-window and same-source resting-heart-rate context matches available records; no HRV or live Garmin readiness is claimed.
 8. Feature data is absent from backups and optional AI payloads. Deleting data during a pending read cannot resurrect results or notifications. Test only with synthetic data.
@@ -74,10 +68,6 @@ The check-in uses visible single-choice chips instead of dropdowns. Skip maps to
 ## Spoken notification sound
 
 Configure spoken reminder creates a local WAV using the highest-quality installed offline voice for the device language. Enter up to 200 characters, such as “Get up and stretch a little”. This uses Android TTS; neural quality depends on the installed engine. Missing voices leave standard reminders available. The generated sound is used by test and movement notifications through a separate Android channel. Android controls notification volume, DND and channel sound overrides. Use standard sound disables the spoken channel selection. This does not bypass notification permissions or promise Samsung delivery.
-
-### Configurable step target and repeat reminders
-
-Set Minimum steps per interval alongside the inactivity interval (minimum 60 minutes). For a 300-step target and 60-minute interval, fresh totals below 300 trigger a numbered movement notification. If still below the target after another full interval, notification #2 replaces #1 and alerts again through the active sound channel. Reaching 300 suppresses the next reminder; missing data never becomes zero. Numbering counts delivered reminders for the local day and resets the next day. Existing eight-alert daily limit, working hours, snooze, recording/hold suppression and Android scheduling delays still apply. Changing the target restarts the waiting interval; saving a recovery check-in preserves the target.
 
 ## Notification and spoken-sound troubleshooting
 

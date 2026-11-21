@@ -64,9 +64,9 @@ public class ReminderSetupUiTest {
     }
     @Test public void permissionResultKeepsMovementFormAndReportsDenial()throws Exception{
         try(var controller=Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen","movement")).setup().visible()){
-            var activity=controller.get();EditText interval=NativePlanningTest.edit(activity,"Inactivity interval · minutes (minimum 60)");interval.setText("90");
+            var activity=controller.get();EditText interval=NativePlanningTest.edit(activity,"Step lookback · minutes (60–720)");interval.setText("90");
             activity.onRequestPermissionsResult(302,new String[]{DailyHealthSource.STEPS},new int[]{android.content.pm.PackageManager.PERMISSION_DENIED});
-            assertSame(interval,NativePlanningTest.edit(activity,"Inactivity interval · minutes (minimum 60)"));assertEquals("90",interval.getText().toString());
+            assertSame(interval,NativePlanningTest.edit(activity,"Step lookback · minutes (60–720)"));assertEquals("90",interval.getText().toString());
             assertTrue(ProgressUiTest.all(activity.getWindow().getDecorView()).contains("was not granted"));NativePlanningTest.shot(activity,"reminder-setup-missing-access");
         }
     }
@@ -84,7 +84,10 @@ public class ReminderSetupUiTest {
     @Test public void largeFontSetupRendersWithoutClearingSettings()throws Exception{
         RuntimeEnvironment.setFontScale(1.6f);
         try(var controller=Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen","movement")).setup().visible()){
-            NativePlanningTest.shot(controller.get(),"reminder-setup-large-font");assertFalse(new DailyHealthStore(app).settings().movement());
+            NativePlanningTest.shot(controller.get(),"reminder-setup-large-font");
+            var target=NativePlanningTest.edit(controller.get(),"Walking break target · steps (1–10000)");
+            ((ScrollView)target.getParent().getParent()).scrollTo(0,Math.max(0,target.getTop()-200));
+            NativePlanningTest.shot(controller.get(),"reminder-targets-large-font");assertFalse(new DailyHealthStore(app).settings().movement());
         }finally{RuntimeEnvironment.setFontScale(1f);}
     }
     @Test public void spokenSoundFallsBackUntilAudioExists()throws Exception{
@@ -98,11 +101,16 @@ public class ReminderSetupUiTest {
 
     @Test public void stepTargetSurvivesSaveAndRecreation()throws Exception{
         try(var controller=Robolectric.buildActivity(DailyHealthActivity.class,new Intent().putExtra("screen","movement")).setup().visible()){
-            NativePlanningTest.edit(controller.get(),"Minimum steps per interval · 1–10000").setText("300");
-            controller.recreate();assertEquals("300",NativePlanningTest.edit(controller.get(),"Minimum steps per interval · 1–10000").getText().toString());
+            NativePlanningTest.edit(controller.get(),"Minimum steps in the lookback window · 1–10000").setText("300");
+            NativePlanningTest.edit(controller.get(),"Walking break target · steps (1–10000)").setText("75");
+            NativePlanningTest.edit(controller.get(),"Check interval · minutes (1–1440)").setText("7");
+            NativePlanningTest.edit(controller.get(),"Repeat reminder · minutes (1–1440)").setText("20");
+            NativePlanningTest.edit(controller.get(),"Snooze duration · minutes (1–1440)").setText("12");
+            controller.recreate();assertEquals("300",NativePlanningTest.edit(controller.get(),"Minimum steps in the lookback window · 1–10000").getText().toString());
             NativePlanningTest.click(controller.get(),"Save movement preferences");assertEquals(300,new DailyHealthStore(app).settings().minimumSteps());
+            var saved=new DailyHealthStore(app).settings();assertEquals(75,saved.breakSteps());assertEquals(7,saved.checkMinutes());assertEquals(20,saved.repeatMinutes());assertEquals(12,saved.snoozeMinutes());
             NativePlanningTest.shot(controller.get(),"movement-custom-step-target-overview");
-            var target=NativePlanningTest.edit(controller.get(),"Minimum steps per interval · 1–10000");
+            var target=NativePlanningTest.edit(controller.get(),"Minimum steps in the lookback window · 1–10000");
             ((ScrollView)target.getParent().getParent()).scrollTo(0,Math.max(0,target.getTop()-200));
             NativePlanningTest.shot(controller.get(),"movement-custom-step-target");
         }
@@ -111,8 +119,8 @@ public class ReminderSetupUiTest {
         detected(true);var prefs=app.getSharedPreferences(DailyHealthStore.FILE,0);var json=new org.json.JSONObject(prefs.getString("settings",""));json.remove("minimumSteps");prefs.edit().putString("settings",json.toString()).commit();
         assertEquals(50,new DailyHealthStore(app).settings().minimumSteps());
     }
-    @Test public void remindersIncrementOnlyAfterAnotherFullInterval()throws Exception{
-        java.time.ZonedDateTime[] clock={java.time.ZonedDateTime.parse("2026-11-09T12:00:00Z")};long[] steps={100};
+    @Test public void remindersRepeatUntilBreakTargetIsReached()throws Exception{
+        java.time.ZonedDateTime[] clock={java.time.ZonedDateTime.parse("2026-11-09T12:00:00Z")};long[] steps={10};
         DailyHealthStore store=new DailyHealthStore(app);store.settings(new DailyHealthRules.Settings(true,false,java.util.Set.of(1),480,1080,60,3,300),clock[0].minusHours(3).toInstant());
         DailyHealthSource.Source source=new DailyHealthSource.Source(){
             public java.util.concurrent.CompletableFuture<DailyHealthRules.Movement> movement(Instant from,Instant to){return java.util.concurrent.CompletableFuture.completedFuture(new DailyHealthRules.Movement(steps[0],to,from,to));}
@@ -120,9 +128,9 @@ public class ReminderSetupUiTest {
         };
         DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();
         var manager=app.getSystemService(NotificationManager.class);assertEquals(1,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);
-        clock[0]=clock[0].plusMinutes(59);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertEquals(1,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);
+        clock[0]=clock[0].plusMinutes(9);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertEquals(1,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);
         clock[0]=clock[0].plusMinutes(1);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertEquals(2,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);
-        steps[0]=300;clock[0]=clock[0].plusHours(1);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertEquals(2,Shadows.shadowOf(manager).getNotification(DailyHealthJob.NOTIFICATION_ID).number);assertTrue(store.status().contains("Step target reached"));
+        steps[0]=50;clock[0]=clock[0].plusMinutes(1);DailyHealthJob.check(app,source,()->true,()->true,()->clock[0]).join();assertTrue(store.status().contains("complete"));
     }
 
     @Test public void testUsesAVisibleHighImportanceChannel(){

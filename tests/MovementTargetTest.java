@@ -8,22 +8,14 @@ public final class MovementTargetTest {
  static void expect(Object expected,Object actual){if(!expected.equals(actual))throw new AssertionError("Expected "+expected+", got "+actual);}
  static DailyHealthRules.Movement sample(ZonedDateTime now,long steps){return new DailyHealthRules.Movement(steps,now.toInstant(),now.minusHours(1).toInstant(),now.toInstant());}
  public static void main(String[] args)throws Exception{
-  var now=ZonedDateTime.parse("2026-11-09T12:00:00Z");long enabled=now.minusHours(3).toInstant().toEpochMilli();var cfg=target(300);
-  expect(DailyHealthRules.MovementState.REMIND,DailyHealthRules.movement(cfg,now,sample(now,100),enabled,0,0,0,"",0,false));
-  expect(DailyHealthRules.MovementState.MOVING,DailyHealthRules.movement(cfg,now,sample(now,300),enabled,0,0,0,"",0,false));
-  long delivered=now.toInstant().toEpochMilli();var early=now.plusMinutes(59);
-  expect(DailyHealthRules.MovementState.WAITING,DailyHealthRules.movement(cfg,early,sample(early,0),enabled,0,delivered,0,"",1,false));
-  var next=now.plusHours(1);
-  expect(DailyHealthRules.MovementState.REMIND,DailyHealthRules.movement(cfg,next,sample(next,0),enabled,0,delivered,0,"",1,false));
-  expect(DailyHealthRules.MovementState.UNKNOWN,DailyHealthRules.movement(cfg,next,null,enabled,0,delivered,0,"",1,false));
-  expect(DailyHealthRules.MovementState.WAITING,DailyHealthRules.movement(cfg,next,sample(next,0),enabled,0,delivered,0,"",8,false));
-  expect(50,new DailyHealthRules.Settings(true,false,Set.of(1),480,1080,60,3).minimumSteps());
+  var now=ZonedDateTime.parse("2026-11-09T12:00:00Z");var cfg=target(300);
+  expect(300,cfg.minimumSteps());expect(50,cfg.breakSteps());expect(10,cfg.repeatMinutes());
   for(int invalid:new int[]{0,-1,10001}){try{target(invalid);throw new AssertionError("Invalid target accepted: "+invalid);}catch(IllegalArgumentException expected){}}
   var context=new android.content.Context(java.nio.file.Files.createTempDirectory("movement-store-test").toFile());
-  var store=new DailyHealthStore(context);store.settings(cfg,now.minusHours(3).toInstant());store.delivered(now);store.snooze(now.toInstant());
-  var snoozed=now.plusMinutes(30);
-  expect(DailyHealthRules.MovementState.WAITING,store.evaluate(snoozed,sample(snoozed,100),false));
-  expect(DailyHealthRules.MovementState.REMIND,store.evaluate(now.plusHours(1),sample(now.plusHours(1),100),false));
+  var store=new DailyHealthStore(context);store.settings(cfg,now.minusHours(3).toInstant());store.startBreak(now);store.delivered(now);store.snooze(now.toInstant());
+  expect(false,store.alertDue(now.plusMinutes(14)));expect(true,store.alertDue(now.plusMinutes(15)));
+  expect(now.toInstant(),store.breakStart(now.plusMinutes(1)));
+  if(store.breakStart(now.plusDays(1))!=null)throw new AssertionError("Break carried over to the next day");
   System.out.println("Movement goal and repeat interval boundaries passed");
  }
 }

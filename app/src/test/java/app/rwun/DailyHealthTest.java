@@ -27,16 +27,14 @@ public class DailyHealthTest {
         store.saveCheckin(new DailyHealthRules.Checkin(now.plusSeconds(10),null,1,1,DailyHealthRules.Answer.NO,DailyHealthRules.Answer.NO,false));
         assertEquals(DailyHealthRules.Answer.NO,store.checkin(now.plusSeconds(10)).alcohol());assertNull(store.checkin(now.plus(Duration.ofDays(8))));assertFalse(context.getSharedPreferences(DailyHealthStore.FILE,0).contains("checkin"));
     }
-    @Test public void snoozeCannotShortenTheConfiguredMinimumInterval(){
+    @Test public void snoozeAndRepeatIntervalsSurviveReopening(){
         var at=now.atZone(ZoneId.of("Africa/Johannesburg"));store.settings(cfg(true),now.minus(Duration.ofHours(3)));store.delivered(at);store.snooze(now);
-        Instant later=now.plusSeconds(31*60);var sample=new DailyHealthRules.Movement(0L,later,later.minusSeconds(3600),later);
-        assertEquals(DailyHealthRules.MovementState.WAITING,store.evaluate(at.plusMinutes(29),null,false));assertEquals(DailyHealthRules.MovementState.WAITING,new DailyHealthStore(context).evaluate(at.plusMinutes(31),sample,false));
-        Instant due=now.plusSeconds(60*60);var ready=new DailyHealthRules.Movement(0L,due,due.minusSeconds(3600),due);assertEquals(DailyHealthRules.MovementState.REMIND,new DailyHealthStore(context).evaluate(at.plusMinutes(60),ready,false));
-        store.acknowledge(later);assertEquals(DailyHealthRules.MovementState.WAITING,store.evaluate(at.plusMinutes(32),sample,false));
+        assertFalse(new DailyHealthStore(context).alertDue(at.plusMinutes(14)));assertTrue(new DailyHealthStore(context).alertDue(at.plusMinutes(15)));
     }
-    @Test public void checkinToggleDoesNotRestartMonitoringWindow(){
-        store.settings(cfg(true),now.minusSeconds(7200));store.settings(new DailyHealthRules.Settings(true,false,cfg(true).days(),0,1440,60,3),now);
-        assertEquals(DailyHealthRules.MovementState.REMIND,store.evaluate(now.atZone(ZoneOffset.UTC),new DailyHealthRules.Movement(0L,now,now.minusSeconds(3600),now),false));
+    @Test public void checkinTogglePreservesActiveBreak(){
+        var at=now.atZone(ZoneOffset.UTC);store.settings(cfg(true),now.minusSeconds(7200));store.startBreak(at);
+        store.settings(new DailyHealthRules.Settings(true,false,cfg(true).days(),0,1440,60,3),now);
+        assertEquals(now,store.breakStart(at));
     }
     Metadata metadata(String name){return new Metadata.Builder().setDataOrigin(new DataOrigin.Builder().setPackageName(name).build()).build();}
     @Test public void dailySummaryDoesNotEstablishRecentFreshness(){
@@ -53,8 +51,8 @@ public class DailyHealthTest {
         var row=new SleepSessionRecord.Builder(metadata("watch"),now.minusSeconds(8*3600),now).build();String result=DailyHealthSource.Api34.sleepContext(List.of(row),now);
         assertTrue(result.contains("8h 00m"));assertTrue(result.contains("not measured time asleep"));assertTrue(DailyHealthSource.Api34.sleepContext(List.of(row),now.plus(Duration.ofDays(2))).contains("no recent"));
     }
-    @Test public void deniedAccessCancelsJob(){
-        store.settings(cfg(true),now);DailyHealthJob.schedule(context);assertNull(context.getSystemService(android.app.job.JobScheduler.class).getPendingJob(DailyHealthJob.JOB_ID));
+    @Test public void deniedAccessStillSchedulesReminders(){
+        store.settings(cfg(true),now);DailyHealthJob.schedule(context);assertNotNull(context.getSystemService(android.app.job.JobScheduler.class).getPendingJob(DailyHealthJob.JOB_ID));
     }
     @Test @Config(sdk=28) public void manualAnswersWorkOnOlderAndroid(){
         store.saveCheckin(new DailyHealthRules.Checkin(now,null,1,1,DailyHealthRules.Answer.UNKNOWN,DailyHealthRules.Answer.NO,false));assertNotNull(store.checkin(now));assertFalse(DailyHealthJob.permitted(context));assertThrows(IllegalStateException.class,()->DailyHealthSource.create(context));

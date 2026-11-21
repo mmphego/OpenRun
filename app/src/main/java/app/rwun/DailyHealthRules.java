@@ -6,14 +6,17 @@ import java.util.*;
 /** Pure, explainable wellness heuristics. Never diagnoses or edits training. */
 final class DailyHealthRules {
     record Settings(boolean movement, boolean checkin, Set<Integer> days, int startMinute,
-                    int endMinute, int inactivityMinutes, int breakMinutes, int minimumSteps) {
+                    int endMinute, int inactivityMinutes, int breakMinutes, int minimumSteps,
+                    int breakSteps, int checkMinutes, int repeatMinutes, int snoozeMinutes) {
+        Settings(boolean movement,boolean checkin,Set<Integer> days,int startMinute,int endMinute,int inactivityMinutes,int breakMinutes,int minimumSteps){this(movement,checkin,days,startMinute,endMinute,inactivityMinutes,breakMinutes,minimumSteps,50,10,10,15);}
         Settings(boolean movement,boolean checkin,Set<Integer> days,int startMinute,int endMinute,int inactivityMinutes,int breakMinutes){this(movement,checkin,days,startMinute,endMinute,inactivityMinutes,breakMinutes,50);}
         Settings {
             if(days==null || days.isEmpty() || days.stream().anyMatch(d->d<1||d>7)
                     || startMinute<0 || endMinute>1440 || startMinute>=endMinute
-                    || minimumSteps<1 || minimumSteps>10000
+                    || minimumSteps<1 || minimumSteps>10000 || breakSteps<1 || breakSteps>10000
+                    || checkMinutes<1 || checkMinutes>1440 || repeatMinutes<1 || repeatMinutes>1440 || snoozeMinutes<1 || snoozeMinutes>1440
                     || inactivityMinutes<60 || inactivityMinutes>720 || breakMinutes<3 || breakMinutes>60)
-                throw new IllegalArgumentException("Choose days, a daytime window, 60–720 minutes without movement a 3–60 minute break and 1–10,000 steps.");
+                throw new IllegalArgumentException("Choose working days and hours, a 60–720 minute lookback, 1–10,000 step targets, and intervals from 1 to 1,440 minutes.");
             days=Set.copyOf(days);
         }
         boolean inWindow(ZonedDateTime now) {
@@ -24,7 +27,7 @@ final class DailyHealthRules {
             return now.toLocalDate().atTime(startMinute/60,startMinute%60).atZone(now.getZone()).toInstant();
         }
     }
-    static Settings defaults(){return new Settings(false,false,Set.of(1,2,3,4,5),540,1020,120,3);}
+    static Settings defaults(){return new Settings(false,false,Set.of(1,2,3,4,5),540,1020,60,3);}
     /** Null totals are unknown, never zero. Fresh short records are required independently. */
     record Movement(Long steps, Instant observedThrough, Instant from, Instant to) {
         boolean fresh(Instant now) {
@@ -32,19 +35,6 @@ final class DailyHealthRules {
                     &&!to.isAfter(now)&&!from.isAfter(to)&&!observedThrough.isAfter(now)
                     &&!observedThrough.isBefore(now.minus(Duration.ofMinutes(20)));
         }
-    }
-    enum MovementState { OFF, QUIET, WAITING, UNKNOWN, MOVING, REMIND }
-    static MovementState movement(Settings cfg,ZonedDateTime now,Movement sample,long enabledAt,
-                                  long acknowledgedAt,long deliveredAt,long snoozeUntil,String skippedDay,int count,boolean suppressed) {
-        if(!cfg.movement())return MovementState.OFF;
-        if(!cfg.inWindow(now)||now.toLocalDate().toString().equals(skippedDay))return MovementState.QUIET;
-        Instant at=now.toInstant();long ms=at.toEpochMilli(),interval=cfg.inactivityMinutes()*60000L;
-        long start=Math.max(cfg.windowStart(now).toEpochMilli(),Math.max(enabledAt,acknowledgedAt));
-        if(suppressed||count>=8||ms<snoozeUntil||ms<start||ms-start<interval||deliveredAt>ms
-                ||deliveredAt>0&&ms-deliveredAt<interval)return MovementState.WAITING;
-        if(sample==null||!sample.fresh(at)||Duration.between(sample.from(),sample.to()).toMillis()<interval
-                ||sample.to().isBefore(at.minus(Duration.ofMinutes(2))))return MovementState.UNKNOWN;
-        return sample.steps()<cfg.minimumSteps()?MovementState.REMIND:MovementState.MOVING;
     }
     enum Answer { UNKNOWN, NO, YES }
     record Checkin(Instant at,Double sleepHours,int fatigue,int soreness,Answer alcohol,Answer illness,boolean pain) {
