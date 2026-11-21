@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class WorkoutFactory {
+  static final String FREE_RUN_TITLE="Free run";
   public record Step(
       String title, PaceProfile.Zone zone, double metres, long seconds, PaceProfile.Range pace) {
     public Step {
@@ -75,9 +76,7 @@ public final class WorkoutFactory {
 
   public static Workout free() {
     return new Workout(
-        List.of(
-            timed("Warm-up walk / easy jog", 300),
-            new Step("Free run", PaceProfile.Zone.EASY, 0, 0, PaceProfile.Range.effort())));
+        List.of(new Step(FREE_RUN_TITLE, PaceProfile.Zone.EASY, 0, 0, PaceProfile.Range.effort())));
   }
 
   private static Step timed(String title, long seconds) {

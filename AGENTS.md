@@ -94,6 +94,8 @@ git diff --check
 
 ## Git, privacy and delivery
 
+- Before merging an OpenRun PR, install the candidate on the user's S23 and test the affected flows on that device. If the phone or required test conditions are unavailable, report the gap and leave the PR unmerged.
+- Preserve the existing installed app and its data. Never clear or uninstall it for testing. If signing prevents a compatible update, use a separately packaged QA build and report that it does not verify an in-place upgrade.
 - Default to one focused feature branch and PR per substantial feature. A direct
   update to `main` is allowed when the user explicitly requests it. Commit/push
   completed authorized work; do not merge PRs, tag or publish releases without

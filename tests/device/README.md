@@ -29,7 +29,7 @@ Installation uses `adb install -r`, retaining app data. Do not uninstall OpenRun
 
 ## 3. First acceptance: locked-screen walking pad
 
-1. In OpenRun, select **Start a walk → Walking pad · phone steps**. Enable Count phone steps and grant Physical activity/notification permissions. Start the session and confirm the step count increases with the phone in your pocket.
+1. In OpenRun, select **Start free walk → Walking pad · phone steps · no time goal**. Enable Count phone steps and grant Physical activity/notification permissions. Start the session and confirm the step count increases with the phone in your pocket.
 2. First do an independently counted 200-step check. Record observed/detected steps, pad speed and pocket placement. Our initial release target is no more than 10% step error. This is a product acceptance target, not a medical measurement claim.
 3. Calibrate using the pad's known distance and detected steps from the same steady walk. Start a fresh walk for the uninterrupted screen-off test. Reset/note the pad distance and note the app estimate at the start.
 4. Run the command below while the indoor walk is actively recording. It checks the installed APK hash, turns the display off, then collects about 31 minutes of samples. Put the phone in your pocket and keep walking at a comfortable steady speed. The Mac must remain awake and connected. The collector does not acquire an Android wake lock, turn the screen back on, change battery exemptions, inject steps or save a session.

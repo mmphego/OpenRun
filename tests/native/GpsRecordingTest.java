@@ -21,6 +21,18 @@ public class GpsRecordingTest {
  void recordingScreen(String name)throws Exception{Shadows.shadowOf(app).setComponentNameAndServiceForBindService(new ComponentName(app,TrackingService.class),service.onBind(new Intent()));try(var activity=Robolectric.buildActivity(MainActivity.class,new Intent(app,MainActivity.class).putExtra("destination","Run")).setup().visible()){Shadows.shadowOf(Looper.getMainLooper()).idle();assertNotNull(NativePlanningTest.find(activity.get().getWindow().getDecorView(),service.distanceNeedsAttention()?"CHECK DISTANCE":"RECORDING"));NativePlanningTest.shot(activity.get(),name);}}
  static EditText findEntry(View view,String description){if(view instanceof EditText&&description.contentEquals(view.getContentDescription()))return (EditText)view;if(view instanceof ViewGroup)for(int i=0;i<((ViewGroup)view).getChildCount();i++){EditText found=findEntry(((ViewGroup)view).getChildAt(i),description);if(found!=null)return found;}return null;}
 
+ @Test public void discardedRecordingShowsCleanReadyMetrics(){
+  advance(12000);service.onLocationChanged(List.of(point(0,1000),point(20,11000)));assertTrue(service.km()>0);service.discard();
+  RunDashboard dashboard=new RunDashboard(app,new UiKit.Palette(true));dashboard.setWalking(true);dashboard.update(service,false);
+  String shown=ProgressUiTest.all(dashboard);assertTrue(shown.contains("0.00"));assertTrue(shown.contains("00:00:00"));
+ }
+ @Test public void walkControlsUseWalkLabelsAndPause(){
+  Shadows.shadowOf(app).setComponentNameAndServiceForBindService(new ComponentName(app,TrackingService.class),service.onBind(new Intent()));
+  try(var activity=Robolectric.buildActivity(MainActivity.class,new Intent(app,MainActivity.class).putExtra("destination","Run")).setup().visible()){
+   Shadows.shadowOf(Looper.getMainLooper()).idle();NativePlanningTest.click(activity.get(),"Pause walk");assertTrue(service.paused());
+   NativePlanningTest.click(activity.get(),"Resume walk");assertFalse(service.paused());
+  }
+ }
  @Test public void twoKilometreWalk()throws Exception{for(int i=0;i<=1000;i++){advance(1000+i*2000);service.onLocationChanged(point(i*2,1000+i*2000));}assertEquals(2,service.km(),.005);assertTrue(service.walking());recordingScreen("14-two-kilometre-walk");}
  @Test public void beforeStartAndFutureFixesDoNotCount(){advance(70000);service.onLocationChanged(point(500,-1000));service.onLocationChanged(point(800,100000));assertEquals(0,service.km(),0);}
  @Test public void duplicateAndOutOfOrderCallbacksDoNotDoubleCount(){advance(12000);service.onLocationChanged(List.of(point(0,1000),point(20,11000)));double distance=service.km();service.onLocationChanged(List.of(point(0,1000),point(20,11000)));assertEquals(distance,service.km(),0);}

@@ -51,15 +51,33 @@ public class IndoorRecordingTest {
  @Test public void startWalkRequiresIndoorOrOutdoorChoice()throws Exception{
   new RunStore(app).save(new PlanEngine.Config(8,3,12,5,java.time.LocalDate.now()));
   try(var activity=Robolectric.buildActivity(MainActivity.class).setup().visible()){
-   NativePlanningTest.click(activity.get(),"Start walk");AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();assertEquals(2,dialog.getListView().getCount());
-   dialog.getListView().performItemClick(null,0,0);Intent opened=Shadows.shadowOf(activity.get()).getNextStartedActivity();assertNotNull(opened);assertEquals(IndoorActivity.class.getName(),opened.getComponent().getClassName());
+   NativePlanningTest.click(activity.get(),"Start free walk");AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();assertEquals(2,dialog.getListView().getCount());
+   dialog.getListView().performItemClick(null,0,0);Intent opened=Shadows.shadowOf(activity.get()).getNextStartedActivity();assertNotNull(opened);assertEquals(IndoorActivity.class.getName(),opened.getComponent().getClassName());assertEquals("Free walking-pad sessions have no time goal",0,opened.getIntExtra("goal",-1));
    assertNull("No location permission request for the walking pad",Shadows.shadowOf(activity.get()).getLastRequestedPermission());
+  }
+ }
+ @Test public void deniedOutdoorWalkPermissionExplainsWalkDidNotStart()throws Exception{
+  new RunStore(app).save(new PlanEngine.Config(8,3,12,5,java.time.LocalDate.now()));
+  try(var activity=Robolectric.buildActivity(MainActivity.class).setup().visible()){
+   NativePlanningTest.click(activity.get(),"Start free walk");AlertDialog choice=(AlertDialog)ShadowDialog.getLatestDialog();choice.getListView().performItemClick(null,1,1);
+   activity.get().onRequestPermissionsResult(100,new String[]{Manifest.permission.ACCESS_FINE_LOCATION},new int[]{android.content.pm.PackageManager.PERMISSION_DENIED});
+   AlertDialog explanation=(AlertDialog)ShadowDialog.getLatestDialog();TextView message=explanation.findViewById(android.R.id.message);
+   assertTrue(message.getText().toString().contains("starting your walk"));assertFalse(voiceController.get().active());
+  }
+ }
+ @Test public void openEndedIndoorWalkStartsWithoutATimeGoal()throws Exception{
+  try(var activity=Robolectric.buildActivity(IndoorActivity.class,new Intent(app,IndoorActivity.class).putExtra("goal",0)).setup().visible()){
+   assertTrue(text(activity.get().getWindow().getDecorView()).contains("No time goal"));activity.recreate();
+   assertTrue(text(activity.get().getWindow().getDecorView()).contains("No time goal"));
+   NativePlanningTest.click(activity.get(),"Start indoor session");Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3));
+   JSONObject active=IndoorState.active(app);assertNotNull(active);assertEquals(0,active.getInt("goal"));
+   assertTrue(text(activity.get().getWindow().getDecorView()).contains("Open-ended"));
   }
  }
  @Test public void startButtonCreatesStepBasedWalkingPadSession()throws Exception{
   try(var activity=Robolectric.buildActivity(IndoorActivity.class).setup().visible()){
    NativePlanningTest.click(activity.get(),"Start indoor session");Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3));
-   JSONObject active=IndoorState.active(app);assertNotNull(active);assertTrue(active.getBoolean("phoneSteps"));assertEquals("Walk",active.getString("kind"));assertEquals(.70,active.getDouble("length"),0);assertNotNull(NativePlanningTest.find(activity.get().getWindow().getDecorView(),"Your walking-pad walk"));
+   JSONObject active=IndoorState.active(app);assertNotNull(active);assertTrue(active.getBoolean("phoneSteps"));assertEquals(10,active.getInt("goal"));assertEquals("Walk",active.getString("kind"));assertEquals(.70,active.getDouble("length"),0);assertNotNull(NativePlanningTest.find(activity.get().getWindow().getDecorView(),"Your walking-pad walk"));
   }
  }
  @Test public void pendingIndoorSessionDoesNotShowGpsDashboard()throws Exception{

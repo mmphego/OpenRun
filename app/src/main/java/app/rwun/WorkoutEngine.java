@@ -29,7 +29,19 @@ public final class WorkoutEngine {
       output.add(new Event(announce(),SpeechQueue.Kind.PHASE));
     }
     var step = step();
-    if(index==1&&workout.steps().size()<=3&&step.zone()==PaceProfile.Zone.EASY&&step.seconds()==0){int km=(int)((metres-startMetres)/1000);if(km>paceSegments){long elapsed=seconds-startSeconds;if(km==paceSegments+1&&elapsed>paceAnchorSeconds){double split=elapsed-paceAnchorSeconds;if(paceSegments==0)firstMainPace=split;lastMainPace=split;paceSum+=split;paceSquares+=split*split;}else{firstMainPace=0;lastMainPace=0;}paceSegments=km;paceAnchorSeconds=elapsed;}}
+    boolean freeRun=index==0&&workout.steps().size()==1&&step.title().equals(WorkoutFactory.FREE_RUN_TITLE);
+    boolean plannedEasy=index==1&&workout.steps().size()<=3;
+    if((freeRun||plannedEasy)&&step.zone()==PaceProfile.Zone.EASY&&step.seconds()==0){
+      int km=(int)((metres-startMetres)/1000);
+      if(km>paceSegments){
+        long elapsed=seconds-startSeconds;
+        if(km==paceSegments+1&&elapsed>paceAnchorSeconds){
+          double split=elapsed-paceAnchorSeconds;if(paceSegments==0)firstMainPace=split;
+          lastMainPace=split;paceSum+=split;paceSquares+=split*split;
+        }else{firstMainPace=0;lastMainPace=0;}
+        paceSegments=km;paceAnchorSeconds=elapsed;
+      }
+    }
     boolean finished =
         step.metres() > 0 && metres - startMetres >= step.metres()
             || step.seconds() > 0 && seconds - startSeconds >= step.seconds();

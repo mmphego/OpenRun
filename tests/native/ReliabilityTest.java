@@ -95,6 +95,14 @@ public class ReliabilityTest {
   var def=new WorkoutFactory.Workout(List.of(new WorkoutFactory.Step("Warmup",PaceProfile.Zone.EASY,0,20,PaceProfile.Range.effort()),new WorkoutFactory.Step("Recovery",PaceProfile.Zone.EASY,0,40,PaceProfile.Range.effort()),new WorkoutFactory.Step("Distance",PaceProfile.Zone.EASY,500,0,PaceProfile.Range.effort())));
   JSONObject state=new JSONObject().put("step",0).put("stepStart",0).put("paused",false);assertTrue(IndoorCoaching.progress(state,def,500));assertEquals(2,state.getInt("step"));assertEquals(60,state.getLong("stepStart"));assertFalse(IndoorCoaching.progress(state,def,1000));
  }
+ @Test public void openEndedSessionHasNoGoalCueOrGoalBasedStaleDeadline()throws Exception{
+  JSONObject a=new JSONObject().put("goal",0).put("paused",false).put("kind","Walk").put("seconds",3600).put("heartbeatWall",1000000L);
+  assertEquals("start",IndoorCoaching.cueKey(a,null,3600));assertFalse(IndoorCoaching.cue(a,null,3600).contains("goal is reached"));
+  assertFalse(IndoorCoaching.needsAwake(a,null,3600));assertFalse(PendingSession.needsReview(a,1000000L,3600000L,1,0));
+  assertFalse("An open time-only session has no service heartbeat to expire",PendingSession.needsReview(a,3000000L,3600000L,1,0));
+  a.put("phoneSteps",true);assertTrue("A stopped sensor service must still become reviewable",PendingSession.needsReview(a,3000000L,3600000L,1,0));
+  store.audio(true);a.remove("coachCueKey");assertTrue(IndoorCoaching.needsAudio(store,a,0));assertFalse(IndoorCoaching.needsAudio(store,a,31));
+ }
  @Test public void longestSupportedTimerCanStillSpeakItsGoalCue()throws Exception{store.audio(true);JSONObject a=new JSONObject().put("goal",180).put("paused",false).put("kind","Walk");assertTrue(IndoorCoaching.needsAudio(store,a,180*60));assertTrue(IndoorCoaching.cue(a,null,180*60).contains("goal is reached"));}
  @Test public void finalCoachingSentenceIsNotCancelledByTheNextTick()throws Exception{
   store.audio(true);ShadowTextToSpeech.addLanguageAvailability(Locale.UK);TextToSpeech tts=ReflectionHelpers.getField(voice.get(),"speech");Shadows.shadowOf(tts).getOnInitListener().onInit(TextToSpeech.SUCCESS);
