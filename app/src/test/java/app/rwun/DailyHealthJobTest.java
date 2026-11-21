@@ -43,6 +43,20 @@ public class DailyHealthJobTest {
         walking.result.complete(new DailyHealthRules.Movement(50L,now.toInstant(),now.minusMinutes(5).toInstant(),now.toInstant()));pending.join();
         assertNull(store.breakStart(now));assertEquals("Walking break complete",Shadows.shadowOf(notifications).getNotification(DailyHealthJob.COMPLETION_ID).extras.getString(Notification.EXTRA_TITLE));assertTrue(store.status().contains("complete"));
     }
+    @Test public void completingBreakKeepsSnoozeUntilDeadlineAcrossMidnight(){
+        now=now.withHour(23).withMinute(30);
+        store.settings(new DailyHealthRules.Settings(true,false,Set.of(1,2,3,4,5,6,7),0,1440,60,3,300,50,10,10,60),now.toInstant());
+        Source first=new Source();var initial=check(first,new AtomicBoolean(true),new AtomicBoolean(true));complete(first,0L);initial.join();
+        store.snooze(now.toInstant());now=now.plusMinutes(5);
+        Source walking=new Source();var completion=check(walking,new AtomicBoolean(true),new AtomicBoolean(true));complete(walking,50L);completion.join();
+        assertNull(store.breakStart(now));assertNotNull(Shadows.shadowOf(notifications).getNotification(DailyHealthJob.COMPLETION_ID));
+        now=now.plusMinutes(10);Source sameDay=new Source();var stillSnoozed=check(sameDay,new AtomicBoolean(true),new AtomicBoolean(true));complete(sameDay,50L);stillSnoozed.join();
+        assertNull(Shadows.shadowOf(notifications).getNotification(DailyHealthJob.NOTIFICATION_ID));
+        now=now.plusMinutes(16);Source beforeDeadline=new Source();var early=check(beforeDeadline,new AtomicBoolean(true),new AtomicBoolean(true));complete(beforeDeadline,50L);early.join();
+        assertNull(Shadows.shadowOf(notifications).getNotification(DailyHealthJob.NOTIFICATION_ID));
+        now=now.plusMinutes(29);Source atDeadline=new Source();var due=check(atDeadline,new AtomicBoolean(true),new AtomicBoolean(true));complete(atDeadline,50L);due.join();
+        assertNotNull(Shadows.shadowOf(notifications).getNotification(DailyHealthJob.NOTIFICATION_ID));
+    }
     @Test public void activeBreakRepeatsOnlyAfterConfiguredInterval(){
         Source first=new Source();var initial=check(first,new AtomicBoolean(true),new AtomicBoolean(true));complete(first,0L);initial.join();
         now=now.plusMinutes(9);Source early=new Source();var pending=check(early,new AtomicBoolean(true),new AtomicBoolean(true));

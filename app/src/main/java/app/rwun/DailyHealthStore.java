@@ -45,8 +45,8 @@ final class DailyHealthStore {
                 && !Instant.ofEpochMilli(start).isBefore(settings().windowStart(now)) && !Instant.ofEpochMilli(start).isAfter(now.toInstant()) ? Instant.ofEpochMilli(start) : null;
     }
     void startBreak(ZonedDateTime now){synchronized(LOCK){commit(preferences.edit().putLong("breakStart",now.toInstant().toEpochMilli()).putString("breakDay",now.toLocalDate().toString()));}}
-    void finishBreak(){synchronized(LOCK){commit(preferences.edit().remove("breakStart").remove("breakDay").remove("snooze"));}}
-    boolean alertDue(ZonedDateTime now){long ms=now.toInstant().toEpochMilli();if(!now.toLocalDate().toString().equals(preferences.getString("day","")))return true;long last=preferences.getLong("delivered",0);return ms>=preferences.getLong("snooze",0)&&(last<=0||ms-last>=settings().repeatMinutes()*60000L);}
+    void finishBreak(){synchronized(LOCK){commit(preferences.edit().remove("breakStart").remove("breakDay"));}}
+    boolean alertDue(ZonedDateTime now){long ms=now.toInstant().toEpochMilli();if(ms<preferences.getLong("snooze",0))return false;if(!now.toLocalDate().toString().equals(preferences.getString("day","")))return true;long last=preferences.getLong("delivered",0);return last<=0||ms-last>=settings().repeatMinutes()*60000L;}
     boolean eligible(ZonedDateTime now,boolean suppressed){return settings().movement()&&settings().inWindow(now)&&!suppressed&&!now.toLocalDate().toString().equals(preferences.getString("skip",""));}
     void status(String text){synchronized(LOCK){commit(preferences.edit().putString("status",text));}}
     String status(){return preferences.getString("status","No movement check yet. Health Connect data may be missing or delayed.");}
