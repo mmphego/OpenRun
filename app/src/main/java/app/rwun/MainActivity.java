@@ -278,19 +278,15 @@ public final class MainActivity extends Activity {
     ImageView hand=new ImageView(this);hand.setImageDrawable(UiKit.icon(this,R.drawable.ic_waving_hand,palette.primary,40));hero.addView(hand,new LinearLayout.LayoutParams(dp(52),dp(52)));
     TextView welcome=text("Welcome back!",22,true);welcome.setGravity(Gravity.CENTER);LinearLayout.LayoutParams wl=new LinearLayout.LayoutParams(-1,-2);wl.setMargins(0,dp(8),0,dp(4));hero.addView(welcome,wl);
     TextView description=text("Let’s make a plan for your next start line.",17,false);description.setGravity(Gravity.CENTER);hero.addView(description);content.addView(hero,new LinearLayout.LayoutParams(-1,-2));
-    planHubChoice("Start new plan",this::beginPlan);
     planHubChoice("Manage plan",this::showPlanManagement);
-    planHubChoice("Restart current plan",this::confirmRestart);
     planHubChoice("Continue plan",()->{planSchedule=true;render();});
-    content.addView(button("Plan changes",this::planChanges));
     if(store.resting())content.addView(text("Your training hold stays active when changing plans.",13,false));
-    content.addView(button("Training preferences",()->openFeatures("plan")));
   }
   private void planHubChoice(String label,Runnable action){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(16),dp(10),dp(16),dp(10));row.setMinimumHeight(dp(56));row.setBackground(PlanningUi.shape(this,PlanningUi.CARD,18,true));TextView title=text(label,16,false);title.setTextColor(palette.ink);row.addView(title,new LinearLayout.LayoutParams(0,-2,1));ImageView arrow=new ImageView(this);arrow.setImageDrawable(UiKit.icon(this,R.drawable.ic_chevron_right,palette.muted,25));row.addView(arrow,new LinearLayout.LayoutParams(dp(28),dp(28)));row.setClickable(true);row.setFocusable(true);row.setContentDescription(label);row.setOnClickListener(v->{try{action.run();}catch(RuntimeException e){error(e);}});LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,0,0,dp(8));content.addView(row,lp);}
 
   private void showPlanManagement(){
-    String[] actions={"Edit plan",store.planPaused()?"Resume plan":"Pause plan","Delete plan"};
-    new AlertDialog.Builder(this).setTitle("Manage plan").setItems(actions,(dialog,choice)->{try{if(choice==0)editPlan();else if(choice==1)confirmPlanPause();else confirmDeletePlan();}catch(RuntimeException e){error(e);}}).setNegativeButton("Cancel",null).show();
+    String[] actions={"Edit plan",store.planPaused()?"Resume plan":"Pause plan","Delete plan","Plan changes","Restart current plan","Start new plan","Training preferences"};
+    new AlertDialog.Builder(this).setTitle("Manage plan").setItems(actions,(dialog,choice)->{try{if(choice==0)editPlan();else if(choice==1)confirmPlanPause();else if(choice==2)confirmDeletePlan();else if(choice==3)planChanges();else if(choice==4)confirmRestart();else if(choice==5)beginPlan();else openFeatures("plan");}catch(RuntimeException e){error(e);}}).setNegativeButton("Cancel",null).show();
   }
   private void editPlan(){
     ensurePlanEditable();
@@ -441,7 +437,7 @@ public final class MainActivity extends Activity {
 
   private void coach() {
     content.addView(text("Your coach",30,true));
-    content.addView(button("Plan changes",this::planChanges));
+    content.addView(button(config==null?"Plan changes":"Manage plan",config==null?this::planChanges:this::showPlanManagement));
     content.addView(text("Prepare. Run or walk. Reflect and improve.",15,false));
     LinearLayout personal=card();personal.addView(text("Your next-run lesson",21,true));personal.addView(text(CoachingMemory.lesson(store),16,false));
     row(personal,R.drawable.ic_directions_run,"Beginner sessions & personal progress","Timed run/walk, reviewed progression and reflections",()->openVoiceCoach("home"));
@@ -472,7 +468,6 @@ public final class MainActivity extends Activity {
 
   private void plan() {
     planOverview();
-    content.addView(button("Plan changes",this::planChanges));
     subpage="Schedule";header("Training schedule",()->{planSchedule=false;render();});
     LinearLayout weekBar=new LinearLayout(this);weekBar.setGravity(Gravity.CENTER_VERTICAL);weekBar.setPadding(0,dp(8),0,dp(8));
     ImageButton previous=UiKit.iconButton(this,palette,R.drawable.ic_chevron_left,"Previous week",()->{week=Math.max(0,week-1);render();});
@@ -480,7 +475,7 @@ public final class MainActivity extends Activity {
     TextView weekTitle=text("Week "+(week+1)+" of "+config.weeks(),20,true);weekTitle.setGravity(Gravity.CENTER);
     weekBar.addView(weekTitle,new LinearLayout.LayoutParams(0,-2,1));
     ImageButton next=UiKit.iconButton(this,palette,R.drawable.ic_chevron_right,"Next week",()->{week=Math.min(config.weeks()-1,week+1);render();});
-    next.setEnabled(week<config.weeks()-1);next.setAlpha(week<config.weeks()-1?1f:.35f);weekBar.addView(next,new LinearLayout.LayoutParams(dp(48),dp(48)));weekBar.addView(UiKit.iconButton(this,palette,R.drawable.ic_settings,"Manage running plan",()->{planSchedule=false;render();}),new LinearLayout.LayoutParams(dp(48),dp(48)));content.addView(weekBar);
+    next.setEnabled(week<config.weeks()-1);next.setAlpha(week<config.weeks()-1?1f:.35f);weekBar.addView(next,new LinearLayout.LayoutParams(dp(48),dp(48)));weekBar.addView(UiKit.iconButton(this,palette,R.drawable.ic_settings,"Manage running plan",this::showPlanManagement),new LinearLayout.LayoutParams(dp(48),dp(48)));content.addView(weekBar);
     LocalDate start=config.start().plusWeeks(week),end=start.plusDays(7);
     content.addView(text(start.format(DateTimeFormatter.ofPattern("d MMM"))+" – "+end.minusDays(1).format(DateTimeFormatter.ofPattern("d MMM yyyy")),14,false));
     LinearLayout days=new LinearLayout(this);

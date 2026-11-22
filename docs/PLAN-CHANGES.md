@@ -1,6 +1,6 @@
 # Plan-change history and safe undo
 
-Open **Plan → Plan changes** (also available in the training schedule) or **Coach → Plan changes**.
+Open **Plan → Manage plan → Plan changes**. The schedule settings icon and **Coach → Manage plan** open the same menu. When there is no current plan, **Coach → Plan changes** still provides access to history.
 
 ## Managing a plan
 

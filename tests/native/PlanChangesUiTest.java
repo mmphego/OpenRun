@@ -60,9 +60,29 @@ public class PlanChangesUiTest {
       NativePlanningTest.shot(controller.get(),"plan-changes-empty");controller.recreate();assertEquals(0,new RunStore(app).planChanges().length());
     }
   }
-  @Test public void planAndCoachOpenHistory()throws Exception{
-    for(String destination:new String[]{"Plan","Coach"})try(var controller=Robolectric.buildActivity(MainActivity.class,new Intent().putExtra("destination",destination)).setup().visible()){
-      NativePlanningTest.click(controller.get(),"Plan changes");assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(controller.get()).getNextStartedActivity().getComponent().getClassName());
+  @Test public void managementUnifiesPlanActionsAndHistory()throws Exception{
+    try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()){
+      MainActivity activity=controller.get();NativePlanningTest.click(activity,"Plan");
+      assertNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Plan changes"));
+      NativePlanningTest.click(activity,"Manage plan");AlertDialog menu=(AlertDialog)ShadowDialog.getLatestDialog();
+      String menuText=ProgressUiTest.all(menu.getWindow().getDecorView());
+      for(String action:new String[]{"Edit plan","Pause plan","Delete plan","Plan changes","Restart current plan","Start new plan","Training preferences"})assertTrue(action,menuText.contains(action));
+      android.view.View view=menu.getWindow().getDecorView();view.measure(android.view.View.MeasureSpec.makeMeasureSpec(393,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(852,android.view.View.MeasureSpec.EXACTLY));view.layout(0,0,393,852);
+      android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(393,852,android.graphics.Bitmap.Config.ARGB_8888);view.draw(new android.graphics.Canvas(bitmap));
+      try(FileOutputStream out=new FileOutputStream(new File(System.getProperty("rwun.evidence"),"unified-plan-menu.png"))){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}bitmap.recycle();
+      menu.getListView().performItemClick(menu.getListView().getChildAt(3),3,3);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
+    }
+  }
+  @Test public void coachProvidesManagementAndRetainsHistoryWithoutPlan()throws Exception{
+    try(var controller=Robolectric.buildActivity(MainActivity.class,new Intent().putExtra("destination","Coach")).setup().visible()){
+      MainActivity activity=controller.get();manage(activity,3);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
+    }
+    store.deletePlan(store.proposalFingerprint());
+    try(var controller=Robolectric.buildActivity(MainActivity.class,new Intent().putExtra("destination","Coach")).setup().visible()){
+      NativePlanningTest.click(controller.get(),"Plan changes");
+      assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(controller.get()).getNextStartedActivity().getComponent().getClassName());
     }
   }
   @Test public void historyReviewCancelAndConfirmUndo()throws Exception{
