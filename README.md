@@ -45,6 +45,8 @@ These are real Android Views from the Rwun baseline rendered by the existing Rob
 <img src="docs/screenshots/indoor-walk.png" width="240" alt="OpenRun indoor walking screen rendered from Android Views">
 </p>
 
+Run history compares average pace with the most recent similar run: the same workout type and known indoor/outdoor setting, with distance within 20% of the earlier run. A green tint indicates faster pace, orange indicates slower pace, and red indicates at least 15% slower; changes below 0.5% are neutral. Activities with missing metrics, uncertain venue or ambiguous ordering have no comparison. Comparisons use all history even when filters are active. Pace is affected by terrain, weather and workout purpose, and is not a measure of workout quality.
+
 The Progress redesign below is rendered from the current native Android Views with synthetic activities. Running history uses monthly groups and compact metrics; activity details show saved routes with an optional inline street map. Health Connect imports without route data show an explicit unavailable state. These are host renders, not device acceptance evidence.
 
 <p>

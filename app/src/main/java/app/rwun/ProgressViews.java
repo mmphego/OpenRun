@@ -83,11 +83,11 @@ final class ProgressViews {
     }
   }
 
-  static LinearLayout workout(Context c, UiKit.Palette p, RunStore.Run run, long started, Runnable open) {
+  static LinearLayout workout(Context c, UiKit.Palette p, RunStore.Run run, long started, RunComparison.Result comparison, Runnable open) {
     LinearLayout card = new LinearLayout(c);
     card.setOrientation(LinearLayout.VERTICAL);
     card.setPadding(UiKit.dp(c, 16), UiKit.dp(c, 14), UiKit.dp(c, 12), UiKit.dp(c, 12));
-    card.setBackground(UiKit.ripple(c, p.surface, 16));
+    card.setBackground(UiKit.ripple(c, comparisonColor(p, comparison), 16));
     LinearLayout.LayoutParams space = new LinearLayout.LayoutParams(-1, -2);
     space.setMargins(0, UiKit.dp(c, 6), 0, UiKit.dp(c, 6));
     card.setLayoutParams(space);
@@ -109,6 +109,7 @@ final class ProgressViews {
     chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
     heading.addView(chevron, new LinearLayout.LayoutParams(UiKit.dp(c, 24), UiKit.dp(c, 24)));
     card.addView(heading);
+    card.addView(label(c, comparisonText(comparison), 13, p.ink, true));
     metrics(c, p, card, new String[]{"Distance", "Time", "Avg pace"},
         new String[]{distance(run.km()), time(run.seconds()), pace(run)}, false);
     card.addView(label(c, source(c, run.source()) + (run.routeFile().isEmpty() ? "" : " · GPS route"), 12, p.muted, false));
@@ -118,4 +119,22 @@ final class ProgressViews {
     card.setOnClickListener(v -> { UiKit.feedback(v); open.run(); });
     return card;
   }
+  private static int comparisonColor(UiKit.Palette p, RunComparison.Result comparison) {
+    if (comparison == null || comparison.band() == RunComparison.Band.SAME) return p.surface;
+    String color = switch (comparison.band()) {
+      case FASTER -> p.dark ? "#203E35" : "#E5F5EA";
+      case SLOWER -> p.dark ? "#483622" : "#FFF1DD";
+      case MUCH_SLOWER -> p.dark ? "#4D2724" : "#FFF0ED";
+      case SAME -> throw new IllegalStateException("Neutral comparison has no tint");
+    };
+    return android.graphics.Color.parseColor(color);
+  }
+
+  private static String comparisonText(RunComparison.Result comparison) {
+    if (comparison == null) return "No comparable previous run";
+    if (comparison.band() == RunComparison.Band.SAME) return "Similar pace to previous similar run";
+    return String.format(Locale.getDefault(), "%.0f%% %s pace than previous similar run",
+        Math.abs(comparison.percent()), comparison.band() == RunComparison.Band.FASTER ? "faster" : "slower");
+  }
+
 }

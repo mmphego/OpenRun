@@ -65,6 +65,44 @@ public class ProgressUiTest {
       assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"October 2026"));
     }
   }
+  @Test public void paceComparisonSurvivesFilteringAndOpensDetails() throws Exception {
+    store.add(run("gps:before", "2026-11-01", 5, 2000, "GPS", ""));
+    store.add(run("gps:after", "2026-12-01", 5, 1800, "GPS", ""));
+    try(var controller=open()) {
+      MainActivity activity=controller.get();
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(), "10% faster pace than previous similar run"));
+      NativePlanningTest.click(activity,"Month");
+      AlertDialog choices=(AlertDialog)org.robolectric.shadows.ShadowDialog.getLatestDialog();
+      choices.getListView().performItemClick(null,12,12);
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(), "10% faster pace than previous similar run"));
+      NativePlanningTest.shot(activity,"progress-pace-comparison");
+      RuntimeEnvironment.setFontScale(1.6f);
+      controller.recreate(); activity=controller.get();
+      NativePlanningTest.shot(activity,"progress-pace-comparison-large");
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(), "10% faster pace than previous similar run"));
+      NativePlanningTest.click(activity,"Run");
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Route unavailable"));
+    } finally { RuntimeEnvironment.setFontScale(1f); }
+  }
+  @Test public void comparisonTintsAndLabelsRenderInBothPalettes() throws Exception {
+    try(var controller=open()) {
+      MainActivity activity=controller.get();
+      var sample=run("gps:test", "2026-11-01", 5, 1800, "GPS", "");
+      for(boolean dark : new boolean[]{false,true}) {
+        UiKit.Palette palette=new UiKit.Palette(dark);
+        android.widget.LinearLayout cards=new android.widget.LinearLayout(activity);
+        cards.setOrientation(android.widget.LinearLayout.VERTICAL);
+        cards.setBackgroundColor(palette.background);
+        cards.addView(ProgressViews.workout(activity,palette,sample,0,new RunComparison.Result(RunComparison.Band.FASTER,-5,"2026-10-01"),()->{}));
+        cards.addView(ProgressViews.workout(activity,palette,sample,0,new RunComparison.Result(RunComparison.Band.SLOWER,5,"2026-10-01"),()->{}));
+        cards.addView(ProgressViews.workout(activity,palette,sample,0,new RunComparison.Result(RunComparison.Band.MUCH_SLOWER,20,"2026-10-01"),()->{}));
+        activity.setContentView(cards);
+        assertTrue(all(cards).contains("5% faster pace"));
+        assertTrue(all(cards).contains("20% slower pace"));
+        NativePlanningTest.shot(activity,dark ? "progress-colors-dark" : "progress-colors-light");
+      }
+    }
+  }
   @Test public void monthFilterSurvivesDetailAndRotation() throws Exception {
     try(var controller=open()) {
       MainActivity activity=controller.get();NativePlanningTest.click(activity,"Month");
