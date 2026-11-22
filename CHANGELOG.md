@@ -1,5 +1,7 @@
 # Changelog
 
+- Added controls to pause, resume, delete, and edit a running plan while retaining saved activities and recovery holds.
+
 ## Unreleased
 
 - Make free run and free walk easy to find on Home. Free runs and walking-pad walks can start without a goal, and walk controls use walk labels.

@@ -96,7 +96,7 @@ Use the indoor walking entry point, start the timer and save when finished. On s
 
 After a workout, provide effort, fatigue or pain feedback when prompted. Training adaptations are conservative: they protect completed sessions and recovery holds. Review proposed changes rather than assuming every run should make the next workout harder.
 
-Open **Plan → Plan changes** or **Coach → Plan changes** to inspect the reason and before/after targets. **Apply undo** is available only for the newest eligible change; completed workouts, subsequent changes and safety holds can prevent undo. Undo never deletes recorded activities or clears a pain hold. See [plan-change rules](PLAN-CHANGES.md).
+Open **Plan → Manage plan → Plan changes** or **Coach → Manage plan → Plan changes** to inspect the reason and before/after targets. **Apply undo** is available only for the newest eligible change; completed workouts, subsequent changes and safety holds can prevent undo. Undo never deletes recorded activities or clears a pain hold. See [plan-change rules](PLAN-CHANGES.md).
 
 ## Configure AI Coach
 

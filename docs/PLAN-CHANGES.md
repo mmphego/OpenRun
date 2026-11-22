@@ -1,6 +1,20 @@
 # Plan-change history and safe undo
 
-Open **Plan → Plan changes** (also available in the training schedule) or **Coach → Plan changes**.
+Open **Plan → Manage plan → Plan changes**. The schedule settings icon and **Coach → Manage plan** open the same menu. When there is no current plan, **Coach → Plan changes** still provides access to history.
+
+## Managing a plan
+
+In **Plan → Manage plan**, choose **Pause plan** to stop planned workout reminders and starts.
+The schedule keeps its original dates; resume does not shift missed workouts. A voluntary
+pause is separate from a pain-related recovery hold, which remains until explicitly reviewed.
+Free activities remain available. **Delete plan** removes the current schedule after
+confirmation while preserving saved activities, routes and recovery holds. Deletion cannot
+be undone. Finish or recover a pending recording before managing the plan.
+
+**Edit plan** opens a prefilled setup for standard goals. Saving creates a replacement
+schedule and resets moved/skipped workouts and race details; saved activity history remains.
+For a custom race distance, start a new plan and review the goal and schedule. Training
+preferences also allow changes to weekdays, programme and long-run day for future weeks.
 
 ## What is recorded
 

@@ -23,6 +23,15 @@ public final class PlanChangeHostTest {
   static JSONObject latest()throws Exception{return store.planChanges().getJSONObject(store.planChanges().length()-1);}
   static RunStore.Run run(String id,String date){return new RunStore.Run(id,date,2,15);}
   public static void main(String[] args)throws Exception {
+    setup();store.add(run("free:kept",LocalDate.now().toString()));
+    String original=store.planId(), stale=store.proposalFingerprint();
+    store.setPlanPaused(stale,true);check(store.planPaused()&&new RunStore(context).planPaused(),"pause persists");
+    JSONObject pausedBackup=store.backupPreferences();store.restorePreferences(pausedBackup);check(store.planPaused(),"pause survives backup restore");
+    rejected(()->store.setPlanPaused(stale,false),"stale pause review rejected");
+    store.setPlanPaused(store.proposalFingerprint(),false);check(!store.planPaused(),"resume preserves plan");
+    store.checkpoint("pending");rejected(()->store.deletePlan(store.proposalFingerprint()),"pending session blocks deletion");store.checkpoint("");
+    store.deletePlan(store.proposalFingerprint());check(store.config()==null&&store.plannedSessions().isEmpty()&&store.runs().size()==1,"deletion preserves history and removes schedule");
+    RunStore.validatePreferences(store.backupPreferences());
     setup();check(store.planChanges().length()==0,"new and existing plans start honestly empty");
     String untouched=store.backupPreferences().toString(),fp=store.proposalFingerprint();
     check(store.previewMove(fp,key(first()),freeDate()).contains("→"),"preview compares dates and distances");

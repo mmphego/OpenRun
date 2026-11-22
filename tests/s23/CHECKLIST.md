@@ -34,7 +34,7 @@ Release gates: complete the above on an S23 and broader API/device matrix, resol
 ## Running and walking focus (NOT EXECUTED)
 
 - Upgrade a copy of 1.1.0 data containing rides, strength history and unfinished cycling recordings. Five tabs: Today, Plan, Calendar, Progress, Coach. Profile opens from the top-left icon. No cycling/gym launch controls. Old data remains in exported backup; archived cycling must not resume as a run.
-- Open Plan: the return hub offers Start new plan, Restart current plan and Continue plan; Continue opens the schedule. Switch between Plan and Calendar tabs, navigate weeks and manage plan. No clipped labels at 200% font.
+- Open Plan: the return hub offers Manage plan and Continue plan; Continue opens the schedule and Manage plan contains new, restart, edit, pause, delete, preferences and change history. Switch between Plan and Calendar tabs, navigate weeks and manage plan. No clipped labels at 200% font.
 - Record outdoor walk before creating a running plan. Pause, resume, save, view route, export GPX, delete and undo. Walking minutes appear in Walks and do not increase running mileage or complete a planned run.
 - Repeat with indoor walking-pad steps and manual distance; indoor running stays in running totals. Missing Health Connect walk distance stays time only. Reimport does not duplicate.
 - Recover unfinished running and walking sessions after process death. Completed session saves once. Pain feedback retains the training hold.
@@ -49,7 +49,7 @@ Release gates: complete the above on an S23 and broader API/device matrix, resol
 
 ## Race-first planning (NOT EXECUTED)
 
-- Fresh install: Welcome → Create my plan → Race. Existing plan: Plan → Start new plan → Race. Verify auto-advance after choosing a race and existing non-race onboarding remains available.
+- Fresh install: Welcome → Create my plan → Race. Existing plan: Plan → Manage plan → Start new plan → Race. Verify auto-advance after choosing a race and existing non-race onboarding remains available.
 - Search by name/city, country, distance and date range; empty search and invalid ranges; source links; manual name/city/country/date/distance; unsupported trail/ultra and too-soon dates. Catalogue must state its limited scope and checked date.
 - Offline: create a manual race plan and inspect the exact first/race-week preview, selected weekdays and long-run day. Save and reopen; same schedule and race target appear in Today/Plan/Calendar. Completed history and holds remain.
 - Cancel/back/rotation through every wizard stage. Large fonts, keyboard, TalkBack, physical Back and no clipped confirmation buttons. Replacing a plan requires the concrete preview confirmation.

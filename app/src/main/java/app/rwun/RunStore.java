@@ -204,7 +204,7 @@ final class RunStore {
     JSONObject options=options();options.remove("mode");options.remove("weekdays");options.remove("longDay");options.remove("goalPace");
     try{if(returning){var preference=OnboardingPlan.returning(c,p);JSONArray days=new JSONArray();for(var day:preference.weekdays())days.put(day.getValue());options.put("mode",preference.mode()).put("weekdays",days).put("longDay",preference.longDay().getValue());}validateOptions(options);
     var schedule=OnboardingPlan.sessions(c,p,returning);
-    commit(new PreferenceEdit(preferences).putString("planId",UUID.randomUUID().toString()).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(schedule).toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"No adjustments applied."));
+    commit(new PreferenceEdit(preferences).remove("planPaused").putString("planId",UUID.randomUUID().toString()).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(schedule).toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"No adjustments applied."));
     }catch(JSONException e){throw new IllegalArgumentException(e);}
   }}
 
@@ -221,8 +221,26 @@ final class RunStore {
       String id=UUID.randomUUID().toString();JSONObject target=race==null?null:new JSONObject(race.toString()).put("planId",id),data=v103();if(target==null)data.remove("race");else data.put("race",target);V103Data.validate(data);validateOptions(options);
       if(options.getJSONArray("weekdays").length()!=c.days()||(target!=null&&(Math.abs(target.getDouble("km")-c.goalKm())>.001||!LocalDate.parse(target.getString("date")).equals(c.start().plusWeeks(c.weeks())))))throw new IllegalArgumentException("Race and training dates disagree");
       JSONObject candidate=new JSONObject().put("weeks",c.weeks()).put("days",c.days()).put("volume",c.weeklyKm()).put("goal",c.goalKm()).put("start",c.start().toString()).put("schedule",serializeSchedule(sessions).toString());validatePreferences(candidate);
-      commit(new PreferenceEdit(preferences).putString("planId",id).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(sessions).toString()).putString("v103",data.toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():reason),kind,reason,evidence);
+      commit(new PreferenceEdit(preferences).remove("planPaused").putString("planId",id).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(sessions).toString()).putString("v103",data.toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():reason),kind,reason,evidence);
     }catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}
+  }}
+
+  boolean planPaused(){return preferences.getBoolean("planPaused",false);}
+  private void requirePlanManagement(String fingerprint){
+    requirePreview(fingerprint);
+    if(config()==null)throw new IllegalStateException("There is no current plan.");
+    if(!checkpoint().isEmpty()||indoorPending())throw new IllegalStateException("Finish or recover the pending session first.");
+  }
+  void setPlanPaused(String fingerprint,boolean paused){synchronized(LOCK){
+    requirePlanManagement(fingerprint);
+    if(planPaused()==paused)throw new IllegalStateException("The plan status has already changed.");
+    commit(new PreferenceEdit(preferences).putBoolean("planPaused",paused),paused?"Plan paused":"Plan resumed",paused?"Plan paused by you.":"Plan resumed by you.","User reviewed plan status.");
+  }}
+  void deletePlan(String fingerprint){synchronized(LOCK){
+    requirePlanManagement(fingerprint);
+    PreferenceEdit edit=new PreferenceEdit(preferences);
+    for(String key:List.of("start","planId","weeks","days","volume","goal","schedule","moves","skips","planPaused"))edit.remove(key);
+    commit(edit,"Plan deleted","Current plan deleted by you.","Saved activities and recovery holds retained.");
   }}
 
   /** Restart creates new completion IDs; historical runs, pace profile and safety hold remain. */
@@ -648,7 +666,7 @@ final class RunStore {
   static final Set<String> FLOAT_KEYS = Set.of("volume", "goal", "adaptFactor", "profileDistance");
   static final Set<String> INT_KEYS = Set.of("focusVersion", "weeks", "days");
   static final Set<String> LONG_KEYS = Set.of("profileSeconds");
-  static final Set<String> BOOL_KEYS = Set.of("rest", "audio", "speedWork", "paceAlerts");
+  static final Set<String> BOOL_KEYS = Set.of("rest", "audio", "speedWork", "paceAlerts", "planPaused");
   static final Set<String> STRING_KEYS =
       Set.of("start", "planId", "runs", "adaptFrom", "adaptReason", "moves", "skips", "strength", "options", "schedule", "v1", "v103", "cycling", "planChanges", "planRevision", "planEpoch", "protectedTargets", "aiReviewedRuns");
 

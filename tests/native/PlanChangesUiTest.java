@@ -24,15 +24,65 @@ public class PlanChangesUiTest {
     Shadows.shadowOf(app).setComponentNameAndServiceForBindService(new ComponentName(app,TrackingService.class),service.onBind(new Intent()));
   }
   void move(){var first=store.plannedSessions().get(0);store.move(store.proposalFingerprint(),store.planId()+":"+first.id(),store.config().start().plusDays(1));}
+  void manage(MainActivity activity,int choice){NativePlanningTest.click(activity,"Manage plan");AlertDialog menu=(AlertDialog)ShadowDialog.getLatestDialog();menu.getListView().performItemClick(menu.getListView().getChildAt(choice),choice,choice);}
+  @Test public void managePlanPauseResumeAndDeletePreservesActivity()throws Exception{
+    store.add(new RunStore.Run("free:kept",LocalDate.now().toString(),2,15));
+    try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()){
+      NativePlanningTest.click(controller.get(),"Plan");
+      NativePlanningTest.shot(controller.get(),"manage-plan");
+      manage(controller.get(),1);
+      AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertTrue(store.planPaused());
+      manage(controller.get(),1);dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertFalse(store.planPaused());
+      manage(controller.get(),2);dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-2).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertNotNull(store.config());
+      manage(controller.get(),2);dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertNull(store.config());assertEquals(1,store.runs().size());
+    }
+  }
+  @Test public void editStartsWithCurrentSettingsAndCancelKeepsPlan()throws Exception{
+    String before=store.planId();try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()){
+      NativePlanningTest.click(controller.get(),"Plan");manage(controller.get(),0);
+      assertTrue(ProgressUiTest.all(controller.get().getWindow().getDecorView()).contains("5 km"));
+      controller.get().onBackPressed();assertEquals(before,store.planId());
+    }
+  }
+  @Test public void editReviewSavesNewGoalAndKeepsHistory()throws Exception{
+    store.add(new RunStore.Run("free:kept",LocalDate.now().toString(),2,15));String before=store.planId();
+    try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()){
+      MainActivity activity=controller.get();NativePlanningTest.click(activity,"Plan");manage(activity,0);
+      NativePlanningTest.click(activity,"10 km");NativePlanningTest.click(activity,"Continue");NativePlanningTest.click(activity,"Continue");
+      assertTrue(ProgressUiTest.all(activity.getWindow().getDecorView()).contains("Saving replaces the current schedule"));
+      NativePlanningTest.click(activity,"Build my plan");assertEquals(10,store.config().goalKm(),0.01);assertNotEquals(before,store.planId());assertEquals(1,store.runs().size());
+    }
+  }
   @Test public void emptyHistoryIsHonestAndSurvivesRecreation()throws Exception{
     try(var controller=Robolectric.buildActivity(PlanChangesActivity.class).setup().visible()){
       assertTrue(ProgressUiTest.all(controller.get().getWindow().getDecorView()).contains("Earlier changes were not recorded."));
       NativePlanningTest.shot(controller.get(),"plan-changes-empty");controller.recreate();assertEquals(0,new RunStore(app).planChanges().length());
     }
   }
-  @Test public void planAndCoachOpenHistory()throws Exception{
-    for(String destination:new String[]{"Plan","Coach"})try(var controller=Robolectric.buildActivity(MainActivity.class,new Intent().putExtra("destination",destination)).setup().visible()){
-      NativePlanningTest.click(controller.get(),"Plan changes");assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(controller.get()).getNextStartedActivity().getComponent().getClassName());
+  @Test public void managementUnifiesPlanActionsAndHistory()throws Exception{
+    try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()){
+      MainActivity activity=controller.get();NativePlanningTest.click(activity,"Plan");
+      assertNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Plan changes"));
+      NativePlanningTest.click(activity,"Manage plan");AlertDialog menu=(AlertDialog)ShadowDialog.getLatestDialog();
+      String menuText=ProgressUiTest.all(menu.getWindow().getDecorView());
+      for(String action:new String[]{"Edit plan","Pause plan","Delete plan","Plan changes","Restart current plan","Start new plan","Training preferences"})assertTrue(action,menuText.contains(action));
+      android.view.View view=menu.getWindow().getDecorView();view.measure(android.view.View.MeasureSpec.makeMeasureSpec(393,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(852,android.view.View.MeasureSpec.EXACTLY));view.layout(0,0,393,852);
+      android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(393,852,android.graphics.Bitmap.Config.ARGB_8888);view.draw(new android.graphics.Canvas(bitmap));
+      try(FileOutputStream out=new FileOutputStream(new File(System.getProperty("rwun.evidence"),"unified-plan-menu.png"))){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}bitmap.recycle();
+      menu.getListView().performItemClick(menu.getListView().getChildAt(3),3,3);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
+    }
+  }
+  @Test public void coachProvidesManagementAndRetainsHistoryWithoutPlan()throws Exception{
+    try(var controller=Robolectric.buildActivity(MainActivity.class,new Intent().putExtra("destination","Coach")).setup().visible()){
+      MainActivity activity=controller.get();manage(activity,3);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
+    }
+    store.deletePlan(store.proposalFingerprint());
+    try(var controller=Robolectric.buildActivity(MainActivity.class,new Intent().putExtra("destination","Coach")).setup().visible()){
+      NativePlanningTest.click(controller.get(),"Plan changes");
+      assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(controller.get()).getNextStartedActivity().getComponent().getClassName());
     }
   }
   @Test public void historyReviewCancelAndConfirmUndo()throws Exception{
@@ -41,7 +91,7 @@ public class PlanChangesUiTest {
       String text=ProgressUiTest.all(controller.get().getWindow().getDecorView());assertTrue(text.contains("Rescheduled workout"));assertTrue(text.contains("Evidence:"));assertTrue(text.contains("km →"));
       NativePlanningTest.shot(controller.get(),"plan-changes-history");
       NativePlanningTest.click(controller.get(),"Review undo of latest change");AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();assertTrue(dialog.isShowing());dialog.getButton(-2).performClick();assertEquals(history,store.planChanges().toString());
-      NativePlanningTest.click(controller.get(),"Review undo of latest change");dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      NativePlanningTest.click(controller.get(),"Review undo of latest change");dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
       assertEquals("Confirm must append undo after the dialog callback runs",2,new RunStore(app).planChanges().length());
       assertTrue(ProgressUiTest.all(controller.get().getWindow().getDecorView()).contains("Undo"));
       controller.recreate();assertTrue(ProgressUiTest.all(controller.get().getWindow().getDecorView()).contains("Undo"));

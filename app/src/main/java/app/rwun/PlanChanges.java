@@ -8,7 +8,7 @@ import org.json.*;
 
 /** Immutable audit events and conservative undo rules, independent of UI and disk writes. */
 final class PlanChanges {
-  static final Set<String> KEYS=Set.of("planId","start","weeks","days","volume","goal","schedule","options","moves","skips","adaptFrom","adaptFactor","adaptReason","rest","profileDistance","profileSeconds","speedWork","protectedTargets");
+  static final Set<String> KEYS=Set.of("planId","start","weeks","days","volume","goal","schedule","options","moves","skips","adaptFrom","adaptFactor","adaptReason","rest","planPaused","profileDistance","profileSeconds","speedWork","protectedTargets");
   static final Set<String> FEATURES=Set.of("overrides","raceReview","race");
   record Undo(String eventId,String fingerprint,String summary) {}
 
