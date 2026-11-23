@@ -96,6 +96,45 @@ final class UiKit {
     LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(c,5),0,dp(c,5));b.setLayoutParams(lp);
     b.setMinWidth(0);b.setMinimumWidth(0);b.setOnClickListener(v->{feedback(v);action.run();});return b;
   }
+  static LinearLayout actionPair(Context c, Button first, Button second) {
+    int gap=dp(c,10);
+    for(Button action:new Button[]{first,second}){
+      action.setPaddingRelative(dp(c,12),action.getPaddingTop(),dp(c,12),action.getPaddingBottom());
+      action.setCompoundDrawablePadding(dp(c,8));
+    }
+    LinearLayout pair = new LinearLayout(c) {
+      @Override protected void onMeasure(int widthSpec,int heightSpec) {
+        int available=MeasureSpec.getSize(widthSpec);
+        int required=2*Math.max(actionWidth(first),actionWidth(second))+gap;
+        int orientation=required>available?VERTICAL:HORIZONTAL;
+        if(getOrientation()!=orientation){
+          setOrientation(orientation);
+          setActionSpace(first,orientation==VERTICAL,0,gap);
+          setActionSpace(second,orientation==VERTICAL,gap,0);
+        }
+        super.onMeasure(widthSpec,heightSpec);
+      }
+
+      private void setActionSpace(Button action,boolean stacked,int start,int end) {
+        LayoutParams space=(LayoutParams)action.getLayoutParams();
+        space.width=stacked?LayoutParams.MATCH_PARENT:0;
+        space.weight=stacked?0:1;
+        space.setMarginStart(stacked?0:start/2);
+        space.setMarginEnd(stacked?0:end/2);
+        action.setLayoutParams(space);
+      }
+    };
+    pair.setOrientation(LinearLayout.VERTICAL);
+    pair.setBaselineAligned(false);
+    pair.addView(first);
+    pair.addView(second);
+    return pair;
+  }
+
+  private static int actionWidth(Button action) {
+    return (int)Math.ceil(android.text.Layout.getDesiredWidth(action.getText(),action.getPaint()))
+        +action.getCompoundPaddingLeft()+action.getCompoundPaddingRight();
+  }
   static Button quietAction(Context c,Palette p,String text,boolean destructive,Runnable action) {
     int color=destructive?p.danger:p.muted;Button button=new Button(c);button.setText(text);button.setTextSize(textSizeSp(14));button.setTextColor(color);button.setAllCaps(false);
     button.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));button.setGravity(Gravity.CENTER_VERTICAL|Gravity.START);button.setPadding(dp(c,12),dp(c,8),dp(c,12),dp(c,8));button.setMinHeight(dp(c,48));button.setMinimumHeight(dp(c,48));
