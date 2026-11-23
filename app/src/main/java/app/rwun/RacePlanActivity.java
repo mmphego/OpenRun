@@ -19,7 +19,8 @@ public final class RacePlanActivity extends Activity {
  private LinearLayout panel(){return PlanningUi.card(this);}
  private LinearLayout card(){if(aiPlanning)return CoachUi.card(body,false);LinearLayout c=panel();body.addView(c);return c;}
  private void line(LinearLayout c,String s,int size){if(aiPlanning){CoachUi.copy(c,s,size,size>=18);CoachUi.gap(c,6);}else c.addView(UiKit.label(this,s,size,p.ink,size>=20));}
- private void action(String s,Runnable r){Runnable guarded=()->{try{if(aiBusy)throw new IllegalStateException("Wait for AI generation to finish, or go back to cancel.");r.run();}catch(Exception e){error(e);}};if(aiPlanning)CoachUi.addButton(body,s,s.startsWith("Continue")||s.startsWith("Generate")||s.equals("Create my plan")||s.equals("AI personalised plan · OpenAI / Gemini"),guarded);else body.addView(UiKit.action(this,p,s,guarded));}
+ private Runnable guarded(Runnable action){return ()->{try{if(aiBusy)throw new IllegalStateException("Wait for AI generation to finish, or go back to cancel.");action.run();}catch(Exception e){error(e);}};}
+ private void action(String s,Runnable r){Runnable guarded=guarded(r);if(aiPlanning)CoachUi.addButton(body,s,s.startsWith("Continue")||s.startsWith("Generate")||s.equals("Create my plan")||s.equals("AI personalised plan · OpenAI / Gemini"),guarded);else body.addView(UiKit.action(this,p,s,guarded));}
  private void error(Exception e){new AlertDialog.Builder(this).setTitle("Check your plan").setMessage(UserErrors.message(e)).setPositiveButton("OK",null).show();}
  private void field(String label,String key,String fallback,boolean number){if(aiPlanning){EditText input=CoachUi.field(body,label,draft.getString(key,fallback),label,number);if(key.equals("km")||key.equals("pace"))input.setTextSize(28);input.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int c,int f){}public void onTextChanged(CharSequence v,int a,int b,int c){draft.putString(key,v.toString());updateGoalTime();}public void afterTextChanged(Editable e){}});return;}LinearLayout card=panel();card.setPadding(dp(18),dp(12),dp(18),dp(12));card.setBackground(PlanningUi.shape(this,PlanningUi.CARD,18,true));TextView caption=PlanningUi.label(this,label.toUpperCase(Locale.ROOT),12,false);caption.setTextColor(PlanningUi.INK);card.addView(caption);EditText e=new EditText(this);e.setTextColor(PlanningUi.INK);e.setHintTextColor(PlanningUi.MUTED);e.setTextSize(UiKit.textSizeSp(19));e.setSingleLine(true);e.setText(draft.getString(key,fallback));e.setHint(key.equals("name")?"What's the name of your race?":key.equals("city")?"Which city is the race in?":label);e.setContentDescription(label);e.setBackgroundColor(android.graphics.Color.TRANSPARENT);e.setPadding(0,dp(6),0,dp(4));e.setInputType(number?android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL:android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);e.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int c,int f){}public void onTextChanged(CharSequence value,int a,int b,int c){draft.putString(key,value.toString());updateManualButton();}public void afterTextChanged(Editable value){}});card.addView(e,new LinearLayout.LayoutParams(-1,dp(40)));body.addView(card);}
  private void selectField(String caption,String value,Runnable click){LinearLayout c=panel();c.setBackground(PlanningUi.shape(this,PlanningUi.CARD,18,true));if(!caption.isEmpty())c.addView(PlanningUi.label(this,caption.toUpperCase(Locale.ROOT),12,false));LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);TextView title=PlanningUi.label(this,value,19,false);title.setTextColor(PlanningUi.INK);row.addView(title,new LinearLayout.LayoutParams(0,-2,1));ImageView arrow=new ImageView(this);arrow.setImageDrawable(UiKit.icon(this,R.drawable.ic_chevron_right,PlanningUi.INK,20));arrow.setRotation(90);row.addView(arrow,new LinearLayout.LayoutParams(dp(24),dp(24)));c.addView(row);c.setMinimumHeight(dp(74));c.setClickable(true);c.setFocusable(true);c.setContentDescription(caption+", "+value);c.setOnClickListener(v->click.run());body.addView(c);}
@@ -64,7 +65,21 @@ public final class RacePlanActivity extends Activity {
    CoachUi.row(body,R.drawable.ic_info,"How we use your history","Your entered volume and recorded runs set the baseline",()->{AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Your starting baseline").setMessage(review.reason()+"\n\nWhen at least three runs are available, the lower of your entered weekly volume and the recorded 28-day average sets the baseline. Missing history is not evidence that you did no exercise.").setPositiveButton("Done",null).create();dialog.show();CoachUi.styleDialog(dialog);});
    action("Continue",()->{double km=Double.parseDouble(draft.getString("volume"));if(!Double.isFinite(km)||km<4||km>120)throw new IllegalArgumentException("Enter 4–120 km of current weekly running.");stage="days";show();});
  }
- private void availability(){aiReady=false;text("Make the plan fit your week",30,true);text("Choose the days you can consistently run.",17,false);PlanningUi.gap(this,body,20);field("Training weeks · 4–24","weeks","14",true);text("Training days · choose 1–7",18,true);PlanningUi.gap(this,body,12);DayOfWeek[] week=DayOfWeek.values();for(int group=0;group<2;group++){LinearLayout row=new LinearLayout(this);for(int i=group*4;i<Math.min(7,group*4+4);i++){DayOfWeek day=week[i];Button chip=PlanningUi.chip(this,day.getDisplayName(java.time.format.TextStyle.SHORT,Locale.getDefault()),days.contains(day),()->{if(days.contains(day))days.remove(day);else days.add(day);DayOfWeek chosen=DayOfWeek.valueOf(draft.getString("longDay","SUNDAY"));if(!days.contains(chosen)&&!days.isEmpty())draft.putString("longDay",days.stream().sorted().findFirst().get().name());show();});chip.setContentDescription(day.getDisplayName(java.time.format.TextStyle.FULL,Locale.getDefault()));chip.setSelected(days.contains(day));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(52),1);lp.setMargins(0,0,dp(6),0);row.addView(chip,lp);}body.addView(row);PlanningUi.gap(this,body,8);}PlanningUi.gap(this,body,16);DayOfWeek selectedDay=DayOfWeek.valueOf(draft.getString("longDay","SUNDAY"));selectField("Long-run day",selectedDay.getDisplayName(java.time.format.TextStyle.FULL,Locale.getDefault()),()->{String[] labels=days.stream().sorted().map(d->d.getDisplayName(java.time.format.TextStyle.FULL,Locale.getDefault())).toArray(String[]::new);DayOfWeek[] values=days.stream().sorted().toArray(DayOfWeek[]::new);new AlertDialog.Builder(this).setTitle("Long-run day").setItems(labels,(d,w)->{draft.putString("longDay",values[w].name());show();}).setNegativeButton("Cancel",null).show();});text(isRaceDraft?"Your plan works back from race day, with recovery and a shorter race week.":"Your long run stays on your chosen day. Choose a weekly rhythm that leaves you time to recover.",14,false);text("Planning method",18,true);
+ private void availability(){
+   aiReady=false;
+   text("Make the plan fit your week",30,true);
+   text("Choose the days you can consistently run.",17,false);
+   PlanningUi.gap(this,body,20);
+   field("Training weeks · 4–24","weeks","14",true);
+   DayOfWeek selectedDay=DayOfWeek.valueOf(draft.getString("longDay","SUNDAY"));
+   body.addView(new TrainingDaysPicker(this,p,days,selectedDay,(chosen,longest)->{
+     days.clear();
+     days.addAll(chosen);
+     longDay=longest;
+     draft.putString("longDay",longest.name());
+   }));
+   text(isRaceDraft?"Your plan works back from race day, with recovery and a shorter race week."
+       :"Choose a weekly rhythm that leaves you time to recover.",14,false);
  Runnable standard=()->{aiPlanning=false;aiReady=false;continuePreview();};
  Runnable ai=()->{
    aiPlanning=true;
@@ -80,9 +95,15 @@ public final class RacePlanActivity extends Activity {
    aiPlanning=true;aiReady=false;continuePreview();
  };
  if(aiPlanning){text("AI plan setup · review the generated schedule before saving.",15,false);action("AI personalised plan · OpenAI / Gemini",ai);action("Preview standard plan",standard);}
- else{action("Preview my plan",standard);action("AI personalised plan · OpenAI / Gemini",ai);}
+ else{
+   action("Preview my plan",standard);
+   body.addView(UiKit.quietAction(this,p,"AI personalised plan · OpenAI / Gemini",false,guarded(()->{
+     if(days.isEmpty())throw new IllegalArgumentException("Choose at least one training day.");
+     ai.run();
+   })));
  }
- private void continuePreview(){preview=null;aiRaw="";aiExplanation="";longDay=DayOfWeek.valueOf(draft.getString("longDay",longDay.toString()));buildPreview();stage="preview";show();}
+ }
+ private void continuePreview(){if(days.isEmpty())throw new IllegalArgumentException("Choose at least one training day.");preview=null;aiRaw="";aiExplanation="";longDay=DayOfWeek.valueOf(draft.getString("longDay",longDay.toString()));buildPreview();stage="preview";show();}
  private void generateAiPlan(){
    if(!new AiCoachSettings(this).enabled()){error(new IllegalStateException("Configure your AI connection first."));return;}
    preview=null;aiReady=false;final RaceTraining.Draft baseline=buildPreview();
