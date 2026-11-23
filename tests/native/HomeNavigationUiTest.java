@@ -169,6 +169,35 @@ public class HomeNavigationUiTest {
     } finally {RuntimeEnvironment.setFontScale(1f);}
   }
 
+  @Test public void activeHomeShowsWorkoutBeforeFreeActivities() throws Exception {
+    store.save(new PlanEngine.Config(8,3,12,5,LocalDate.now()));
+    try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()) {
+      MainActivity activity=controller.get();
+      layout(activity,360,780,"active-home-priority");
+      View root=activity.getWindow().getDecorView();
+      View workout=NativePlanningTest.find(root,"View workout");
+      View freeRun=NativePlanningTest.find(root,"Start free run");
+      assertNotNull(workout);
+      assertNotNull(freeRun);
+      int[] workoutLocation=new int[2],freeRunLocation=new int[2];
+      workout.getLocationOnScreen(workoutLocation);
+      freeRun.getLocationOnScreen(freeRunLocation);
+      assertTrue("The scheduled workout should come before free activity",
+          workoutLocation[1]<freeRunLocation[1]);
+    }
+  }
+
+  @Test public void calendarWithoutPlanOpensPlanCreation() throws Exception {
+    try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()) {
+      MainActivity activity=controller.get();
+      NativePlanningTest.click(activity,"Calendar");
+      layout(activity,360,780,"calendar-without-plan");
+      NativePlanningTest.click(activity,"Create my plan");
+      Intent intent=Shadows.shadowOf(activity).getNextStartedActivityForResult().intent;
+      assertEquals(RacePlanActivity.class.getName(),intent.getComponent().getClassName());
+    }
+  }
+
   @Test public void existingPlanHubFitsAndHomePreservesPlan() throws Exception {
     store.save(new PlanEngine.Config(8,3,12,5,LocalDate.now()));
     String planId=store.planId();

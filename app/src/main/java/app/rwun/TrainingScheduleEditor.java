@@ -12,7 +12,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 import java.time.DayOfWeek;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -23,6 +22,7 @@ import java.util.Locale;
 
 /** Edits a draft of the existing schedule and saves only after review. */
 final class TrainingScheduleEditor {
+  static final String UPDATED_WEEK = "updatedTrainingWeek";
   private final Activity activity;
   private final RunStore store;
   private final UiKit.Palette palette;
@@ -207,7 +207,8 @@ final class TrainingScheduleEditor {
               store.saveTrainingSchedule(review);
               Reminders.schedule(activity);
               WorkoutWidget.updateAll(activity);
-              Toast.makeText(activity, "Training schedule updated", Toast.LENGTH_SHORT).show();
+              activity.setResult(android.app.Activity.RESULT_OK, new android.content.Intent()
+                  .putExtra(UPDATED_WEEK, review.weekStart().toString()));
               activity.finish();
             } catch (RuntimeException e) { showError(status, e); }
           }).show();

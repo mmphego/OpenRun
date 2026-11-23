@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Show the next scheduled workout before free activities on Home. Calendar lists workouts before export, offers plan creation, and can open directly to the first updated week after a schedule edit.
+
 - Keep bottom navigation labels readable on compact screens and at large text sizes. Stack Home’s free run and walk buttons when space is tight and expose navigation selection to accessibility services.
 
 - Edit training days directly from Manage plan. Choose one to seven days, adjust the long run and weekly distance, then review the first updated week before saving.
