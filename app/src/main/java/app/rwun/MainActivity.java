@@ -865,6 +865,8 @@ public final class MainActivity extends Activity {
               "Finish and save",
               () -> {
                 TrackingService recording = tracker;
+                RunStore.Run preview = recording.pending(5, 2, false);
+                validateRecording(preview.sessionId(), preview.km(), preview.seconds());
                 recording.freeze();
                 RunStore.Run r = recording.pending(5, 2, false);
                 feedback(
@@ -957,6 +959,16 @@ public final class MainActivity extends Activity {
     }
   }
 
+  private static void validateRecording(String id, double km, long seconds) {
+    if (seconds <= 0)
+      throw new IllegalArgumentException("Record at least one second before saving.");
+    if (km == 0 && !id.startsWith("walk:"))
+      throw new IllegalArgumentException(
+          "GPS has not measured any distance yet. Resume if paused, then wait for GPS and move outdoors.");
+    if (!Double.isFinite(km) || km < 0 || km > 250 || seconds > 180000)
+      throw new IllegalArgumentException("The recorded distance or duration is outside the supported range.");
+  }
+
   private void feedback(
       String id,
       String date,
@@ -981,10 +993,7 @@ public final class MainActivity extends Activity {
       double target,
       Runnable after,
       RunStore.Run metrics) {
-    if (!Double.isFinite(km) || km < 0 || (km==0&&!id.startsWith("walk:")) || seconds <= 0 || seconds > 180000 || km > 250)
-      throw new IllegalArgumentException(
-          "A run needs a positive distance and duration. Wait for GPS movement or discard the"
-              + " recording.");
+    validateRecording(id, km, seconds);
     LinearLayout form = column();
     form.setPadding(dp(20), dp(12), dp(20), 0);
     final String savedRoute=id.startsWith("walk:")&&!route.isEmpty()&&!getFileStreamPath(route).isFile()?"":route;
@@ -1063,8 +1072,8 @@ public final class MainActivity extends Activity {
                         render();
                         if(id.startsWith("walk:")){walkProgress=true;performance=false;render();Reminders.schedule(this);new AlertDialog.Builder(this).setTitle("Walk saved").setMessage((savedDistance>0?"Your walking time and distance are saved separately from running. ":"Your walking time is saved. No distance was measured; use Correct walking distance if you know it. ")+(pain.isChecked()?"Your training hold is active.":"Your running plan is unchanged.")).setPositiveButton("Done",null).show();return;}
                         String debrief=CoachingMemory.debrief(store);
-                        if (!date.equals(LocalDate.now().toString())) {new AlertDialog.Builder(this).setTitle("Run reflection").setMessage(debrief).setPositiveButton("Done",null).show();return;}
-                        if(store.resting()&&!pain.isChecked()) {new AlertDialog.Builder(this).setTitle("Training hold remains").setMessage(debrief).setPositiveButton("Done",null).show();return;}
+                        if (!date.equals(LocalDate.now().toString())) {new AlertDialog.Builder(this).setTitle("Run saved").setMessage(debrief).setPositiveButton("Done",null).show();return;}
+                        if(store.resting()&&!pain.isChecked()) {new AlertDialog.Builder(this).setTitle("Run saved").setMessage("Your training hold is still active.\n\n"+debrief).setPositiveButton("Done",null).show();return;}
                         AdaptiveCoach.Advice advice =
                             new AdaptiveCoach()
                                 .advise(
@@ -1076,7 +1085,7 @@ public final class MainActivity extends Activity {
                         if (advice.rest()) {
                           if(!store.resting())store.adapt(advice);
                           new AlertDialog.Builder(this)
-                              .setTitle("Training paused")
+                              .setTitle("Run saved · Training paused")
                               .setMessage(debrief+"\n\n"+advice.reason())
                               .setPositiveButton("OK", (a, b) -> render())
                               .show();
@@ -1084,15 +1093,15 @@ public final class MainActivity extends Activity {
                           String adaptationFingerprint=store.proposalFingerprint();
                           String consequences=store.previewAdaptation(adaptationFingerprint,advice);
                           new AlertDialog.Builder(this)
-                              .setTitle("Review training adjustment")
+                              .setTitle("Run saved")
                               .setMessage(
-                                  debrief+"\n\n"+advice.reason()+"\n\n"+consequences
+                                  debrief+"\n\nReview proposed training adjustment\n"+"\n\n"+advice.reason()+"\n\n"+consequences
                                       + "\n\n"
                                       + "Applies to tomorrow through the following six days. Past"
                                       + " workouts remain unchanged.")
                               .setNegativeButton("Keep current plan", null)
                               .setPositiveButton(
-                                  "Apply",
+                                  "Apply adjustment",
                                   (a, b) -> {
                                     try{store.adapt(adaptationFingerprint,advice);Reminders.schedule(this);WorkoutWidget.updateAll(this);render();}catch(Exception e){error(e);}
                                   })

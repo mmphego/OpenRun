@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Keep recording when a run cannot yet be saved because GPS distance is missing. Confirm successful run saves explicitly before showing follow-up training choices.
+
 - Use the same weekday picker when starting a plan from the Plan tab or changing its goal and length.
 
 - Lead with the next workout in Coach, put pace interpretation in activity details, and group diagnostics after regular settings and data controls.
