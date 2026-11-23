@@ -9,8 +9,10 @@ import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ScrollView;
+import android.widget.TextView;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.time.LocalDate;
@@ -48,6 +50,10 @@ public class HomeNavigationUiTest {
     assertNotNull("Missing destination: "+title,item);
     assertTrue(item.isClickable());
     assertTrue(item.isFocusable());
+    var node=item.createAccessibilityNodeInfo();
+    assertEquals(title,node.getContentDescription());
+    assertEquals(Button.class.getName(),node.getClassName());
+    assertEquals(item.isSelected(),node.isSelected());
     assertTrue(item.getHeight()>=48);
     assertTrue(((ViewGroup)item).getChildAt(0) instanceof ImageView);
     assertNotNull(((ImageView)((ViewGroup)item).getChildAt(0)).getDrawable());
@@ -131,6 +137,35 @@ public class HomeNavigationUiTest {
       Rect visible=new Rect();
       assertTrue(NativePlanningTest.find(activity.getWindow().getDecorView(),"Movement reminders").getGlobalVisibleRect(visible));
       assertTrue(home.getGlobalVisibleRect(visible));
+    } finally {RuntimeEnvironment.setFontScale(1f);}
+  }
+
+  @Test @Config(qualifiers="w320dp-h640dp-mdpi")
+  public void compactHomeAtMaximumFontKeepsLabelsAndActionsReadable() throws Exception {
+    RuntimeEnvironment.setFontScale(2f);
+    try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()) {
+      MainActivity activity=controller.get();
+      layout(activity,320,640,"home-compact-max-font");
+      for(String destination:new String[]{"Home","Plan","Calendar","Progress","Coach"}) {
+        ViewGroup item=(ViewGroup)navigation(activity,destination);
+        TextView label=(TextView)item.getChildAt(1);
+        assertEquals(destination+" should fit on one line",1,label.getLineCount());
+        assertEquals(destination.length(),label.getLayout().getLineEnd(0));
+        for(int line=0;line<label.getLineCount();line++) {
+          assertEquals(destination+" must not be ellipsized",0,label.getLayout().getEllipsisCount(line));
+        }
+      }
+      View run=NativePlanningTest.find(activity.getWindow().getDecorView(),"Start free run");
+      View walk=NativePlanningTest.find(activity.getWindow().getDecorView(),"Start free walk");
+      assertTrue("Free actions should stack when both labels cannot fit",run.getBottom()<=walk.getTop());
+      for(View action:new View[]{run,walk}){
+        assertTrue(action.getHeight()>=48);
+        action.requestRectangleOnScreen(new Rect(0,0,action.getWidth(),action.getHeight()),true);
+        Rect visible=new Rect();
+        assertTrue(action.getGlobalVisibleRect(visible));
+        assertEquals(action.getHeight(),visible.height());
+      }
+      layout(activity,320,640,"home-compact-max-font-actions");
     } finally {RuntimeEnvironment.setFontScale(1f);}
   }
 
