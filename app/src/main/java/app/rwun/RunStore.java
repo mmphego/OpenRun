@@ -200,11 +200,21 @@ final class RunStore {
    }}
 
   /** Atomic creation keeps preview, first week, history and recovery state consistent. */
-  void createPlan(PlanEngine.Config c,PaceProfile p,boolean returning){synchronized(LOCK){
+  void createPlan(PlanEngine.Config c,PaceProfile p,boolean returning){
+    createPlan(c,p,returning?OnboardingPlan.returning(c,p):null);
+  }
+
+  void createPlan(PlanEngine.Config c,PaceProfile p,PlanPreferences preference){synchronized(LOCK){
     if(!checkpoint().isEmpty())throw new IllegalStateException("Finish or recover the pending run first");
     JSONObject options=options();options.remove("mode");options.remove("weekdays");options.remove("longDay");options.remove("goalPace");
-    try{if(returning){var preference=OnboardingPlan.returning(c,p);JSONArray days=new JSONArray();for(var day:preference.weekdays())days.put(day.getValue());options.put("mode",preference.mode()).put("weekdays",days).put("longDay",preference.longDay().getValue());}validateOptions(options);
-    var schedule=OnboardingPlan.sessions(c,p,returning);
+    try{
+    if(preference!=null){
+      JSONArray days=new JSONArray();
+      preference.weekdays().stream().sorted().forEach(day->days.put(day.getValue()));
+      options.put("mode",preference.mode()).put("weekdays",days).put("longDay",preference.longDay().getValue());
+    }
+    validateOptions(options);
+    var schedule=preference==null?OnboardingPlan.sessions(c,p,false):preference.generate(c,p);
     commit(new PreferenceEdit(preferences).remove("planPaused").putString("planId",UUID.randomUUID().toString()).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(schedule).toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():"No adjustments applied."));
     }catch(JSONException e){throw new IllegalArgumentException(e);}
   }}

@@ -62,6 +62,35 @@ public class PlanCreationJourneyTest {
     }
   }
 
+  @Test public void inlinePlanBuilderSavesTheChosenWeekday() {
+    var app = RuntimeEnvironment.getApplication();
+    var service = Robolectric.buildService(TrackingService.class).create().get();
+    Shadows.shadowOf(app).setComponentNameAndServiceForBindService(
+        new ComponentName(app, TrackingService.class), service.onBind(new Intent()));
+    try (var controller = Robolectric.buildActivity(MainActivity.class).setup().visible()) {
+      var activity = controller.get();
+      NativePlanningTest.click(activity, "Plan");
+      NativePlanningTest.click(activity, "10 km");
+      NativePlanningTest.click(activity, "Continue");
+      for (DayOfWeek day : new DayOfWeek[]{DayOfWeek.TUESDAY, DayOfWeek.THURSDAY}) {
+        String name = day.getDisplayName(TextStyle.FULL, Locale.getDefault());
+        View weekday = AiPlanningUiTest.findDescription(activity.getWindow().getDecorView(), name);
+        assertNotNull(name + " should be a selectable weekday", weekday);
+        assertTrue(weekday.performClick());
+      }
+      controller.recreate();
+      activity = controller.get();
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(), "1 day per week"));
+      NativePlanningTest.click(activity, "Continue");
+      NativePlanningTest.click(activity, "Build my plan");
+      RunStore store = new RunStore(app);
+      assertEquals(1, store.config().days());
+      assertEquals(DayOfWeek.SUNDAY, store.trainingPreferences().longDay());
+      assertTrue(store.plannedSessions().stream().allMatch(workout ->
+          workout.date().getDayOfWeek() == DayOfWeek.SUNDAY));
+    }
+  }
+
   private void assertSelectedCount(RacePlanActivity activity, int count) {
     var root = activity.getWindow().getDecorView();
     assertNotNull(NativePlanningTest.find(root, count + " days per week"));

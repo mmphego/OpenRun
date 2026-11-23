@@ -33,7 +33,9 @@ public final class MainActivity extends Activity {
   private boolean planSchedule,creatingPlan;
   private String editPlanFingerprint="";
   private int setupStep;
-  private String draftVolume="12",draftWeeks="8",draftDays="3",draftTime="";
+  private String draftVolume="12",draftWeeks="8",draftTime="";
+  private Set<DayOfWeek> draftDays=Set.of(DayOfWeek.TUESDAY,DayOfWeek.THURSDAY,DayOfWeek.SUNDAY);
+  private DayOfWeek draftLongDay=DayOfWeek.SUNDAY;
   private int draftGoal,draftBenchmark;
   private boolean draftSpeed,draftReturn;
   private LocalDate draftStart=LocalDate.now();
@@ -83,7 +85,7 @@ public final class MainActivity extends Activity {
     if(state==null&&store.config()==null)setupStep=-1;
     if (state != null) {
       planSchedule=state.getBoolean("planSchedule",false);creatingPlan=state.getBoolean("creatingPlan",false);editPlanFingerprint=state.getString("editPlanFingerprint","");setupStep=state.getInt("setupStep",0);
-      draftVolume=state.getString("draftVolume","12");draftWeeks=state.getString("draftWeeks","8");draftDays=state.getString("draftDays","3");draftTime=state.getString("draftTime","");draftGoal=state.getInt("draftGoal");draftBenchmark=state.getInt("draftBenchmark");draftSpeed=state.getBoolean("draftSpeed");draftReturn=state.getBoolean("draftReturn");draftStart=LocalDate.parse(state.getString("draftStart",LocalDate.now().toString()));
+      draftVolume=state.getString("draftVolume","12");draftWeeks=state.getString("draftWeeks","8");draftTime=state.getString("draftTime","");draftGoal=state.getInt("draftGoal");draftBenchmark=state.getInt("draftBenchmark");draftSpeed=state.getBoolean("draftSpeed");draftReturn=state.getBoolean("draftReturn");draftStart=LocalDate.parse(state.getString("draftStart",LocalDate.now().toString()));
       startingRun=state.getBoolean("startingRun");resumeRunFromSettings=state.getBoolean("resumeRunFromSettings");startRequest=state.getString("startRequest","");startDeadline=state.getLong("startDeadline");
       progressActivityId=state.getString("progressActivityId", "");
       filterType=state.getString("filterType", "All workouts");
@@ -91,6 +93,13 @@ public final class MainActivity extends Activity {
       filterMonth=state.getString("filterMonth", "All months");
       week = state.getInt("week");
       performance=state.getBoolean("performance",false);walkMode=state.getBoolean("walkMode");walkProgress=state.getBoolean("walkProgress");exportingWalk=state.getBoolean("exportingWalk");
+      int[] selectedDays=state.getIntArray("draftWeekdays");
+      if(selectedDays!=null){
+        var restored=EnumSet.noneOf(DayOfWeek.class);
+        for(int day:selectedDays)restored.add(DayOfWeek.of(day));
+        draftDays=restored;
+        draftLongDay=DayOfWeek.of(state.getInt("draftLongDay",DayOfWeek.SUNDAY.getValue()));
+      }
       calendarStart=LocalDate.parse(state.getString("calendarStart",calendarStart.toString()));
       tab = state.getString("tab", "Today");
       pendingId = state.getString("pendingId", "");
@@ -141,11 +150,13 @@ public final class MainActivity extends Activity {
   @Override
   protected void onSaveInstanceState(Bundle out) {
     super.onSaveInstanceState(out);
-    out.putBoolean("planSchedule",planSchedule);out.putBoolean("creatingPlan",creatingPlan);out.putString("editPlanFingerprint",editPlanFingerprint);out.putInt("setupStep",setupStep);out.putString("draftVolume",draftVolume);out.putString("draftWeeks",draftWeeks);out.putString("draftDays",draftDays);out.putString("draftTime",draftTime);out.putInt("draftGoal",draftGoal);out.putInt("draftBenchmark",draftBenchmark);out.putBoolean("draftSpeed",draftSpeed);out.putBoolean("draftReturn",draftReturn);out.putString("draftStart",draftStart.toString());
+    out.putBoolean("planSchedule",planSchedule);out.putBoolean("creatingPlan",creatingPlan);out.putString("editPlanFingerprint",editPlanFingerprint);out.putInt("setupStep",setupStep);out.putString("draftVolume",draftVolume);out.putString("draftWeeks",draftWeeks);out.putString("draftTime",draftTime);out.putInt("draftGoal",draftGoal);out.putInt("draftBenchmark",draftBenchmark);out.putBoolean("draftSpeed",draftSpeed);out.putBoolean("draftReturn",draftReturn);out.putString("draftStart",draftStart.toString());
     out.putBoolean("startingRun",startingRun);out.putBoolean("resumeRunFromSettings",resumeRunFromSettings);out.putString("startRequest",startRequest);out.putLong("startDeadline",startDeadline);
     out.putString("progressActivityId",progressActivityId);
     out.putString("filterType",filterType);out.putString("filterYear",filterYear);out.putString("filterMonth",filterMonth);
     out.putInt("week", week);
+    out.putIntArray("draftWeekdays",draftDays.stream().mapToInt(DayOfWeek::getValue).toArray());
+    out.putInt("draftLongDay",draftLongDay.getValue());
     out.putBoolean("performance",performance);out.putBoolean("walkMode",walkMode);out.putBoolean("walkProgress",walkProgress);out.putBoolean("exportingWalk",exportingWalk);out.putString("calendarStart",calendarStart.toString());
     out.putString("tab", tab);
     out.putString("pendingId", pendingId);
@@ -314,7 +325,6 @@ public final class MainActivity extends Activity {
     if((tracker!=null&&tracker.active())||!store.checkpoint().isEmpty()||store.indoorPending())throw new IllegalStateException("Finish, recover or discard the pending session before changing your plan.");
   }
 
-  private void onboard(String volume,String days,boolean returning){draftVolume=volume;draftDays=days;draftReturn=returning;draftSpeed=false;draftTime="";draftGoal=0;draftBenchmark=0;draftWeeks="8";draftStart=LocalDate.now();setupStep=0;store.event("setup_started");render();}
 
   private void beginPlan(){ensurePlanEditable();openRace("goal");}
 
@@ -383,7 +393,10 @@ public final class MainActivity extends Activity {
     var current=store.config();var profile=store.profile();int goal=-1,benchmark=0;
     for(int i=0;i<goals().length;i++){if(Math.abs(goals()[i]-current.goalKm())<.01)goal=i;if(Math.abs(goals()[i]-profile.distanceKm())<.01)benchmark=i;}
     if(goal<0){new AlertDialog.Builder(this).setTitle("Edit this goal").setMessage("This plan has a custom race distance. Start a new plan to choose a new goal and review its schedule.").setPositiveButton("Start new plan",(d,w)->beginPlan()).setNegativeButton("Cancel",null).show();return;}
-    editPlanFingerprint=store.proposalFingerprint();draftGoal=goal;draftBenchmark=benchmark;draftVolume=Double.toString(current.weeklyKm());draftWeeks=Integer.toString(current.weeks());draftDays=Integer.toString(current.days());draftTime=profile.seconds()==0?"":Double.toString(profile.seconds()/60.0);draftSpeed=profile.speedWork();draftReturn=false;draftStart=current.start().isBefore(LocalDate.now())?LocalDate.now():current.start();setupStep=0;creatingPlan=true;render();
+    PlanPreferences currentDays=store.trainingPreferences();
+    draftDays=currentDays.weekdays();
+    draftLongDay=currentDays.longDay();
+    editPlanFingerprint=store.proposalFingerprint();draftGoal=goal;draftBenchmark=benchmark;draftVolume=Double.toString(current.weeklyKm());draftWeeks=Integer.toString(current.weeks());draftTime=profile.seconds()==0?"":Double.toString(profile.seconds()/60.0);draftSpeed=profile.speedWork();draftReturn=false;draftStart=current.start().isBefore(LocalDate.now())?LocalDate.now():current.start();setupStep=0;creatingPlan=true;render();
   }
   private void confirmPlanPause(){
     ensurePlanEditable();boolean pause=!store.planPaused();String fingerprint=store.proposalFingerprint();
@@ -406,7 +419,7 @@ public final class MainActivity extends Activity {
     EditText field=field(label,value);field.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){changed.accept(s.toString());}public void afterTextChanged(android.text.Editable e){}});return field;
   }
   private double[] goals(){return new double[]{5,10,21.1,42.2};}
-  private PlanEngine.Config draftConfig(){return new PlanEngine.Config(Integer.parseInt(draftWeeks),Integer.parseInt(draftDays),Double.parseDouble(draftVolume),goals()[draftGoal],draftStart);}
+  private PlanEngine.Config draftConfig(){return new PlanEngine.Config(Integer.parseInt(draftWeeks),draftDays.size(),Double.parseDouble(draftVolume),goals()[draftGoal],draftStart);}
   private PaceProfile draftProfile(){return new PaceProfile(goals()[draftBenchmark],draftTime.trim().isEmpty()?0:Math.round(Double.parseDouble(draftTime)*60),draftSpeed);}
 
   private void setup(){
@@ -432,18 +445,26 @@ public final class MainActivity extends Activity {
       draftField("Race time in minutes · leave blank for effort targets",draftTime,v->draftTime=v);
       CheckBox speed=new CheckBox(this);speed.setText(R.string.enable_speed);speed.setTextColor(ink);speed.setChecked(draftSpeed);speed.setOnCheckedChangeListener((b,on)->draftSpeed=on);content.addView(speed);
     }else if(setupStep==2){
-      content.addView(text("Make room for running",30,true));draftField("Runs each week · 1–7",draftDays,v->draftDays=v).setInputType(android.text.InputType.TYPE_CLASS_NUMBER);draftField("Plan length · 4–24 weeks",draftWeeks,v->draftWeeks=v).setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+      content.addView(text("Make room for running",30,true));
+      draftField("Plan length · 4–24 weeks",draftWeeks,v->draftWeeks=v).setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+      content.addView(new TrainingDaysPicker(this,palette,draftDays,draftLongDay,(days,longest)->{
+        draftDays=days;
+        draftLongDay=longest;
+      }));
       content.addView(UiKit.choice(this,palette,"Start date · "+draftStart.format(DateTimeFormatter.ofPattern("d MMM yyyy")),()->new DatePickerDialog(this,(picker,y,m,d)->{draftStart=LocalDate.of(y,m+1,d);render();},draftStart.getYear(),draftStart.getMonthValue()-1,draftStart.getDayOfMonth()).show()));
     }else{
-      PlanEngine.Config next=draftConfig();PaceProfile profile=draftProfile();content.addView(text("Your plan, at a glance",30,true));LinearLayout summary=card();summary.addView(text(PlanEngine.distance(next.goalKm())+" goal",23,true));summary.addView(text(next.weeks()+" weeks · "+next.days()+" runs per week",16,false));summary.addView(text(draftReturn?"Return to running · run / walk":"Race preparation",15,false));summary.addView(text("Starts "+next.start().format(DateTimeFormatter.ofPattern("d MMM yyyy")),15,false));
-      content.addView(text("WEEK ONE PREVIEW",12,false));for(var session:OnboardingPlan.sessions(next,profile,draftReturn))if(session.date().isBefore(next.start().plusDays(7))){LinearLayout run=card();run.addView(text(session.title(),18,true));run.addView(text(session.date().format(DateTimeFormatter.ofPattern("EEE, d MMM"))+" · "+PlanEngine.distance(session.km()),15,false));}
+      PlanEngine.Config next=draftConfig();
+      PaceProfile profile=draftProfile();
+      PlanPreferences preferences=new PlanPreferences(draftReturn?"Return to running":"Race preparation",draftDays,draftLongDay);
+      content.addView(text("Your plan, at a glance",30,true));LinearLayout summary=card();summary.addView(text(PlanEngine.distance(next.goalKm())+" goal",23,true));summary.addView(text(next.weeks()+" weeks · "+next.days()+" runs per week",16,false));summary.addView(text(draftReturn?"Return to running · run / walk":"Race preparation",15,false));summary.addView(text("Starts "+next.start().format(DateTimeFormatter.ofPattern("d MMM yyyy")),15,false));
+      content.addView(text("WEEK ONE PREVIEW",12,false));for(var session:preferences.generate(next,profile))if(session.date().isBefore(next.start().plusDays(7))){LinearLayout run=card();run.addView(text(session.title(),18,true));run.addView(text(session.date().format(DateTimeFormatter.ofPattern("EEE, d MMM"))+" · "+PlanEngine.distance(session.km()),15,false));}
       if(config!=null)content.addView(text("Saving replaces the current schedule, including moved and skipped workouts and race details. The replacement is active; saved activities and recovery holds are kept.",15,false));
       content.addView(text("These rule-based plans use conservative progression; they have not been validated as equivalent to professional coaching. Your existing activity history is kept.",13,false));
-      content.addView(button("Build my plan",()->{ensurePlanEditable();if(creatingPlan&&!editPlanFingerprint.equals(store.proposalFingerprint()))throw new IllegalStateException("Your plan or activity history changed. Reopen the plan builder to review it again.");store.createPlan(next,profile,draftReturn);store.event("plan_created");config=store.config();creatingPlan=false;planSchedule=true;week=0;tab="Plan";render();}));return;
+      content.addView(button("Build my plan",()->{ensurePlanEditable();if(creatingPlan&&!editPlanFingerprint.equals(store.proposalFingerprint()))throw new IllegalStateException("Your plan or activity history changed. Reopen the plan builder to review it again.");store.createPlan(next,profile,preferences);store.event("plan_created");config=store.config();creatingPlan=false;planSchedule=true;week=0;tab="Plan";render();}));return;
     }
     content.addView(button("Continue",()->{
       if(setupStep==1){double volume=Double.parseDouble(draftVolume);if(!Double.isFinite(volume)||volume<4||volume>120)throw new IllegalArgumentException("Weekly distance must be between 4 and 120 km.");draftProfile();}
-      if(setupStep==2){draftConfig();draftProfile();if(draftStart.isBefore(LocalDate.now()))throw new IllegalArgumentException("Choose today or a future start date.");}
+      if(setupStep==2){if(draftDays.isEmpty())throw new IllegalArgumentException("Choose at least one training day.");draftConfig();draftProfile();if(draftStart.isBefore(LocalDate.now()))throw new IllegalArgumentException("Choose today or a future start date.");}
       setupStep++;render();
     }));
   }
