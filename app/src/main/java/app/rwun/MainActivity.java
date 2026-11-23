@@ -412,8 +412,8 @@ public final class MainActivity extends Activity {
   private void setup(){
     if(setupStep<0){
       content.addView(text("Your next start line.",22,true));content.addView(text("A plan for your running. Room to walk every day.",17,false));PlanningUi.gap(this,content,12);
-      content.addView(PlanningUi.compactChoice(this,R.drawable.ic_volume_up,"AI Coach","Use your own OpenAI or Gemini API key.",()->startActivity(new Intent(this,AiCoachActivity.class))));
       content.addView(PlanningUi.compactChoice(this,R.drawable.ic_assignment,"Create my plan","Choose your goal or find a race.",()->openRace("goal")));
+      content.addView(PlanningUi.compactChoice(this,R.drawable.ic_volume_up,"AI Coach","Use your own OpenAI or Gemini API key.",()->startActivity(new Intent(this,AiCoachActivity.class))));
       freeActivityActions();
       content.addView(PlanningUi.compactChoice(this,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor time, steps and optional distance.",()->openIndoor(null)));
       content.addView(button("Movement reminders",()->openTraining("reminders")));return;

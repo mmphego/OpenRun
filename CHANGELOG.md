@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Share weekday and long-run controls between the plan builder and schedule editor. Show the selected weekly frequency and put the standard plan path first.
+
 - Show the next scheduled workout before free activities on Home. Calendar lists workouts before export, offers plan creation, and can open directly to the first updated week after a schedule edit.
 
 - Keep bottom navigation labels readable on compact screens and at large text sizes. Stack Home’s free run and walk buttons when space is tight and expose navigation selection to accessibility services.
