@@ -5,12 +5,14 @@ import android.app.*;import android.app.job.*;import android.content.*;import an
 /** Optional services and preferences kept separate from the GPS recorder and training domain. */
 public final class FeaturesActivity extends Activity {
   private final UiKit.Palette palette=new UiKit.Palette(true);private LinearLayout body;private TextView status;private RunStore store;private boolean busy;private String screen;private final ExecutorService worker=Executors.newSingleThreadExecutor();
-  public void onCreate(Bundle saved){super.onCreate(saved);store=new RunStore(this);screen=getIntent().getStringExtra("screen");if(screen==null||screen.equals("strength"))screen="help";show();}
+  private TrainingScheduleEditor scheduleEditor;
+  private Bundle scheduleDraft;
+  public void onCreate(Bundle saved){super.onCreate(saved);scheduleDraft=saved==null?null:saved.getBundle("scheduleDraft");store=new RunStore(this);screen=getIntent().getStringExtra("screen");if(screen==null||screen.equals("strength"))screen="help";show();}
   @Override public void finish(){if(busy&&status!=null){status.setText("Wait for the current operation to finish.");return;}super.finish();}
   protected void onDestroy(){worker.shutdown();super.onDestroy();}
   private void show(){
     LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(palette.background);root.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(i.getSystemWindowInsetLeft(),i.getSystemWindowInsetTop(),i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i.consumeSystemWindowInsets();});
-    LinearLayout bar=new LinearLayout(this);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setPadding(dp(8),0,dp(12),0);bar.addView(UiKit.iconButton(this,palette,R.drawable.ic_arrow_back,"Back",this::finish),new LinearLayout.LayoutParams(dp(48),dp(48)));bar.addView(UiKit.label(this,switch(screen){case "plan"->"Training preferences";case "strava"->"Strava";case "help"->"Training hub";default->"Account & cloud backup";},18,palette.ink,true));root.addView(bar);
+    LinearLayout bar=new LinearLayout(this);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setPadding(dp(8),0,dp(12),0);bar.addView(UiKit.iconButton(this,palette,R.drawable.ic_arrow_back,"Back",this::finish),new LinearLayout.LayoutParams(dp(48),dp(48)));bar.addView(UiKit.label(this,switch(screen){case "plan"->"Edit training schedule";case "strava"->"Strava";case "help"->"Training hub";default->"Account & cloud backup";},18,palette.ink,true));root.addView(bar);
     ScrollView scroll=new ScrollView(this);body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(20),dp(4),dp(20),dp(24));scroll.addView(body);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);status=UiKit.status(this,palette);
     try{switch(screen){case "plan":planning();break;case "strava":strava();break;case "help":help();break;default:cloud();}}catch(Exception e){status.setText(UserErrors.message(e));}body.addView(status);
   }
@@ -19,14 +21,14 @@ public final class FeaturesActivity extends Activity {
   private EditText field(String label,String value,int input){text(label);EditText edit=new EditText(this);edit.setTextColor(palette.ink);edit.setInputType(input);edit.setSingleLine(true);edit.setText(value);body.addView(edit);return edit;}
   private Spinner choose(String label,String[] choices,int selected){text(label);Spinner spinner=new Spinner(this);spinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,choices));spinner.setSelection(selected);body.addView(spinner);return spinner;}
   private void task(Callable<String> work,Runnable after){if(busy){status.setText("An operation is already running.");return;}busy=true;status.setText("Working…");worker.submit(()->{String message;boolean success=false;try{message=work.call();success=true;}catch(Exception e){message=UserErrors.message(e);}final String result=message;final boolean ok=success;runOnUiThread(()->{busy=false;if(isDestroyed()||isFinishing())return;if(ok&&after!=null)after.run();status.setText(result);});});}
-  private void planning(){
-    var config=store.config();if(config==null){text("Create a plan first.");return;}JSONObject options=store.options();heading("Train around your week");text("Changes apply from the next full plan week. Past sessions and this week stay unchanged. Availability is not a reason to add catch-up runs.");
-    Spinner mode=choose("Programme",PlanPreferences.MODES.toArray(new String[0]),Math.max(0,PlanPreferences.MODES.indexOf(options.optString("mode","Race preparation"))));
-    Set<Integer> selected=new HashSet<>();JSONArray prior=options.optJSONArray("weekdays");if(prior!=null)for(int i=0;i<prior.length();i++)selected.add(prior.optInt(i));else for(var session:new PlanEngine().generate(config,store.profile()))if(session.date().isBefore(config.start().plusWeeks(1)))selected.add(session.date().getDayOfWeek().getValue());
-    List<CheckBox> boxes=new ArrayList<>();for(DayOfWeek day:DayOfWeek.values()){CheckBox box=new CheckBox(this);box.setText(day.toString());box.setTextColor(palette.ink);box.setChecked(selected.contains(day.getValue()));body.addView(box);boxes.add(box);}text("Choose exactly "+config.days()+" days.");
-    Spinner longDay=choose("Long easy run day",Arrays.stream(DayOfWeek.values()).map(Enum::toString).toArray(String[]::new),options.optInt("longDay",7)-1);
-    action("Save training preferences",()->{try{if(!store.checkpoint().isEmpty())throw new IllegalStateException("Finish or recover the pending run first");Set<DayOfWeek> days=new HashSet<>();JSONArray array=new JSONArray();for(int i=0;i<boxes.size();i++)if(boxes.get(i).isChecked()){days.add(DayOfWeek.of(i+1));array.put(i+1);}PlanPreferences next=new PlanPreferences(PlanPreferences.MODES.get(mode.getSelectedItemPosition()),days,DayOfWeek.of(longDay.getSelectedItemPosition()+1));if(days.size()!=config.days())throw new IllegalArgumentException("Choose exactly "+config.days()+" days");options.put("mode",next.mode()).put("weekdays",array).put("longDay",next.longDay().getValue());store.options(options);status.setText("Training preferences saved. Review the upcoming weeks in Plan.");}catch(Exception e){status.setText(UserErrors.message(e));}});
-    text("Race preparation progresses and tapers. Base building grows gently. Maintenance holds mileage with recovery weeks. Return to running reduces mileage and uses run/walk steps. These are original rules, not a validated equivalent to Runna coaching.");
+  @Override protected void onSaveInstanceState(Bundle state) {
+    super.onSaveInstanceState(state);
+    if (scheduleEditor != null) state.putBundle("scheduleDraft", scheduleEditor.draft());
+  }
+  private void planning() {
+    if (store.config() == null) { text("Create a plan first."); return; }
+    scheduleEditor = new TrainingScheduleEditor(this, store, palette, scheduleDraft);
+    scheduleEditor.show(body, status, scheduleDraft);
   }
   private void cloud(){
     CloudClient client=new CloudClient(this);JSONObject settings;try{settings=client.vault.read();}catch(Exception e){text(UserErrors.message(e));action("Clear sync settings",()->{client.vault.clear();show();});return;}

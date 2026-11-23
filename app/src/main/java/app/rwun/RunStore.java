@@ -2,6 +2,7 @@ package app.rwun;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.*;
 import org.json.*;
@@ -220,6 +221,10 @@ final class RunStore {
     try{
       String id=UUID.randomUUID().toString();JSONObject target=race==null?null:new JSONObject(race.toString()).put("planId",id),data=v103();if(target==null)data.remove("race");else data.put("race",target);V103Data.validate(data);validateOptions(options);
       if(options.getJSONArray("weekdays").length()!=c.days()||(target!=null&&(Math.abs(target.getDouble("km")-c.goalKm())>.001||!LocalDate.parse(target.getString("date")).equals(c.start().plusWeeks(c.weeks())))))throw new IllegalArgumentException("Race and training dates disagree");
+      if (sessions.size() != c.weeks() * c.days()
+          || sessions.stream().anyMatch(session -> !session.id().matches("[0-9]{1,2}-[0-6]")
+              || session.id().charAt(session.id().length() - 1) - '0' >= c.days()))
+        throw new IllegalArgumentException("Incomplete training schedule");
       JSONObject candidate=new JSONObject().put("weeks",c.weeks()).put("days",c.days()).put("volume",c.weeklyKm()).put("goal",c.goalKm()).put("start",c.start().toString()).put("schedule",serializeSchedule(sessions).toString());validatePreferences(candidate);
       commit(new PreferenceEdit(preferences).remove("planPaused").putString("planId",id).putInt("weeks",c.weeks()).putInt("days",c.days()).putFloat("volume",(float)c.weeklyKm()).putFloat("goal",(float)c.goalKm()).putString("start",c.start().toString()).putFloat("profileDistance",(float)p.distanceKm()).putLong("profileSeconds",p.seconds()).putBoolean("speedWork",p.speedWork()).putString("options",options.toString()).putString("schedule",serializeSchedule(sessions).toString()).putString("v103",data.toString()).remove("moves").remove("skips").remove("adaptFrom").remove("adaptFactor").putString("adaptReason",resting()?adaptation():reason),kind,reason,evidence);
     }catch(Exception e){throw new IllegalArgumentException(e.getMessage(),e);}
@@ -528,15 +533,129 @@ final class RunStore {
   int goalPace(JSONObject settings){return options().optInt("goalPace",settings.optInt("goalPace",0));}
   JSONObject options(){ synchronized(LOCK) {return object("options"); }}
   void options(JSONObject value){ synchronized(LOCK) {
-    validateOptions(value);var editor=new PreferenceEdit(preferences).putString("options",value.toString());JSONObject previous=options();
-    boolean changed=!value.optString("mode").equals(previous.optString("mode"))||!value.optString("weekdays").equals(previous.optString("weekdays"))||value.optInt("longDay")!=previous.optInt("longDay");
-    if(changed&&value.has("weekdays")&&config()!=null){
-      var c=config();var proposed=preferred(c,value);Map<String,PlanEngine.Session> prior=new HashMap<>();for(var session:generated(c))prior.put(session.id(),session);List<PlanEngine.Session> finalSchedule=new ArrayList<>();Set<LocalDate> occupied=new HashSet<>();JSONObject moves=object("moves");
-      for(var session:proposed){int week=Integer.parseInt(session.id().split("-")[0]);var kept=!c.start().plusWeeks(week).isAfter(LocalDate.now())?prior.get(session.id()):session;finalSchedule.add(kept);String key=planId()+":"+session.id();LocalDate moved=LocalDate.parse(moves.optString(key,kept.date().toString()));if(!moved.isBefore(LocalDate.now())&&!skipped(key)&&!completed(key)&&!occupied.add(moved))throw new IllegalArgumentException("Training days conflict with a moved workout on "+moved+". Reschedule that workout first.");}
-      editor.putString("schedule",serializeSchedule(finalSchedule).toString());
+    validateOptions(value);
+    var editor = new PreferenceEdit(preferences).putString("options", value.toString());
+    JSONObject previous = options();
+    boolean changed = !value.optString("mode").equals(previous.optString("mode"))
+        || !value.optString("weekdays").equals(previous.optString("weekdays"))
+        || value.optInt("longDay") != previous.optInt("longDay");
+    if (changed && value.has("weekdays") && config() != null) {
+      applyTrainingSchedule(editor, value, config().weeklyKm());
     }
     commit(editor);
-   }}
+  }}
+
+  record TrainingScheduleReview(String fingerprint, PlanPreferences settings, double weeklyKm,
+      LocalDate weekStart, List<PlanEngine.Session> workouts) {}
+
+  PlanPreferences trainingPreferences() { synchronized (LOCK) {
+    var current = config();
+    if (current == null) throw new IllegalStateException("Create a plan first.");
+    var options = options();
+    if (options.has("weekdays")) return readTrainingPreferences(options);
+    var days = EnumSet.noneOf(DayOfWeek.class);
+    DayOfWeek longDay = null;
+    for (var session : new PlanEngine().generate(current, profile())) {
+      if (!session.date().isBefore(current.start().plusWeeks(1))) break;
+      longDay = session.date().getDayOfWeek();
+      days.add(longDay);
+    }
+    return new PlanPreferences("Race preparation", days, longDay);
+  }}
+
+  TrainingScheduleReview reviewTrainingSchedule(String fingerprint, PlanPreferences settings,
+      double weeklyKm) { synchronized (LOCK) {
+    requirePreview(fingerprint);
+    if (settings.equals(trainingPreferences()) && Double.isFinite(weeklyKm)
+        && (float) weeklyKm == (float) config().weeklyKm())
+      throw new IllegalArgumentException("Change a training setting to review your schedule.");
+    var value = trainingOptions(settings);
+    var edit = new PreferenceEdit(preferences).putString("options", value.toString());
+    int week = applyTrainingSchedule(edit, value, weeklyKm);
+    LocalDate start = config().start().plusWeeks(week);
+    var workouts = new RunStore(PreferenceEdit.view(edit.after)).plannedSessions().stream()
+        .filter(session -> scheduleWeek(session.id()) == week).collect(java.util.stream.Collectors.toList());
+    return new TrainingScheduleReview(fingerprint, settings, weeklyKm, start, List.copyOf(workouts));
+  }}
+
+  void saveTrainingSchedule(TrainingScheduleReview review) { synchronized (LOCK) {
+    requirePreview(review.fingerprint());
+    var value = trainingOptions(review.settings());
+    var edit = new PreferenceEdit(preferences).putString("options", value.toString());
+    applyTrainingSchedule(edit, value, review.weeklyKm());
+    commit(edit, "Training schedule", "Updated upcoming training weeks",
+        "Reviewed training days, programme and starting weekly distance.");
+  }}
+
+  private JSONObject trainingOptions(PlanPreferences settings) {
+    JSONObject value = options();
+    try {
+      JSONArray days = new JSONArray();
+      settings.weekdays().stream().sorted().forEach(day -> days.put(day.getValue()));
+      value.put("weekdays", days).put("longDay", settings.longDay().getValue())
+          .put("mode", settings.mode());
+    } catch (JSONException e) { throw new IllegalStateException(e); }
+    return value;
+  }
+
+  private int applyTrainingSchedule(PreferenceEdit edit, JSONObject value, double weeklyKm) {
+    if (!checkpoint().isEmpty() || indoorPending())
+      throw new IllegalStateException("Finish or recover the pending session first.");
+    var current = config();
+    var next = new PlanEngine.Config(current.weeks(), value.optJSONArray("weekdays").length(),
+        weeklyKm, current.goalKm(), current.start());
+    var today = LocalDate.now();
+    var frozen = new HashSet<Integer>();
+    var moves = object("moves");
+    var overrides = v103().optJSONObject("overrides");
+    String prefix = planId() + ":";
+    for (var session : plannedSessions()) {
+      int week = scheduleWeek(session.id());
+      String key = prefix + session.id();
+      if (!current.start().plusWeeks(week).isAfter(today) || !session.date().isAfter(today)
+          || moves.has(key) || skipped(key) || completed(key)
+          || (overrides != null && overrides.has(key))) frozen.add(week);
+    }
+    // A moved workout also occupies its destination week.
+    for (var key : V1State.keys(moves)) {
+      if (!key.startsWith(prefix)) continue;
+      var movedDate = LocalDate.parse(moves.optString(key));
+      long offset = java.time.temporal.ChronoUnit.DAYS.between(current.start(), movedDate);
+      if (offset >= 0 && offset < current.weeks() * 7L) frozen.add((int) (offset / 7));
+    }
+    int first = 0;
+    while (first < current.weeks() && frozen.contains(first)) first++;
+    if (first == current.weeks())
+      throw new IllegalStateException("There are no full training weeks available to edit.");
+
+    var schedule = new ArrayList<PlanEngine.Session>();
+    for (var session : generated(current))
+      if (frozen.contains(scheduleWeek(session.id()))) schedule.add(session);
+    var race = v103().optJSONObject("race");
+    LocalDate raceDate = race != null && race.optString("planId").equals(planId())
+        ? LocalDate.parse(race.optString("date")) : null;
+    for (var session : preferred(next, value)) {
+      if (frozen.contains(scheduleWeek(session.id()))) continue;
+      schedule.add(raceDate == null ? session : PlanEngine.raceWeek(session, raceDate, next.goalKm()));
+    }
+    edit.putInt("days", next.days()).putFloat("volume", (float) next.weeklyKm())
+        .putString("schedule", serializeSchedule(schedule).toString());
+    Set<LocalDate> occupied = new HashSet<>();
+    var candidate = new RunStore(PreferenceEdit.view(edit.after));
+    for (var session : candidate.plannedSessions()) {
+      String key = prefix + session.id();
+      if (!session.date().isBefore(today) && !skipped(key) && !completed(key)
+          && !occupied.add(session.date()))
+        throw new IllegalArgumentException("Two workouts would land on " + session.date()
+            + ". Move one in Calendar before editing the schedule.");
+    }
+    return first;
+  }
+
+  private static int scheduleWeek(String id) {
+    return Integer.parseInt(id.substring(0, id.indexOf('-')));
+  }
+
   private static JSONArray serializeSchedule(List<PlanEngine.Session> sessions){JSONArray out=new JSONArray();try{for(var s:sessions)out.put(new JSONObject().put("id",s.id()).put("date",s.date()).put("title",s.title()).put("km",s.km()).put("instructions",s.instructions()));}catch(JSONException e){throw new IllegalArgumentException(e);}return out;}
 
   private static void validateOptions(JSONObject value){
@@ -544,13 +663,22 @@ final class RunStore {
     for(Iterator<String> keys=value.keys();keys.hasNext();){String key=keys.next();if(!Set.of("mode","weekdays","longDay","strengthLevel","strengthMinutes","equipment","units","goalPace").contains(key))throw new IllegalArgumentException("Unknown preference");}
     if(value.has("goalPace")&&(!(value.opt("goalPace") instanceof Number)||value.optDouble("goalPace")!=Math.rint(value.optDouble("goalPace"))||value.optInt("goalPace")<180||value.optInt("goalPace")>1800))throw new IllegalArgumentException("Goal pace must be 3:00–30:00 min/km.");
     String mode=value.optString("mode","Race preparation");if(!PlanPreferences.MODES.contains(mode))throw new IllegalArgumentException("Unknown programme");
-    if(value.has("weekdays")){var days=value.optJSONArray("weekdays");if(days==null||days.length()<2||days.length()>5)throw new IllegalArgumentException("Choose 2–5 weekdays");Set<Integer> unique=new HashSet<>();for(int i=0;i<days.length();i++){int day=days.optInt(i,0);if(day<1||day>7||!unique.add(day))throw new IllegalArgumentException("Invalid weekday");}if(!unique.contains(value.optInt("longDay",0)))throw new IllegalArgumentException("Choose a long-run day from your training days");}
+    if(value.has("weekdays")){var days=value.optJSONArray("weekdays");if(days==null||days.length()<1||days.length()>7)throw new IllegalArgumentException("Choose 1–7 weekdays");Set<Integer> unique=new HashSet<>();for(int i=0;i<days.length();i++){int day=days.optInt(i,0);if(day<1||day>7||!unique.add(day))throw new IllegalArgumentException("Invalid weekday");}if(!unique.contains(value.optInt("longDay",0)))throw new IllegalArgumentException("Choose a long-run day from your training days");}
     if(value.optInt("strengthLevel",1)<1||value.optInt("strengthLevel",1)>3||!Set.of(10,20,30).contains(value.optInt("strengthMinutes",20))||!Set.of("bodyweight","dumbbells").contains(value.optString("equipment","bodyweight"))||!Set.of("km","mi").contains(value.optString("units","km")))throw new IllegalArgumentException("Invalid training preferences");
   }
   private List<PlanEngine.Session> preferred(PlanEngine.Config c,JSONObject o){
-    if(!o.has("weekdays"))return new PlanEngine().generate(c,profile());var days=o.optJSONArray("weekdays");Set<java.time.DayOfWeek> selected=new HashSet<>();for(int i=0;i<days.length();i++)selected.add(java.time.DayOfWeek.of(days.optInt(i)));
-    return new PlanPreferences(o.optString("mode","Race preparation"),selected,java.time.DayOfWeek.of(o.optInt("longDay"))).generate(c,profile());
+    return o.has("weekdays") ? readTrainingPreferences(o).generate(c, profile())
+        : new PlanEngine().generate(c, profile());
   }
+
+  private static PlanPreferences readTrainingPreferences(JSONObject options) {
+    var days = options.optJSONArray("weekdays");
+    var selected = EnumSet.noneOf(DayOfWeek.class);
+    for (int i = 0; i < days.length(); i++) selected.add(DayOfWeek.of(days.optInt(i)));
+    return new PlanPreferences(options.optString("mode", "Race preparation"), selected,
+        DayOfWeek.of(options.optInt("longDay")));
+  }
+
   private List<PlanEngine.Session> generated(PlanEngine.Config c){
     String saved=preferences.getString("schedule","");if(saved.isEmpty())return new PlanEngine().generate(c,profile());
     try{JSONArray rows=new JSONArray(saved);List<PlanEngine.Session> out=new ArrayList<>();for(int i=0;i<rows.length();i++){JSONObject row=rows.getJSONObject(i);out.add(new PlanEngine.Session(row.getString("id"),LocalDate.parse(row.getString("date")),row.getString("title"),row.getDouble("km"),row.getString("instructions")));}return out;}catch(Exception e){throw new IllegalStateException("Saved training schedule could not be read",e);}
@@ -723,9 +851,32 @@ final class RunStore {
       String routine = row.getString("routine");
       StrengthPlan.find(routine);
     }
-    if(data.has("schedule")){
-      JSONArray schedule=new JSONArray(data.getString("schedule"));int weeks=data.getInt("weeks"),days=data.getInt("days");LocalDate start=LocalDate.parse(data.getString("start"));Set<String> seen=new HashSet<>();if(schedule.length()!=weeks*days)throw new IllegalArgumentException("Incomplete training schedule");
-      for(int i=0;i<schedule.length();i++){JSONObject row=schedule.getJSONObject(i);String id=row.getString("id");String[] pair=id.split("-");if(pair.length!=2||Integer.parseInt(pair[0])<0||Integer.parseInt(pair[0])>=weeks||Integer.parseInt(pair[1])<0||Integer.parseInt(pair[1])>=days||!seen.add(id))throw new IllegalArgumentException("Invalid schedule identity");LocalDate date=LocalDate.parse(row.getString("date"));double km=row.getDouble("km");if(date.isBefore(start)||!date.isBefore(start.plusWeeks(weeks))||!Double.isFinite(km)||km<=0||km>250||row.getString("title").length()>100||row.getString("instructions").length()>5000)throw new IllegalArgumentException("Invalid saved workout");}
+    if (data.has("schedule")) {
+      JSONArray schedule = new JSONArray(data.getString("schedule"));
+      int weeks = data.getInt("weeks");
+      LocalDate start = LocalDate.parse(data.getString("start"));
+      int[] slots = new int[weeks];
+      Set<LocalDate> dates = new HashSet<>();
+      for (int i = 0; i < schedule.length(); i++) {
+        JSONObject row = schedule.getJSONObject(i);
+        String id = row.getString("id");
+        if (!id.matches("[0-9]{1,2}-[0-6]")) throw new IllegalArgumentException("Invalid schedule identity");
+        int week = scheduleWeek(id);
+        int slot = id.charAt(id.length() - 1) - '0';
+        if (week >= weeks || !id.equals(week + "-" + slot) || (slots[week] & (1 << slot)) != 0)
+          throw new IllegalArgumentException("Invalid schedule identity");
+        slots[week] |= 1 << slot;
+        LocalDate date = LocalDate.parse(row.getString("date"));
+        double km = row.getDouble("km");
+        if (date.isBefore(start.plusWeeks(week)) || !date.isBefore(start.plusWeeks(week + 1))
+            || !dates.add(date) || !Double.isFinite(km) || km <= 0 || km > 250
+            || row.getString("title").length() > 100 || row.getString("instructions").length() > 5000)
+          throw new IllegalArgumentException("Invalid saved workout");
+      }
+      // Older plans have the same count every week. Edits can preserve weeks with a different count.
+      for (int mask : slots)
+        if (mask == 0 || (mask & (mask + 1)) != 0)
+          throw new IllegalArgumentException("Incomplete training schedule");
     }
     JSONArray rows = new JSONArray(data.optString("runs", "[]"));
     Set<String> ids = new HashSet<>();

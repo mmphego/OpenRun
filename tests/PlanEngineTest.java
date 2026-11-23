@@ -5,7 +5,7 @@ import java.util.HashSet;
 public class PlanEngineTest {
   public static void main(String[] args) {
     PlanEngine engine = new PlanEngine();
-    for (int days = 2; days <= 5; days++)
+    for (int days = 1; days <= 7; days++)
       for (int weeks = 4; weeks <= 24; weeks++) {
         var config = new PlanEngine.Config(weeks, days, 20, 10, LocalDate.of(2026, 10, 19));
         var plan = engine.generate(config);
@@ -22,10 +22,11 @@ public class PlanEngineTest {
         check(plan.equals(engine.generate(config)), "nondeterministic plan");
       }
     expectInvalid(() -> new PlanEngine.Config(3, 3, 12, 5, LocalDate.now()));
-    expectInvalid(() -> new PlanEngine.Config(8, 6, 12, 5, LocalDate.now()));
+    expectInvalid(() -> new PlanEngine.Config(8, 0, 12, 5, LocalDate.now()));
+    expectInvalid(() -> new PlanEngine.Config(8, 8, 12, 5, LocalDate.now()));
     expectInvalid(() -> new PlanEngine.Config(8, 3, Double.NaN, 5, LocalDate.now()));
     expectInvalid(() -> new PlanEngine.Config(8, 3, 12, Double.POSITIVE_INFINITY, LocalDate.now()));
-    System.out.println("Plan invariants passed across 84 configurations.");
+    System.out.println("Plan invariants passed across 147 configurations.");
   }
 
   static void check(boolean condition, String message) {

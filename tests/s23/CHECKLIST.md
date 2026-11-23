@@ -34,7 +34,8 @@ Release gates: complete the above on an S23 and broader API/device matrix, resol
 ## Running and walking focus (NOT EXECUTED)
 
 - Upgrade a copy of 1.1.0 data containing rides, strength history and unfinished cycling recordings. Five tabs: Today, Plan, Calendar, Progress, Coach. Profile opens from the top-left icon. No cycling/gym launch controls. Old data remains in exported backup; archived cycling must not resume as a run.
-- Open Plan: the return hub offers Manage plan and Continue plan; Continue opens the schedule and Manage plan contains new, restart, edit, pause, delete, preferences and change history. Switch between Plan and Calendar tabs, navigate weeks and manage plan. No clipped labels at 200% font.
+- Open Plan: the return hub offers Manage plan and Continue plan; Continue opens the schedule and Manage plan contains edit, pause, history, change goal or plan length, restart, new and delete. Switch between Plan and Calendar tabs, navigate weeks and manage plan. No clipped labels at 200% font.
+- Edit plan: add a fourth weekday to a three-day plan, choose a long-run day from the selected days, cancel the preview, then review and save. Verify Calendar shows the new days in the first updated week and preserves an already moved workout. Repeat with one and seven days.
 - Record outdoor walk before creating a running plan. Pause, resume, save, view route, export GPX, delete and undo. Walking minutes appear in Walks and do not increase running mileage or complete a planned run.
 - Repeat with indoor walking-pad steps and manual distance; indoor running stays in running totals. Missing Health Connect walk distance stays time only. Reimport does not duplicate.
 - Recover unfinished running and walking sessions after process death. Completed session saves once. Pain feedback retains the training hold.

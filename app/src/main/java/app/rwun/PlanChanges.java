@@ -89,24 +89,32 @@ final class PlanChanges {
       if(!store.checkpoint().isEmpty()||store.indoorPending())throw new IllegalStateException("Finish or recover the pending recording before undo.");
       JSONArray changes=event.getJSONArray("changes");
       if(changes.length()==0)throw new IllegalStateException("This event has no workout changes to undo.");
-      checkProtected(changes,store);
+      boolean allowAddedOrRemoved = kind.equals("Training schedule");
+      checkProtected(changes,store,allowAddedOrRemoved);
       PreferenceEdit candidate=new PreferenceEdit(PreferenceEdit.view(state));restoreLatest(candidate);
       // Recompute the inverse from current data. Never trust an imported event's claimed consequences.
       JSONArray inverse=differences(state,candidate.after),expected=new JSONArray();
       for(int i=0;i<changes.length();i++){JSONObject row=changes.getJSONObject(i);expected.put(new JSONObject().put("id",row.getString("id")).put("before",row.opt("after")).put("after",row.opt("before")));}
       if(!canonical(expected).equals(canonical(inverse)))throw new IllegalStateException("Undo consequences no longer match this event. Newer work will be kept.");
-      checkProtected(inverse,store);
+      checkProtected(inverse,store,allowAddedOrRemoved);
       Set<LocalDate> occupied=new HashSet<>();RunStore prior=new RunStore(PreferenceEdit.view(candidate.after));
       for(var s:prior.plannedSessions())if(!s.date().isBefore(LocalDate.now())&&!prior.skipped(prior.planId()+":"+s.id())&&!occupied.add(s.date()))throw new IllegalStateException("Undo would schedule two workouts on one day.");
       return new Undo(event.getString("id"),context(state),summary(inverse,false)+"\nSaved activities are kept. Recovery holds require explicit review.");
     }catch(JSONException e){throw new IllegalStateException("Plan-change history cannot be read",e);}
   }
-  private static void checkProtected(JSONArray changes,RunStore store) throws JSONException {
+  private static void checkProtected(JSONArray changes,RunStore store,boolean allowAddedOrRemoved) throws JSONException {
     for(int i=0;i<changes.length();i++) {
       JSONObject change=changes.getJSONObject(i),a=change.optJSONObject("before"),b=change.optJSONObject("after");
-      if(a==null||b==null||LocalDate.parse(a.getString("date")).isBefore(LocalDate.now())||LocalDate.parse(b.getString("date")).isBefore(LocalDate.now())||store.completed(store.planId()+":"+change.getString("id")))throw new IllegalStateException("An affected workout is completed, past or no longer available. Its history is protected.");
+      if ((!allowAddedOrRemoved && (a == null || b == null))
+          || pastWorkout(a) || pastWorkout(b)
+          || store.completed(store.planId() + ":" + change.getString("id")))
+        throw new IllegalStateException("An affected workout is completed, past or no longer available. Its history is protected.");
     }
   }
+  private static boolean pastWorkout(JSONObject row) throws JSONException {
+    return row != null && LocalDate.parse(row.getString("date")).isBefore(LocalDate.now());
+  }
+
   static void restoreLatest(PreferenceEdit edit) {
     try {
       JSONArray history=new JSONArray((String)edit.before.getOrDefault("planChanges","[]"));JSONObject event=history.getJSONObject(history.length()-1),before=event.getJSONObject("before"),after=event.getJSONObject("after");
