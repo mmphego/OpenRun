@@ -136,6 +136,46 @@ public class PlanChangesUiTest {
     }
   }
 
+  @Test @Config(sdk=28) @GraphicsMode(GraphicsMode.Mode.LEGACY)
+  public void savingScheduleOffersCalendarForFirstUpdatedWeek() throws Exception {
+    store.save(new PlanEngine.Config(8,3,12,5,LocalDate.now()));
+    try (var main = Robolectric.buildActivity(MainActivity.class).setup().visible()) {
+      MainActivity activity = main.get();
+      NativePlanningTest.click(activity, "Plan");
+      manage(activity, "Edit plan");
+      var launch = Shadows.shadowOf(activity).getNextStartedActivityForResult();
+      assertNotNull("The plan editor should return the first updated week", launch);
+      try (var editor = Robolectric.buildActivity(FeaturesActivity.class, launch.intent).setup().visible()) {
+        var available = java.util.Arrays.stream(java.time.DayOfWeek.values())
+            .filter(day -> !store.trainingPreferences().weekdays().contains(day)).findFirst().orElseThrow();
+        NativePlanningTest.click(editor.get(), available.getDisplayName(java.time.format.TextStyle.SHORT,
+            java.util.Locale.getDefault()));
+        NativePlanningTest.click(editor.get(), "Review schedule");
+        ((AlertDialog) ShadowDialog.getLatestDialog()).getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+        var result = Shadows.shadowOf(editor.get());
+        activity.onActivityResult(launch.requestCode, result.getResultCode(), result.getResultIntent());
+      }
+      var confirmation = (AlertDialog) ShadowDialog.getLatestDialog();
+      assertEquals("View in Calendar", confirmation.getButton(AlertDialog.BUTTON_POSITIVE).getText());
+      confirmation.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+      Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      var start = store.config().start().plusWeeks(1);
+      var format = java.time.format.DateTimeFormatter.ofPattern("d MMM");
+      var root = activity.getWindow().getDecorView();
+      assertNotNull(NativePlanningTest.find(root, start.format(format) + " – " + start.plusDays(6).format(format)));
+      assertNotNull(AiPlanningUiTest.findDescription(root, "Previous calendar week"));
+      var dateFormat = java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM");
+      var workouts = store.plannedSessions().stream().filter(workout -> workout.id().startsWith("1-")).toList();
+      assertEquals(4, workouts.size());
+      for(var workout : workouts){
+        android.view.View day = NativePlanningTest.find(root, workout.date().format(dateFormat));
+        assertNotNull(day);
+        assertNotNull(NativePlanningTest.find((android.view.View) day.getParent(), workout.title()));
+      }
+    }
+  }
+
   @Test public void oneTrainingDayPreservesMovedWorkoutsAndRejectsStaleReview() {
     var original = store.plannedSessions().get(0);
     move();

@@ -23,6 +23,7 @@ import org.json.*;
 
 public final class MainActivity extends Activity {
   private final RecoveryPrompt recoveryPrompt=new RecoveryPrompt();
+  private static final int EDIT_TRAINING_SCHEDULE = 208;
   private boolean refreshFeatures;
   private String filterType="All workouts",filterYear="All years",filterMonth="All months";
   private TextView appTitle;
@@ -322,8 +323,8 @@ public final class MainActivity extends Activity {
   private void planHub(){
     LinearLayout hero=column();hero.setGravity(Gravity.CENTER);hero.setPadding(dp(10),dp(12),dp(10),dp(12));
     ImageView hand=new ImageView(this);hand.setImageDrawable(UiKit.icon(this,R.drawable.ic_waving_hand,palette.primary,40));hero.addView(hand,new LinearLayout.LayoutParams(dp(52),dp(52)));
-    TextView welcome=text("Welcome back!",22,true);welcome.setGravity(Gravity.CENTER);LinearLayout.LayoutParams wl=new LinearLayout.LayoutParams(-1,-2);wl.setMargins(0,dp(8),0,dp(4));hero.addView(welcome,wl);
-    TextView description=text("Let’s make a plan for your next start line.",17,false);description.setGravity(Gravity.CENTER);hero.addView(description);content.addView(hero,new LinearLayout.LayoutParams(-1,-2));
+    TextView welcome=text("Your running programme",22,true);welcome.setGravity(Gravity.CENTER);LinearLayout.LayoutParams wl=new LinearLayout.LayoutParams(-1,-2);wl.setMargins(0,dp(8),0,dp(4));hero.addView(welcome,wl);
+    TextView description=text("Review your workouts, adjust training days, or pause your plan.",17,false);description.setGravity(Gravity.CENTER);hero.addView(description);content.addView(hero,new LinearLayout.LayoutParams(-1,-2));
     planHubChoice("Manage plan",this::showPlanManagement);
     planHubChoice("Continue plan",()->{planSchedule=true;render();});
     if(store.resting())content.addView(text("Your training hold stays active when changing plans.",13,false));
@@ -493,15 +494,20 @@ public final class MainActivity extends Activity {
   }
   private void today() {
     content.addView(text("Your training, today.",30,true));
-    planOverview();
-    content.addView(text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),14,false));
+    LocalDate date=LocalDate.now();
+    content.addView(text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),14,false));
     if(store.resting()){LinearLayout hold=card();hold.addView(text("Training paused",20,true));hold.addView(text(store.adaptation(),15,false));}
     if((tracker!=null&&tracker.active())||store.indoorPending()||!store.checkpoint().isEmpty())content.addView(button("Return to your session",()->{if(store.indoorPending())openIndoor(null);else{tab="Run";render();}}));
-    freeActivityActions();
-    var next=(store.planPaused()?java.util.stream.Stream.<PlanEngine.Session>empty():sessions().stream()).filter(s->!s.date().isBefore(LocalDate.now())&&!store.completed(key(s))&&!store.skipped(key(s))).findFirst().orElse(null);
-    LinearLayout hero=card();hero.setBackground(rounded(palette.tonal));hero.addView(text(next==null?"MAKE ROOM TO MOVE":"YOUR NEXT RUN",12,true));hero.addView(text(next==null?"A little movement counts.":next.title(),28,true));
+    var next=nextCoachedSession();
+    LinearLayout hero=card();
+    hero.setBackground(rounded(palette.tonal));
+    String heading=next==null?"MAKE ROOM TO MOVE":next.date().equals(date)?"TODAY’S WORKOUT":"NEXT SCHEDULED WORKOUT";
+    hero.addView(text(heading,12,true));
+    hero.addView(text(next==null?"A little movement counts.":next.title(),28,true));
     hero.addView(text(next==null?"Choose a run, a walk, or a few minutes on your walking pad.":PlanEngine.distance(next.km())+" · "+next.date().format(DateTimeFormatter.ofPattern("EEE, d MMM")),16,false));
     if(next!=null)hero.addView(button("View workout",()->detail(next)));
+    freeActivityActions();
+    planOverview();
     coachPreview();
     LinearLayout indoor=card();row(indoor,R.drawable.ic_directions_walk,"Walking pad & treadmill","Phone steps and estimated distance · no GPS",()->openIndoor(null));
     weeklySummary();WalkData.Week w=WalkData.week(store.v103(),LocalDate.now());LinearLayout walking=card();walking.addView(text("WALKING · LAST 7 DAYS",11,true));walking.addView(text(w.seconds()/60+" minutes · "+w.days()+" active days",21,true));walking.addView(text("Everyday movement, kept separate from running mileage.",14,false));
@@ -1309,15 +1315,21 @@ public final class MainActivity extends Activity {
     TextView range=text(calendarStart.format(DateTimeFormatter.ofPattern("d MMM"))+" – "+calendarStart.plusDays(6).format(DateTimeFormatter.ofPattern("d MMM")),18,true);range.setGravity(Gravity.CENTER);bar.addView(range,new LinearLayout.LayoutParams(0,-2,1));
     bar.addView(UiKit.iconButton(this,palette,R.drawable.ic_chevron_right,"Next calendar week",()->{calendarStart=calendarStart.plusWeeks(1);render();}),new LinearLayout.LayoutParams(dp(48),dp(48)));content.addView(bar);
 
-    content.addView(button("Export training calendar",this::exportCalendar));
     content.addView(button("This week",()->{calendarStart=LocalDate.now().with(DayOfWeek.MONDAY);render();}));
+    if(config==null){
+      LinearLayout empty=card();
+      empty.addView(text("No training plan yet",20,true));
+      empty.addView(text("Create a plan to see your scheduled workouts here.",15,false));
+      empty.addView(button("Create my plan",this::beginPlan));
+    }
     for(int i=0;i<7;i++){
       LocalDate date=calendarStart.plusDays(i);LinearLayout day=card();day.addView(text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM"))+(date.equals(LocalDate.now())?" · TODAY":""),15,true));int count=0;
       for(var session:sessions())if(session.date().equals(date)&&!store.skipped(key(session))){count++;boolean done=store.completed(key(session));row(day,R.drawable.ic_directions_run,session.title(),(done?"Completed · ":"Planned · ")+PlanEngine.distance(session.km()),()->detail(session));}
       for(var run:store.runs())if(run.date().equals(date.toString())){count++;day.addView(text("Saved run · "+activityDistance(run.km())+" · "+duration(run.seconds()),14,false));}
       for(var other:store.otherActivities())if(other.date().equals(date)){count++;day.addView(text(other.type()+" · "+other.minutes()+" min · "+(other.completed()?"completed":"planned"),14,false));}
-      if(count==0)day.addView(text("Rest & recovery",15,false));
+      if(count==0)day.addView(text(config==null?"No activity":"Rest & recovery",15,false));
     }
+    if(config!=null)content.addView(button("Export training calendar",this::exportCalendar));
   }
 
 
@@ -1341,7 +1353,25 @@ public final class MainActivity extends Activity {
   }
 
 
-  private void openFeatures(String screen){refreshFeatures=true;startActivity(new Intent(this,FeaturesActivity.class).putExtra("screen",screen));}
+  private void openFeatures(String screen) {
+    refreshFeatures=true;
+    Intent intent=new Intent(this,FeaturesActivity.class).putExtra("screen",screen);
+    if(screen.equals("plan"))startActivityForResult(intent,EDIT_TRAINING_SCHEDULE);
+    else startActivity(intent);
+  }
+
+  private void showUpdatedTrainingWeek(LocalDate start) {
+    refreshFeatures=false;
+    config=store.config();
+    render();
+    new AlertDialog.Builder(this).setTitle("Training schedule saved")
+        .setMessage("Open Calendar to see the first updated week.")
+        .setNegativeButton("Done",null)
+        .setPositiveButton("View in Calendar",(dialog,which)->{
+          calendarStart=start;
+          selectDestination("Calendar");
+        }).show();
+  }
   private void exportCalendar(){startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("text/calendar").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"OpenRun-training.ics"),204);}
   private void exportHealth(RunStore.Run run){startActivity(new Intent(this,HealthConnectActivity.class).putExtra("exportId",run.sessionId()));}
   private void uploadStrava(RunStore.Run run){
@@ -1488,6 +1518,11 @@ public final class MainActivity extends Activity {
 
   @Override
   protected void onActivityResult(int request, int result, Intent data) {
+    if(request==EDIT_TRAINING_SCHEDULE){
+      String start=data==null?null:data.getStringExtra(TrainingScheduleEditor.UPDATED_WEEK);
+      if(result==RESULT_OK&&start!=null)showUpdatedTrainingWeek(LocalDate.parse(start));
+      return;
+    }
     if(request==207){if(result==RESULT_OK){creatingPlan=false;setupStep=0;tab="Plan";planSchedule=true;config=store.config();week=0;render();}return;}
     super.onActivityResult(request, result, data);
     if (result != RESULT_OK || data == null || data.getData() == null) return;
