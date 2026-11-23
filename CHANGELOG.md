@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Lead with the next workout in Coach, put pace interpretation in activity details, and group diagnostics after regular settings and data controls.
+
 - Share weekday and long-run controls between the plan builder and schedule editor. Show the selected weekly frequency and put the standard plan path first.
 
 - Show the next scheduled workout before free activities on Home. Calendar lists workouts before export, offers plan creation, and can open directly to the first updated week after a schedule edit.
