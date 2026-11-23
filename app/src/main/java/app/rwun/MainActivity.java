@@ -228,15 +228,61 @@ public final class MainActivity extends Activity {
     pageScroll.setVerticalScrollBarEnabled(false);content=column();content.setPadding(dp(20),dp(12),dp(20),dp(24));
     pageScroll.addView(content);root.addView(pageScroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
     View separator=new View(this);separator.setBackgroundColor(palette.outline);root.addView(separator,new LinearLayout.LayoutParams(-1,dp(1)));
-    LinearLayout nav=new LinearLayout(this);nav.setBackgroundColor(palette.surface);nav.setPadding(dp(4),0,dp(4),0);
-    String[] names={"Today","Plan","Calendar","Progress","Coach"};
-    String[] labels={"Home","Plan","Calendar","Progress","Coach"};
-    int[] icons={R.drawable.ic_home,R.drawable.ic_assignment,R.drawable.ic_calendar_month,R.drawable.ic_monitoring,R.drawable.ic_volume_up};
-    for(int i=0;i<names.length;i++){String name=names[i];nav.addView(UiKit.navigationItem(this,palette,labels[i],icons[i],name.equals(tab),()->{progressActivityId="";tab=name;creatingPlan=false;if(name.equals("Today")&&config==null)setupStep=-1;if(name.equals("Plan")){if(setupStep<0)setupStep=0;planSchedule=false;if(config!=null)week=Math.max(0,Math.min(config.weeks()-1,(int)(java.time.temporal.ChronoUnit.DAYS.between(config.start(),LocalDate.now())/7)));}render();}),new LinearLayout.LayoutParams(0,-2,1));}
-    root.addView(nav);
+    root.addView(bottomNavigation());
     if(config==null&&(tab.equals("Today")||tab.equals("Plan"))){setup();return;}
     if(creatingPlan){setup();return;}
     switch(tab){case "Plan":if(planSchedule)plan();else planHub();break;case "Calendar":calendar();break;case "Run":recording();break;case "Progress":progress();break;case "Profile":settings();break;case "Coach":coach();break;default:today();}
+  }
+
+  private LinearLayout bottomNavigation() {
+    LinearLayout nav=column();
+    nav.setBackgroundColor(palette.surface);
+    nav.setPadding(dp(4),0,dp(4),0);
+    String[] destinations={"Today","Plan","Calendar","Progress","Coach"};
+    String[] labels={"Home","Plan","Calendar","Progress","Coach"};
+    int[] icons={R.drawable.ic_home,R.drawable.ic_assignment,R.drawable.ic_calendar_month,
+        R.drawable.ic_monitoring,R.drawable.ic_volume_up};
+    List<View> items=new ArrayList<>();
+    int widest=0;
+    for(int i=0;i<destinations.length;i++){
+      String destination=destinations[i];
+      View item=UiKit.navigationItem(this,palette,labels[i],icons[i],destination.equals(tab),
+          ()->selectDestination(destination));
+      items.add(item);
+      widest=Math.max(widest,naturalWidth(item));
+    }
+    int available=dp(getResources().getConfiguration().screenWidthDp)-dp(8);
+    boolean largeText=getResources().getConfiguration().fontScale>=1.6f;
+    int firstRowCount=!largeText&&widest*items.size()<=available?items.size():3;
+    addNavigationRow(nav,items,0,firstRowCount);
+    if(firstRowCount<items.size())addNavigationRow(nav,items,firstRowCount,items.size());
+    return nav;
+  }
+
+  private void addNavigationRow(LinearLayout nav,List<View> items,int start,int end) {
+    LinearLayout row=new LinearLayout(this);
+    for(int i=start;i<end;i++)row.addView(items.get(i),new LinearLayout.LayoutParams(0,-1,1));
+    nav.addView(row,new LinearLayout.LayoutParams(-1,-2));
+  }
+
+  private void selectDestination(String destination) {
+    progressActivityId="";
+    tab=destination;
+    creatingPlan=false;
+    if(destination.equals("Today")&&config==null)setupStep=-1;
+    if(destination.equals("Plan")){
+      if(setupStep<0)setupStep=0;
+      planSchedule=false;
+      if(config!=null)week=Math.max(0,Math.min(config.weeks()-1,
+          (int)(java.time.temporal.ChronoUnit.DAYS.between(config.start(),LocalDate.now())/7)));
+    }
+    render();
+  }
+
+  private int naturalWidth(View view) {
+    int unspecified=View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED);
+    view.measure(unspecified,unspecified);
+    return view.getMeasuredWidth();
   }
 
   private EditText field(String label, String value) {
@@ -428,8 +474,22 @@ public final class MainActivity extends Activity {
     LinearLayout start=new LinearLayout(this);
     Button run=button("Start free run",()->{walkMode=false;prepareStart("free:"+UUID.randomUUID(),0);});
     Button walk=button("Start free walk",this::chooseWalk);
-    LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,-2,1);a.setMargins(0,dp(6),dp(5),dp(6));start.addView(run,a);
-    LinearLayout.LayoutParams b=new LinearLayout.LayoutParams(0,-2,1);b.setMargins(dp(5),dp(6),0,dp(6));start.addView(walk,b);content.addView(start);
+    int available=dp(getResources().getConfiguration().screenWidthDp)
+        -content.getPaddingStart()-content.getPaddingEnd()-dp(10);
+    if(getResources().getConfiguration().fontScale>=1.6f
+        ||2*Math.max(naturalWidth(run),naturalWidth(walk))>available){
+      start.setOrientation(LinearLayout.VERTICAL);
+      start.addView(run);
+      start.addView(walk);
+    }else{
+      LinearLayout.LayoutParams left=new LinearLayout.LayoutParams(0,-2,1);
+      left.setMargins(0,dp(6),dp(5),dp(6));
+      start.addView(run,left);
+      LinearLayout.LayoutParams right=new LinearLayout.LayoutParams(0,-2,1);
+      right.setMargins(dp(5),dp(6),0,dp(6));
+      start.addView(walk,right);
+    }
+    content.addView(start);
   }
   private void today() {
     content.addView(text("Your training, today.",30,true));

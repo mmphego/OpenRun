@@ -125,13 +125,18 @@ final class UiKit {
     b.setOnClickListener(v->{feedback(v);click.run();});return b;
   }
   static LinearLayout navigationItem(Context c,Palette p,String label,int icon,boolean active,Runnable click) {
-    LinearLayout item=new LinearLayout(c);item.setOrientation(LinearLayout.VERTICAL);item.setGravity(Gravity.CENTER);item.setPadding(0,dp(c,6),0,dp(c,5));
-    item.setMinimumHeight(dp(c,64));item.setClickable(true);item.setFocusable(true);item.setSelected(active);item.setContentDescription(label+(active?", selected":""));
+    LinearLayout item=new LinearLayout(c) {
+      @Override public CharSequence getAccessibilityClassName() { return Button.class.getName(); }
+    };
+    item.setOrientation(LinearLayout.VERTICAL);item.setGravity(Gravity.CENTER);
+    item.setPadding(dp(c,2),dp(c,6),dp(c,2),dp(c,5));
+    item.setMinimumHeight(dp(c,64));item.setClickable(true);item.setFocusable(true);
+    item.setSelected(active);item.setContentDescription(label);
     item.setBackground(ripple(c,p.surface,12));
     ImageView image=new ImageView(c);image.setImageDrawable(icon(c,icon,active?p.primary:p.muted,24));
     image.setPadding(dp(c,18),dp(c,4),dp(c,18),dp(c,4));image.setBackground(shape(c,active?p.tonal:p.surface,18));
     image.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);item.addView(image,new LinearLayout.LayoutParams(dp(c,56),dp(c,32)));
-    TextView title=label(c,label,11,active?p.primary:p.muted,active);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);title.setGravity(Gravity.CENTER);title.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);item.addView(title);
+    TextView title=label(c,label,11,active?p.primary:p.muted,active);title.setGravity(Gravity.CENTER);title.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);item.addView(title);
     item.setOnClickListener(v->{feedback(v);click.run();});return item;
   }
 }

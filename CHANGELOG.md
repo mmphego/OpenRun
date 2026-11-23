@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Keep bottom navigation labels readable on compact screens and at large text sizes. Stack Home’s free run and walk buttons when space is tight and expose navigation selection to accessibility services.
+
 - Edit training days directly from Manage plan. Choose one to seven days, adjust the long run and weekly distance, then review the first updated week before saving.
 
 - Compare run tiles with the previous similar run using pace, a subtle color tint and text. Comparisons remain neutral when distance, timing, venue or activity order is uncertain; pace alone does not measure workout quality.
