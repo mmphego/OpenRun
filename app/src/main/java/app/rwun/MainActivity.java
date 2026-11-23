@@ -546,20 +546,35 @@ public final class MainActivity extends Activity {
 
   private void coach() {
     content.addView(text("Your coach",30,true));
+    if(store.resting()){
+      LinearLayout hold=card();
+      hold.addView(text("Training is paused",20,true));
+      hold.addView(text(store.adaptation(),15,false));
+    }
+    PlanEngine.Session next=nextCoachedSession();
+    if(next!=null){
+      LinearLayout briefing=card();
+      briefing.addView(text("NEXT WORKOUT",11,true));
+      briefing.addView(text(next.title(),24,true));
+      briefing.addView(text(PlanEngine.distance(next.km())+" · "+
+          next.date().format(DateTimeFormatter.ofPattern("EEE, d MMM")),15,false));
+      row(briefing,R.drawable.ic_directions_run,"Open workout","Steps, target effort and recording",()->detail(next));
+      row(briefing,R.drawable.ic_volume_up,"Workout briefing","Read or listen to guidance",()->showCoachBriefing(next));
+    }
+    LinearLayout personal=card();
+    personal.addView(text("Your next-run lesson",21,true));
+    personal.addView(text(CoachingMemory.lesson(store),16,false));
+    row(personal,R.drawable.ic_directions_run,"Beginner sessions & personal progress",
+        "Timed run/walk, reviewed progression and reflections",()->openVoiceCoach("home"));
+    row(personal,R.drawable.ic_volume_up,"Voice preferences",
+        "Detail, effort checks and optional heart-rate reminders",()->openVoiceCoach("settings"));
     content.addView(button(config==null?"Plan changes":"Manage plan",config==null?this::planChanges:this::showPlanManagement));
-    content.addView(text("Prepare. Run or walk. Reflect and improve.",15,false));
-    LinearLayout personal=card();personal.addView(text("Your next-run lesson",21,true));personal.addView(text(CoachingMemory.lesson(store),16,false));
-    row(personal,R.drawable.ic_directions_run,"Beginner sessions & personal progress","Timed run/walk, reviewed progression and reflections",()->openVoiceCoach("home"));
-    row(personal,R.drawable.ic_volume_up,"Voice preferences","Detail, effort checks and optional heart-rate reminders",()->openVoiceCoach("settings"));
-    if(store.resting()){LinearLayout hold=card();hold.addView(text("Training is paused",20,true));hold.addView(text(store.adaptation(),15,false));}
     if(config!=null){
-      PlanEngine.Session next=nextCoachedSession();
-      if(next!=null){LinearLayout briefing=card();briefing.addView(text("NEXT WORKOUT",11,true));briefing.addView(text(next.title(),24,true));briefing.addView(text(PlanEngine.distance(next.km())+" · "+next.date().format(DateTimeFormatter.ofPattern("EEE, d MMM")),15,false));briefing.addView(text(CoachingMemory.briefing(store,next.title()),16,false));row(briefing,R.drawable.ic_volume_up,"Listen to briefing","Spoken guidance using your phone voice",()->showCoachBriefing(next));row(briefing,R.drawable.ic_directions_run,"Open workout","Steps, target effort and recording",()->detail(next));}
       LinearLayout review=card();review.addView(text("Your training review",21,true));review.addView(text(store.adaptation(),15,false));row(review,R.drawable.ic_monitoring,"Review a saved workout","Recorded effort, fatigue and session details",()->openTraining("review"));row(review,R.drawable.ic_info,"How are you feeling?","Optional check-in before training",()->openTraining("checkin"));
     }else{LinearLayout start=card();start.addView(text("Build your running plan",21,true));start.addView(text("Choose a goal to get session briefings and weekly training guidance.",15,false));row(start,R.drawable.ic_assignment,"Create my plan","Your goal, experience and available days",()->{tab="Plan";creatingPlan=false;render();});}
     if(config!=null){content.addView(button("Adapt plan from recent running",()->openRace("review")));weeklyReview();}
     LinearLayout aiCoach=card();row(aiCoach,R.drawable.ic_volume_up,"AI Coach · OpenAI or Gemini","Your API key · adaptive running plans and coaching",()->startActivity(new Intent(this,AiCoachActivity.class)));
-    LinearLayout learn=card();row(learn,R.drawable.ic_info,"Coaching library","Running, walking and recovery guides",()->openFeatures("help"));row(learn,R.drawable.ic_volume_up,"Audio coaching","Voice preferences and a sample cue",()->{tab="Profile";render();});row(learn,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor walking and running",()->openIndoor(null));
+    LinearLayout learn=card();row(learn,R.drawable.ic_info,"Coaching library","Running, walking and recovery guides",()->openFeatures("help"));row(learn,R.drawable.ic_directions_walk,"Walking pad & treadmill","Indoor walking and running",()->openIndoor(null));
     content.addView(text(CoachGuide.PROVENANCE,12,false));
   }
 
@@ -1093,6 +1108,14 @@ public final class MainActivity extends Activity {
     return origin==null?0:origin.optLong("started");
   }
 
+  private Map<String,RunComparison.Result> paceComparisons(List<RunStore.Run> runs) {
+    JSONObject origins=store.v103().optJSONObject("importOrigins");
+    return RunComparison.compare(runs,run->{
+      JSONObject origin=origins==null?null:origins.optJSONObject(run.sessionId());
+      return origin==null?0:origin.optLong("started");
+    });
+  }
+
   private void progress() {
     if(!progressActivityId.isEmpty()) {
       for(var run:store.runs())if(run.sessionId().equals(progressActivityId)){activityDetail(run);return;}
@@ -1111,9 +1134,7 @@ public final class MainActivity extends Activity {
     if(store.v103().has("undo"))content.addView(button("Undo most recent deletion · 15 minutes",()->{store.undoDelete();render();}));
     List<RunStore.Run> runs=store.runs();
     if(runs.isEmpty()){emptyProgress();return;}
-    JSONObject origins=store.v103().optJSONObject("importOrigins");
-    Map<String,RunComparison.Result> comparisons=RunComparison.compare(runs,run->{JSONObject origin=origins==null?null:origins.optJSONObject(run.sessionId());return origin==null?0:origin.optLong("started");});
-    content.addView(ProgressViews.label(this,"Pace varies with terrain, weather and workout purpose. Easier runs are valuable too. Comparisons need similar distance, workout type and known indoor or outdoor setting.",13,palette.muted,false));
+    Map<String,RunComparison.Result> comparisons=paceComparisons(runs);
     List<String> typeOptions=RunHistory.workoutTypes(runs);
     List<String> yearOptions=RunHistory.years(runs);
     List<String> monthOptions=RunHistory.months();
@@ -1199,6 +1220,14 @@ public final class MainActivity extends Activity {
       });
     }
     ProgressViews.metrics(this,palette,content,new String[]{"Distance","Time","Avg pace"},new String[]{ProgressViews.distance(run.km()),ProgressViews.time(run.seconds()),ProgressViews.pace(run)},true);
+    RunComparison.Result comparison=paceComparisons(store.runs()).get(run.sessionId());
+    if(comparison!=null){
+      LinearLayout pace=card();
+      pace.addView(text(ProgressViews.comparisonText(comparison),16,true));
+      String prior=LocalDate.parse(comparison.previousDate()).format(DateTimeFormatter.ofPattern("d MMM yyyy"));
+      pace.addView(text("Previous similar run · "+prior,14,false));
+      pace.addView(text("Terrain, weather and workout purpose can affect pace.",14,false));
+    }
     boolean imported=run.source().startsWith("Health Connect")||run.source().equals("Strava");
     ProgressViews.metrics(this,palette,content,new String[]{"Avg heart rate","Effort","Cadence"},new String[]{run.avgHr()>0?run.avgHr()+" bpm":"—",imported?"—":run.rpe()+" /10","—"},false);
     content.addView(ProgressViews.label(this,(imported?"Time and pace use elapsed duration. ":"")+"A dash means the metric was not recorded. Cadence, elevation gain and calories are not available in the saved activity data.",12,palette.muted,false));
@@ -1247,14 +1276,15 @@ public final class MainActivity extends Activity {
     
     section("TRAINING PREFERENCES");
     LinearLayout wellness=card();row(wellness,R.drawable.ic_directions_walk,"Movement & recovery","Movement breaks, recovery check-ins and private data",()->startActivity(new Intent(this,DailyHealthActivity.class)));
-    LinearLayout preferences=card();row(preferences,R.drawable.ic_calendar_month,"Programme & training days","Weekdays, long run and plan type",()->openFeatures("plan"));
+    LinearLayout preferences=card();
+    if(config==null)row(preferences,R.drawable.ic_calendar_month,"Create a training plan","Choose a goal and training days",this::beginPlan);
+    else row(preferences,R.drawable.ic_calendar_month,"Programme & training days","Weekdays, long run and plan type",()->openFeatures("plan"));
     row(preferences,R.drawable.ic_monitoring,"Pace profile & targets","Recent race result and workout targets",this::paceProfile);
     Switch audio=new Switch(this);audio.setText(R.string.spoken_cues);audio.setTextColor(ink);audio.setMinHeight(dp(56));audio.setChecked(store.audio());audio.setOnCheckedChangeListener((b,on)->store.audio(on));preferences.addView(audio);
     row(preferences,R.drawable.ic_volume_up,"Voice preferences","Detail, effort checks and heart-rate reminders",()->openVoiceCoach("settings"));
     row(preferences,R.drawable.ic_volume_up,"Test audio coach","Hear a sample cue",()->{if(tracker!=null)tracker.testVoice();});
     Switch alerts=new Switch(this);alerts.setText(R.string.pace_alerts);alerts.setTextColor(ink);alerts.setMinHeight(dp(56));alerts.setChecked(store.paceAlerts());alerts.setOnCheckedChangeListener((b,on)->store.paceAlerts(on));preferences.addView(alerts);
     section("LEARN & SUPPORT");LinearLayout learning=card();row(learning,R.drawable.ic_info,"Coaching library","Running, walking and recovery",()->openFeatures("help"));
-    LinearLayout beta=card();row(beta,R.drawable.ic_settings,"Android & privacy","Widget, haptics, diagnostics and local metrics",()->openV1("tools"));row(beta,R.drawable.ic_info,"Beta feedback","Preview and share an issue report",()->openV1("beta"));
     section("YOUR DATA");
     LinearLayout data=card();row(data,R.drawable.ic_refresh,"Account & encrypted cloud backup","Optional self-hosted service",()->openFeatures("cloud"));row(data,R.drawable.ic_file_upload,"Export full backup","Plans, history and recorded routes",this::backup);
     row(data,R.drawable.ic_file_download,"Restore full backup","Choose an existing OpenRun backup",this::restoreBackup);
@@ -1273,6 +1303,8 @@ public final class MainActivity extends Activity {
                 + " history. Optional encrypted cloud backup and Strava require explicit setup of your own service. No Runna services are used.",
             14,
             false));
+    section("DIAGNOSTICS & FEEDBACK");
+    LinearLayout beta=card();row(beta,R.drawable.ic_settings,"Android & privacy","Widget, haptics, diagnostics and local metrics",()->openV1("tools"));row(beta,R.drawable.ic_info,"Beta feedback","Preview and share an issue report",()->openV1("beta"));
   }
 
 

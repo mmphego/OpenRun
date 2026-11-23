@@ -130,7 +130,7 @@ final class ProgressViews {
     return android.graphics.Color.parseColor(color);
   }
 
-  private static String comparisonText(RunComparison.Result comparison) {
+  static String comparisonText(RunComparison.Result comparison) {
     if (comparison == null) return "No comparable previous run";
     if (comparison.band() == RunComparison.Band.SAME) return "Similar pace to previous similar run";
     return String.format(Locale.getDefault(), "%.0f%% %s pace than previous similar run",
