@@ -13,8 +13,8 @@ public final class PlanEngine {
     public Config {
       if (weeks < 4
           || weeks > 24
-          || days < 2
-          || days > 5
+          || days < 1
+          || days > 7
           || !Double.isFinite(weeklyKm)
           || weeklyKm < 4
           || weeklyKm > 120
@@ -31,7 +31,8 @@ public final class PlanEngine {
 
   public List<Session> generate(Config c, PaceProfile profile) {
     List<Session> result = new ArrayList<>();
-    int[][] offsets = {{0, 4}, {0, 2, 5}, {0, 2, 4, 6}, {0, 1, 3, 4, 6}};
+    int[][] offsets = {{0}, {0, 4}, {0, 2, 5}, {0, 2, 4, 6}, {0, 1, 3, 4, 6},
+        {0, 1, 2, 3, 4, 6}, {0, 1, 2, 3, 4, 5, 6}};
     for (int w = 0; w < c.weeks(); w++) {
       // Conservative illustrative progression, a recovery week every fourth week, then taper.
       double volume =
@@ -41,7 +42,7 @@ public final class PlanEngine {
       if ((w + 1) % 4 == 0) volume *= .8;
       if (w == c.weeks() - 2) volume *= .8;
       if (w == c.weeks() - 1) volume *= .6;
-      double longShare = c.days() == 2 ? .55 : .35;
+      double longShare = longRunShare(c.days());
       for (int d = 0; d < c.days(); d++) {
         boolean longer = d == c.days() - 1;
         double distance = volume * (longer ? longShare : (1 - longShare) / (c.days() - 1));
@@ -74,13 +75,28 @@ public final class PlanEngine {
         result.add(
             new Session(
                 w + "-" + d,
-                c.start().plusWeeks(w).plusDays(offsets[c.days() - 2][d]),
+                c.start().plusWeeks(w).plusDays(offsets[c.days() - 1][d]),
                 title,
                 Math.round(distance * 10) / 10.0,
                 instructions));
       }
     }
     return List.copyOf(result);
+  }
+
+  static double longRunShare(int days) {
+    return days <= 2 ? .55 : .35;
+  }
+
+  static Session raceWeek(Session session, LocalDate race, double goal) {
+    long remaining = java.time.temporal.ChronoUnit.DAYS.between(session.date(), race);
+    if (remaining < 1 || remaining > 7) return session;
+    double km = Math.max(.5, Math.min(session.km(), goal <= 10 ? 2 : 4));
+    if (remaining <= 2)
+      return new Session(session.id(), session.date(), "Optional easy shakeout",
+          Math.min(km, 1.5), "Optional short easy movement. Rest is welcome; this is not a fitness test.");
+    return new Session(session.id(), session.date(), "Easy race-week run", km,
+        "Short, conversational effort. No catch-up mileage. Rest instead if fatigued. Race day is shown separately in Calendar.");
   }
 
   public static String distance(double km) {

@@ -2,6 +2,14 @@
 
 Open **Plan → Manage plan → Plan changes**. The schedule settings icon and **Coach → Manage plan** open the same menu. When there is no current plan, **Coach → Plan changes** still provides access to history.
 
+## Edit the weekly schedule
+
+Open **Manage plan → Edit plan** to choose one to seven training days, a long-run day from those selections, starting weekly distance and programme. The number of selected days sets the new weekly frequency. Selecting a single day schedules a shorter weekly distance to avoid concentrating the full weekly load in one run.
+
+**Review schedule** shows the first updated week before you save. Edits retain the current plan, race date, pause state, recovery hold, saved activities, and weeks that have started or contain logged, moved, skipped or adjusted workouts. The updated frequency can therefore differ from the number of runs in those weeks.
+
+**Change goal or plan length** opens the plan builder to review a replacement schedule.
+
 ## Managing a plan
 
 In **Plan → Manage plan**, choose **Pause plan** to stop planned workout reminders and starts.

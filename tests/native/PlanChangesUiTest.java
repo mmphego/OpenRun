@@ -24,23 +24,141 @@ public class PlanChangesUiTest {
     Shadows.shadowOf(app).setComponentNameAndServiceForBindService(new ComponentName(app,TrackingService.class),service.onBind(new Intent()));
   }
   void move(){var first=store.plannedSessions().get(0);store.move(store.proposalFingerprint(),store.planId()+":"+first.id(),store.config().start().plusDays(1));}
-  void manage(MainActivity activity,int choice){NativePlanningTest.click(activity,"Manage plan");AlertDialog menu=(AlertDialog)ShadowDialog.getLatestDialog();menu.getListView().performItemClick(menu.getListView().getChildAt(choice),choice,choice);}
+  void manage(MainActivity activity, String choice) {
+    NativePlanningTest.click(activity, "Manage plan");
+    AlertDialog menu = (AlertDialog) ShadowDialog.getLatestDialog();
+    android.view.View action = NativePlanningTest.find(menu.getWindow().getDecorView(), choice);
+    assertNotNull(choice, action);
+    assertTrue(action.performClick());
+    Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+  }
+  private void shotDialog(AlertDialog dialog, String name) throws Exception {
+    var view = dialog.getWindow().getDecorView();
+    view.measure(android.view.View.MeasureSpec.makeMeasureSpec(393, android.view.View.MeasureSpec.EXACTLY),
+        android.view.View.MeasureSpec.makeMeasureSpec(852, android.view.View.MeasureSpec.AT_MOST));
+    view.layout(0, 0, view.getMeasuredWidth(), view.getMeasuredHeight());
+    var bitmap = android.graphics.Bitmap.createBitmap(view.getWidth(), view.getHeight(), android.graphics.Bitmap.Config.ARGB_8888);
+    view.draw(new android.graphics.Canvas(bitmap));
+    try (var out = new FileOutputStream(new File(System.getProperty("rwun.evidence"), name + ".png"))) {
+      assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out));
+    } finally { bitmap.recycle(); }
+  }
+
+  @Test public void scheduleEditorWithLargeTextKeepsReviewReachable() throws Exception {
+    RuntimeEnvironment.setFontScale(1.6f);
+    try (var controller = Robolectric.buildActivity(FeaturesActivity.class,
+        new Intent().putExtra("screen", "plan")).setup().visible()) {
+      var activity = controller.get();
+      NativePlanningTest.shot(activity, "training-schedule-large-font");
+      android.view.View review = NativePlanningTest.find(activity.getWindow().getDecorView(), "Review schedule");
+      assertTrue(review.requestRectangleOnScreen(new android.graphics.Rect(0, 0, review.getWidth(),
+          review.getHeight()), true));
+      NativePlanningTest.shot(activity, "training-schedule-large-font-scrolled");
+      var visible = new android.graphics.Rect();
+      assertTrue(review.getGlobalVisibleRect(visible));
+      assertEquals(review.getHeight(), visible.height());
+    } finally { RuntimeEnvironment.setFontScale(1f); }
+  }
+
   @Test public void managePlanPauseResumeAndDeletePreservesActivity()throws Exception{
     store.add(new RunStore.Run("free:kept",LocalDate.now().toString(),2,15));
     try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()){
       NativePlanningTest.click(controller.get(),"Plan");
       NativePlanningTest.shot(controller.get(),"manage-plan");
-      manage(controller.get(),1);
+      manage(controller.get(), "Pause plan");
       AlertDialog dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
       assertTrue(store.planPaused());
-      manage(controller.get(),1);dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertFalse(store.planPaused());
-      manage(controller.get(),2);dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-2).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertNotNull(store.config());
-      manage(controller.get(),2);dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertNull(store.config());assertEquals(1,store.runs().size());
+      manage(controller.get(), "Resume plan");dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertFalse(store.planPaused());
+      manage(controller.get(), "Delete plan");dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-2).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertNotNull(store.config());
+      manage(controller.get(), "Delete plan");dialog=(AlertDialog)ShadowDialog.getLatestDialog();dialog.getButton(-1).performClick();Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();assertNull(store.config());assertEquals(1,store.runs().size());
     }
   }
+  @Test public void changingTrainingDaysKeepsPlanAndSurvivesBackup() throws Exception {
+    LocalDate start = LocalDate.now().minusDays(1);
+    store.save(new PlanEngine.Config(8, 3, 12, 5, start));
+    String plan = store.planId();
+    var currentWeek = store.plannedSessions().subList(0, 3);
+    store.add(new RunStore.Run(plan + ":" + currentWeek.get(0).id(), start.toString(), 2, 15));
+    store.setPlanPaused(store.proposalFingerprint(), true);
+    store.options(store.options().put("weekdays", new org.json.JSONArray("[1,2,3,4,5,6,7]"))
+        .put("longDay", 7));
+    assertEquals(plan, store.planId());
+    assertEquals(7, store.config().days());
+    assertEquals(currentWeek, store.plannedSessions().subList(0, 3));
+    assertEquals(7, store.plannedSessions().stream().filter(s -> s.id().startsWith("1-")).count());
+    assertTrue(store.planPaused());
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    BackupManager.exportTo(app, store, bytes);
+    var schedule = store.plannedSessions();
+    app.getSharedPreferences("rwun", 0).edit().clear().commit();
+    BackupManager.restoreFrom(app, store, new ByteArrayInputStream(bytes.toByteArray()));
+    assertEquals(schedule, store.plannedSessions());
+    assertEquals(1, store.runs().size());
+  }
+
+  @Test public void editScheduleAddsFourthDayAndRequiresConfirmation() throws Exception {
+    String plan = store.planId();
+    Intent editor;
+    try (var controller = Robolectric.buildActivity(MainActivity.class).setup().visible()) {
+      MainActivity activity = controller.get();
+      NativePlanningTest.click(activity, "Plan");
+      manage(activity, "Edit plan");
+      editor = Shadows.shadowOf(activity).getNextStartedActivity();
+      assertEquals(FeaturesActivity.class.getName(), editor.getComponent().getClassName());
+    }
+    try (var controller = Robolectric.buildActivity(FeaturesActivity.class, editor).setup().visible()) {
+      var activity = controller.get();
+      NativePlanningTest.shot(activity, "training-schedule");
+      var available = java.util.Arrays.stream(java.time.DayOfWeek.values())
+          .filter(day -> !store.trainingPreferences().weekdays().contains(day)).findFirst().orElseThrow();
+      NativePlanningTest.click(activity, available.getDisplayName(java.time.format.TextStyle.SHORT,
+          java.util.Locale.getDefault()));
+      controller.recreate();
+      activity = controller.get();
+      assertNotNull(NativePlanningTest.find(activity.getWindow().getDecorView(), "4 days per week"));
+      NativePlanningTest.click(activity, "Review schedule");
+      var review = (AlertDialog) ShadowDialog.getLatestDialog();
+      assertTrue(review.isShowing());
+      shotDialog(review, "training-schedule-review");
+      assertEquals(3, store.config().days());
+      review.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+      Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertEquals(3, store.config().days());
+      NativePlanningTest.click(activity, "Review schedule");
+      review = (AlertDialog) ShadowDialog.getLatestDialog();
+      review.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+      Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      assertTrue(activity.isFinishing());
+      assertEquals(4, store.config().days());
+      assertEquals(plan, store.planId());
+      store.undoPlanChange(store.previewUndo());
+      assertEquals(3, store.config().days());
+    }
+  }
+
+  @Test public void oneTrainingDayPreservesMovedWorkoutsAndRejectsStaleReview() {
+    var original = store.plannedSessions().get(0);
+    move();
+    var moved = store.plannedSessions().stream().filter(s -> s.id().equals(original.id())).findFirst().orElseThrow();
+    var settings = new PlanPreferences("Maintenance", java.util.Set.of(java.time.DayOfWeek.SUNDAY),
+        java.time.DayOfWeek.SUNDAY);
+    var review = store.reviewTrainingSchedule(store.proposalFingerprint(), settings, 12);
+    assertEquals(1, review.workouts().size());
+    assertEquals(java.time.DayOfWeek.SUNDAY, review.workouts().get(0).date().getDayOfWeek());
+    assertTrue(review.workouts().get(0).km() > 0 && review.workouts().get(0).km() < 12);
+    store.setPlanPaused(store.proposalFingerprint(), true);
+    assertThrows(IllegalStateException.class, () -> store.saveTrainingSchedule(review));
+    assertEquals(3, store.config().days());
+    store.saveTrainingSchedule(store.reviewTrainingSchedule(store.proposalFingerprint(), settings, 12));
+    assertEquals(1, store.config().days());
+    assertTrue(store.plannedSessions().contains(moved));
+    assertTrue(store.planPaused());
+    assertEquals("Training schedule", store.planChanges().optJSONObject(store.planChanges().length() - 1).optString("kind"));
+  }
+
   @Test public void editStartsWithCurrentSettingsAndCancelKeepsPlan()throws Exception{
     String before=store.planId();try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()){
-      NativePlanningTest.click(controller.get(),"Plan");manage(controller.get(),0);
+      NativePlanningTest.click(controller.get(),"Plan");manage(controller.get(), "Change goal or plan length");
       assertTrue(ProgressUiTest.all(controller.get().getWindow().getDecorView()).contains("5 km"));
       controller.get().onBackPressed();assertEquals(before,store.planId());
     }
@@ -48,7 +166,7 @@ public class PlanChangesUiTest {
   @Test public void editReviewSavesNewGoalAndKeepsHistory()throws Exception{
     store.add(new RunStore.Run("free:kept",LocalDate.now().toString(),2,15));String before=store.planId();
     try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()){
-      MainActivity activity=controller.get();NativePlanningTest.click(activity,"Plan");manage(activity,0);
+      MainActivity activity=controller.get();NativePlanningTest.click(activity,"Plan");manage(activity, "Change goal or plan length");
       NativePlanningTest.click(activity,"10 km");NativePlanningTest.click(activity,"Continue");NativePlanningTest.click(activity,"Continue");
       assertTrue(ProgressUiTest.all(activity.getWindow().getDecorView()).contains("Saving replaces the current schedule"));
       NativePlanningTest.click(activity,"Build my plan");assertEquals(10,store.config().goalKm(),0.01);assertNotEquals(before,store.planId());assertEquals(1,store.runs().size());
@@ -66,17 +184,15 @@ public class PlanChangesUiTest {
       assertNull(NativePlanningTest.find(activity.getWindow().getDecorView(),"Plan changes"));
       NativePlanningTest.click(activity,"Manage plan");AlertDialog menu=(AlertDialog)ShadowDialog.getLatestDialog();
       String menuText=ProgressUiTest.all(menu.getWindow().getDecorView());
-      for(String action:new String[]{"Edit plan","Pause plan","Delete plan","Plan changes","Restart current plan","Start new plan","Training preferences"})assertTrue(action,menuText.contains(action));
-      android.view.View view=menu.getWindow().getDecorView();view.measure(android.view.View.MeasureSpec.makeMeasureSpec(393,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(852,android.view.View.MeasureSpec.EXACTLY));view.layout(0,0,393,852);
-      android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(393,852,android.graphics.Bitmap.Config.ARGB_8888);view.draw(new android.graphics.Canvas(bitmap));
-      try(FileOutputStream out=new FileOutputStream(new File(System.getProperty("rwun.evidence"),"unified-plan-menu.png"))){assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}bitmap.recycle();
-      menu.getListView().performItemClick(menu.getListView().getChildAt(3),3,3);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      for(String action:new String[]{"Edit plan","Pause plan","Delete plan","Plan changes","Restart current plan","Start new plan","Change goal or plan length"})assertTrue(action,menuText.contains(action));
+      shotDialog(menu, "unified-plan-menu");
+      assertTrue(NativePlanningTest.find(menu.getWindow().getDecorView(), "Plan changes").performClick());Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
       assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
     }
   }
   @Test public void coachProvidesManagementAndRetainsHistoryWithoutPlan()throws Exception{
     try(var controller=Robolectric.buildActivity(MainActivity.class,new Intent().putExtra("destination","Coach")).setup().visible()){
-      MainActivity activity=controller.get();manage(activity,3);Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
+      MainActivity activity=controller.get();manage(activity, "Plan changes");Shadows.shadowOf(android.os.Looper.getMainLooper()).idle();
       assertEquals(PlanChangesActivity.class.getName(),Shadows.shadowOf(activity).getNextStartedActivity().getComponent().getClassName());
     }
     store.deletePlan(store.proposalFingerprint());

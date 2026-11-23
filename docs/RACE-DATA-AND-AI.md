@@ -2,7 +2,7 @@
 
 ## What works without a server
 
-From Welcome, Create your plan or Manage plan, choose Race. Search the offline catalogue or add a road race manually (name, city, country, date, distance). Training plans support 5 km through 42.2 km, 4–24 weeks and 2–5 selected days. The exact preview is saved with the race in one preference commit. Existing runs, walks and training holds are retained. The build ends before race day; race day is a separate event marker. Selection does not enter the race.
+From Welcome, Create your plan or Manage plan, choose Race. Search the offline catalogue or add a road race manually (name, city, country, date, distance). Training plans support 5 km through 42.2 km, 4–24 weeks and 1–7 selected days. The exact preview is saved with the race in one preference commit. Existing runs, walks and training holds are retained. The build ends before race day; race day is a separate event marker. Selection does not enter the race.
 
 The bundled catalogue is deliberately small: four dated variants in Cape Town, checked 18 October 2026. It includes the Cape Town Marathon, 5/10 km Peace Runs and Two Oceans Half Marathon. It is NOT a complete live South African calendar. Event availability, fees, travel, qualification and entry status must be confirmed with the organiser. Dates can change. No race photography, popularity counts, availability claims or copied race descriptions are supplied.
 

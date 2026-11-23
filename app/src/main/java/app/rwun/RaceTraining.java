@@ -35,14 +35,8 @@ public final class RaceTraining {
     boolean returning=review.daysSinceLast()>=14;
     PlanPreferences preferences=new PlanPreferences(returning?"Return to running":"Race preparation",days,longDay);
     List<PlanEngine.Session> out=new ArrayList<>();
-    for(var s:preferences.generate(config,returning?new PaceProfile(profile.distanceKm(),profile.seconds(),false):profile)){
-      long remaining=ChronoUnit.DAYS.between(s.date(),race);
-      // Do not put a long/quality workout immediately before the target event.
-      double km=s.km();String title=s.title(),instructions=s.instructions();
-      if(remaining<=7){km=Math.max(.5,Math.min(km,goal<=10?2:4));title="Easy race-week run";instructions="Short, conversational effort. No catch-up mileage. Rest instead if fatigued. Race day is shown separately in Calendar.";}
-      if(remaining<=2){km=Math.min(km,1.5);title="Optional easy shakeout";instructions="Optional short easy movement. Rest is welcome; this is not a fitness test.";}
-      out.add(new PlanEngine.Session(s.id(),s.date(),title,km,instructions));
-    }
+    for(var s:preferences.generate(config,returning?new PaceProfile(profile.distanceKm(),profile.seconds(),false):profile))
+      out.add(PlanEngine.raceWeek(s, race, goal));
     String warning="Original rules; race readiness and a finish time are not guaranteed. ";
     if(config.start().isAfter(today))warning+="Your race build starts "+config.start()+"; no training is scheduled before that date. ";
     if((goal>=21&&volume<15)||(goal>=42&&volume<30)||weeks<(goal>=42?16:goal>=21?10:6))warning+="Your current volume or available time may be insufficient for this distance. Consider a shorter event or later date; this plan does not compress missed training. ";

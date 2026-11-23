@@ -284,11 +284,54 @@ public final class MainActivity extends Activity {
   }
   private void planHubChoice(String label,Runnable action){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(16),dp(10),dp(16),dp(10));row.setMinimumHeight(dp(56));row.setBackground(PlanningUi.shape(this,PlanningUi.CARD,18,true));TextView title=text(label,16,false);title.setTextColor(palette.ink);row.addView(title,new LinearLayout.LayoutParams(0,-2,1));ImageView arrow=new ImageView(this);arrow.setImageDrawable(UiKit.icon(this,R.drawable.ic_chevron_right,palette.muted,25));row.addView(arrow,new LinearLayout.LayoutParams(dp(28),dp(28)));row.setClickable(true);row.setFocusable(true);row.setContentDescription(label);row.setOnClickListener(v->{try{action.run();}catch(RuntimeException e){error(e);}});LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,0,0,dp(8));content.addView(row,lp);}
 
-  private void showPlanManagement(){
-    String[] actions={"Edit plan",store.planPaused()?"Resume plan":"Pause plan","Delete plan","Plan changes","Restart current plan","Start new plan","Training preferences"};
-    new AlertDialog.Builder(this).setTitle("Manage plan").setItems(actions,(dialog,choice)->{try{if(choice==0)editPlan();else if(choice==1)confirmPlanPause();else if(choice==2)confirmDeletePlan();else if(choice==3)planChanges();else if(choice==4)confirmRestart();else if(choice==5)beginPlan();else openFeatures("plan");}catch(RuntimeException e){error(e);}}).setNegativeButton("Cancel",null).show();
+  private void showPlanManagement() {
+    LinearLayout panel = column();
+    panel.setPadding(dp(18), dp(14), dp(18), dp(12));
+    panel.setBackground(UiKit.shape(this, palette.background, 22));
+    ScrollView scroll = new ScrollView(this);
+    scroll.addView(panel);
+    AlertDialog menu = new AlertDialog.Builder(this).setView(scroll).create();
+    LinearLayout title = new LinearLayout(this);
+    title.setGravity(Gravity.CENTER_VERTICAL);
+    title.addView(text("Manage plan", 24, true), new LinearLayout.LayoutParams(0, -2, 1));
+    title.addView(UiKit.iconButton(this, palette, android.R.drawable.ic_menu_close_clear_cancel,
+        "Close", menu::dismiss), new LinearLayout.LayoutParams(dp(48), dp(48)));
+    panel.addView(title);
+    panel.addView(managementAction(menu, "Edit plan", () -> {
+      ensurePlanEditable();
+      openFeatures("plan");
+    }));
+    panel.addView(text("Training days, long run and weekly distance", 14, false));
+    PlanningUi.gap(this, panel, 8);
+    panel.addView(managementAction(menu, store.planPaused() ? "Resume plan" : "Pause plan", this::confirmPlanPause));
+    panel.addView(managementAction(menu, "Plan changes", this::planChanges));
+    PlanningUi.gap(this, panel, 10);
+    panel.addView(text("Rebuild or replace", 14, true));
+    panel.addView(managementAction(menu, "Change goal or plan length", this::rebuildPlan));
+    panel.addView(managementAction(menu, "Restart current plan", this::confirmRestart));
+    panel.addView(managementAction(menu, "Start new plan", this::beginPlan));
+    panel.addView(managementAction(menu, "Delete plan", this::confirmDeletePlan));
+    menu.show();
+    menu.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
   }
-  private void editPlan(){
+
+  private Button managementAction(AlertDialog menu, String label, Runnable action) {
+    Button button = UiKit.quietAction(this, palette, label, label.equals("Delete plan"), () -> {
+      menu.dismiss();
+      try { action.run(); } catch (RuntimeException e) { error(e); }
+    });
+    if (label.equals("Edit plan")) {
+      button.setBackground(UiKit.ripple(this, palette.tonal, 14));
+      button.setTextColor(palette.primary);
+      button.setCompoundDrawablesRelative(UiKit.icon(this, R.drawable.ic_calendar_month,
+          palette.primary, 20), null, null, null);
+    } else if (!label.equals("Delete plan")) {
+      button.setTextColor(palette.ink);
+    }
+    return button;
+  }
+
+  private void rebuildPlan(){
     ensurePlanEditable();
     var current=store.config();var profile=store.profile();int goal=-1,benchmark=0;
     for(int i=0;i<goals().length;i++){if(Math.abs(goals()[i]-current.goalKm())<.01)goal=i;if(Math.abs(goals()[i]-profile.distanceKm())<.01)benchmark=i;}
@@ -342,14 +385,14 @@ public final class MainActivity extends Activity {
       draftField("Race time in minutes · leave blank for effort targets",draftTime,v->draftTime=v);
       CheckBox speed=new CheckBox(this);speed.setText(R.string.enable_speed);speed.setTextColor(ink);speed.setChecked(draftSpeed);speed.setOnCheckedChangeListener((b,on)->draftSpeed=on);content.addView(speed);
     }else if(setupStep==2){
-      content.addView(text("Make room for running",30,true));draftField("Runs each week · 2–5",draftDays,v->draftDays=v).setInputType(android.text.InputType.TYPE_CLASS_NUMBER);draftField("Plan length · 4–24 weeks",draftWeeks,v->draftWeeks=v).setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+      content.addView(text("Make room for running",30,true));draftField("Runs each week · 1–7",draftDays,v->draftDays=v).setInputType(android.text.InputType.TYPE_CLASS_NUMBER);draftField("Plan length · 4–24 weeks",draftWeeks,v->draftWeeks=v).setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
       content.addView(UiKit.choice(this,palette,"Start date · "+draftStart.format(DateTimeFormatter.ofPattern("d MMM yyyy")),()->new DatePickerDialog(this,(picker,y,m,d)->{draftStart=LocalDate.of(y,m+1,d);render();},draftStart.getYear(),draftStart.getMonthValue()-1,draftStart.getDayOfMonth()).show()));
     }else{
       PlanEngine.Config next=draftConfig();PaceProfile profile=draftProfile();content.addView(text("Your plan, at a glance",30,true));LinearLayout summary=card();summary.addView(text(PlanEngine.distance(next.goalKm())+" goal",23,true));summary.addView(text(next.weeks()+" weeks · "+next.days()+" runs per week",16,false));summary.addView(text(draftReturn?"Return to running · run / walk":"Race preparation",15,false));summary.addView(text("Starts "+next.start().format(DateTimeFormatter.ofPattern("d MMM yyyy")),15,false));
       content.addView(text("WEEK ONE PREVIEW",12,false));for(var session:OnboardingPlan.sessions(next,profile,draftReturn))if(session.date().isBefore(next.start().plusDays(7))){LinearLayout run=card();run.addView(text(session.title(),18,true));run.addView(text(session.date().format(DateTimeFormatter.ofPattern("EEE, d MMM"))+" · "+PlanEngine.distance(session.km()),15,false));}
       if(config!=null)content.addView(text("Saving replaces the current schedule, including moved and skipped workouts and race details. The replacement is active; saved activities and recovery holds are kept.",15,false));
       content.addView(text("These rule-based plans use conservative progression; they have not been validated as equivalent to professional coaching. Your existing activity history is kept.",13,false));
-      content.addView(button("Build my plan",()->{ensurePlanEditable();if(creatingPlan&&!editPlanFingerprint.equals(store.proposalFingerprint()))throw new IllegalStateException("Your plan or activity history changed. Reopen Edit plan to review it again.");store.createPlan(next,profile,draftReturn);store.event("plan_created");config=store.config();creatingPlan=false;planSchedule=true;week=0;tab="Plan";render();}));return;
+      content.addView(button("Build my plan",()->{ensurePlanEditable();if(creatingPlan&&!editPlanFingerprint.equals(store.proposalFingerprint()))throw new IllegalStateException("Your plan or activity history changed. Reopen the plan builder to review it again.");store.createPlan(next,profile,draftReturn);store.event("plan_created");config=store.config();creatingPlan=false;planSchedule=true;week=0;tab="Plan";render();}));return;
     }
     content.addView(button("Continue",()->{
       if(setupStep==1){double volume=Double.parseDouble(draftVolume);if(!Double.isFinite(volume)||volume<4||volume>120)throw new IllegalArgumentException("Weekly distance must be between 4 and 120 km.");draftProfile();}
@@ -418,7 +461,7 @@ public final class MainActivity extends Activity {
     summary.addView(text(racePlan?race.optString("name","Your race"):PlanEngine.distance(config.goalKm())+" journey",24,true));
     if(racePlan){summary.addView(text(race.optString("date")+" · "+PlanEngine.distance(config.goalKm())+" · "+race.optString("city"),15,false));long left=java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(),LocalDate.parse(race.optString("date")));summary.addView(text(left>=0?left+" days to race":"Race date passed",13,false));}
     if(store.options().optInt("goalPace")>0)summary.addView(text("Target pace: "+PaceProfile.format(store.options().optInt("goalPace"))+" min/km · effort and recovery take priority",14,false));
-    summary.addView(text("Week "+(current+1)+" of "+config.weeks()+" · "+config.days()+" runs per week",14,false));
+    summary.addView(text("Week "+(current+1)+" of "+config.weeks(),14,false));
     if(!tab.equals("Plan"))row(summary,R.drawable.ic_assignment,"View your plan","Workouts, progression and weekly schedule",()->{tab="Plan";planSchedule=true;week=current;render();});
   }
 

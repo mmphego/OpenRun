@@ -7,7 +7,7 @@ import java.util.*;
 public record PlanPreferences(String mode,Set<DayOfWeek> weekdays,DayOfWeek longDay) {
   public static final List<String> MODES=List.of("Race preparation","Base building","Maintenance","Return to running");
   public PlanPreferences {
-    if(!MODES.contains(mode)||weekdays==null||weekdays.size()<2||weekdays.size()>5||longDay==null||!weekdays.contains(longDay))throw new IllegalArgumentException("Choose 2–5 training days including your long-run day.");
+    if(!MODES.contains(mode)||weekdays==null||weekdays.isEmpty()||longDay==null||!weekdays.contains(longDay))throw new IllegalArgumentException("Choose at least one training day and pick the long run from those days.");
     weekdays=Set.copyOf(weekdays);
   }
   public List<PlanEngine.Session> generate(PlanEngine.Config config,PaceProfile profile){
@@ -23,7 +23,8 @@ public record PlanPreferences(String mode,Set<DayOfWeek> weekdays,DayOfWeek long
         var old=base.get(w*config.days()+d);LocalDate date=d==config.days()-1?longer:ordinary.get(d);String title=old.title(),instructions=old.instructions();double km=old.km();
         if(!mode.equals("Race preparation")){
           title=d==config.days()-1?"Long easy run":"Easy run";
-          double share=d==config.days()-1?(config.days()==2?.55:.35):(1-(config.days()==2?.55:.35))/(config.days()-1);
+          double longShare=PlanEngine.longRunShare(config.days());
+          double share=d==config.days()-1?longShare:(1-longShare)/(config.days()-1);
           double volume=config.weeklyKm();
           if(mode.equals("Base building"))volume*=Math.pow(1.02,Math.min(w,8));
           if(mode.equals("Return to running")){volume*=.65*Math.pow(1.02,Math.min(w,8));title="Run / walk";instructions="Alternate an easy jog with walking. Stay conversational; take extra walking whenever needed.";}
