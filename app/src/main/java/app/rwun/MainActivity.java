@@ -492,26 +492,10 @@ public final class MainActivity extends Activity {
         else{walkMode=true;prepareStart("walk:"+UUID.randomUUID(),0);}}catch(RuntimeException e){error(e);}
       }).setNegativeButton("Cancel",null).show();
   }
-  private void freeActivityActions(){
-    LinearLayout start=new LinearLayout(this);
+  private void freeActivityActions() {
     Button run=button("Start free run",()->{walkMode=false;prepareStart("free:"+UUID.randomUUID(),0);});
     Button walk=button("Start free walk",this::chooseWalk);
-    int available=dp(getResources().getConfiguration().screenWidthDp)
-        -content.getPaddingStart()-content.getPaddingEnd()-dp(10);
-    if(getResources().getConfiguration().fontScale>=1.6f
-        ||2*Math.max(naturalWidth(run),naturalWidth(walk))>available){
-      start.setOrientation(LinearLayout.VERTICAL);
-      start.addView(run);
-      start.addView(walk);
-    }else{
-      LinearLayout.LayoutParams left=new LinearLayout.LayoutParams(0,-2,1);
-      left.setMargins(0,dp(6),dp(5),dp(6));
-      start.addView(run,left);
-      LinearLayout.LayoutParams right=new LinearLayout.LayoutParams(0,-2,1);
-      right.setMargins(dp(5),dp(6),0,dp(6));
-      start.addView(walk,right);
-    }
-    content.addView(start);
+    content.addView(UiKit.actionPair(this,run,walk));
   }
   private void today() {
     content.addView(text("Your training, today.",30,true));

@@ -169,6 +169,25 @@ public class HomeNavigationUiTest {
     } finally {RuntimeEnvironment.setFontScale(1f);}
   }
 
+  @Test @Config(sdk=28,qualifiers="w360dp-h780dp-mdpi")
+  @GraphicsMode(GraphicsMode.Mode.LEGACY)
+  public void homeStacksActionsAtTheAvailableWidth() {
+    store.save(new PlanEngine.Config(8,3,12,5,LocalDate.now()));
+    try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()) {
+      MainActivity activity=controller.get();
+      View root=activity.getWindow().getDecorView();
+      // The content can have less width than the configuration reports, for example with insets.
+      root.measure(View.MeasureSpec.makeMeasureSpec(180,View.MeasureSpec.EXACTLY),
+          View.MeasureSpec.makeMeasureSpec(780,View.MeasureSpec.EXACTLY));
+      root.layout(0,0,180,780);
+      TextView run=NativePlanningTest.find(root,"Start free run");
+      TextView walk=NativePlanningTest.find(root,"Start free walk");
+      assertTrue("Free actions should stack when the measured width is tight",run.getBottom()<=walk.getTop());
+      assertEquals("Free run should fit on one line",1,run.getLineCount());
+      assertEquals("Free walk should fit on one line",1,walk.getLineCount());
+    }
+  }
+
   @Test public void activeHomeShowsWorkoutBeforeFreeActivities() throws Exception {
     store.save(new PlanEngine.Config(8,3,12,5,LocalDate.now()));
     try(var controller=Robolectric.buildActivity(MainActivity.class).setup().visible()) {
