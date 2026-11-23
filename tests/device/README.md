@@ -14,6 +14,25 @@ If Android Studio cannot find a Java runtime for sdkmanager, set JAVA_HOME to An
 
 Checks: first-use plan entry, race search/manual form validation, automatic advance after distance selection, plan preview without saving, 160% font navigation, and indoor walking entry. Screenshots, fresh UI trees and logs are collected. Taps use UI-tree bounds; controls are searched again after scrolling. A blocked boot or incomplete flow cannot become a passing result. Screenshot collection alone is not a visual/accessibility pass; inspect the rendered screens and complete CHECKLIST.md.
 
+### Saving user journeys on a disposable emulator
+
+Use a fresh English-language AOSP emulator for each invocation. The runner refuses
+physical devices and existing OpenRun installations. It saves a synthetic plan,
+cancels and reapplies a weekday edit, checks Calendar dates, undoes the edit, and
+exercises permission denial, walk pause and resume, one save in Progress, and
+interrupted walk recovery. Screenshots, UI trees and a dated-workout result are
+written to the output directory. The script leaves its synthetic app data on the
+disposable emulator.
+
+```bash
+python3 tests/device/ux_journeys.py --serial emulator-5554 \
+  --apk app/build/outputs/apk/debug/app-debug.apk --output build/ux-journeys
+```
+
+Repeat with `--compact` on a separate fresh emulator for a 320 dp viewport at
+200% font scale. Inspect the screenshots for truncation and overlap. This suite
+does not verify TalkBack speech, production signing, or the S23 upgrade.
+
 ## 2. Physical S23 setup and upgrade
 
 Save active recordings first. Enable Developer options → USB debugging on the S23; connect by USB and approve the Mac on the phone. Keep normal Samsung battery settings for the initial acceptance run; record any later changes separately.
