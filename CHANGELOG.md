@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Compare run tiles with the previous similar run using pace, a subtle color tint and text. Comparisons remain neutral when distance, timing, venue or activity order is uncertain; pace alone does not measure workout quality.
+
 - Make free run and free walk easy to find on Home. Free runs and walking-pad walks can start without a goal, and walk controls use walk labels.
 
 - Add configurable movement check, break-step, repeat and snooze intervals; remind on unavailable step data and track breaks until completion. Android can delay checks.

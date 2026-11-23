@@ -1002,6 +1002,9 @@ public final class MainActivity extends Activity {
     if(store.v103().has("undo"))content.addView(button("Undo most recent deletion · 15 minutes",()->{store.undoDelete();render();}));
     List<RunStore.Run> runs=store.runs();
     if(runs.isEmpty()){emptyProgress();return;}
+    JSONObject origins=store.v103().optJSONObject("importOrigins");
+    Map<String,RunComparison.Result> comparisons=RunComparison.compare(runs,run->{JSONObject origin=origins==null?null:origins.optJSONObject(run.sessionId());return origin==null?0:origin.optLong("started");});
+    content.addView(ProgressViews.label(this,"Pace varies with terrain, weather and workout purpose. Easier runs are valuable too. Comparisons need similar distance, workout type and known indoor or outdoor setting.",13,palette.muted,false));
     List<String> typeOptions=RunHistory.workoutTypes(runs);
     List<String> yearOptions=RunHistory.years(runs);
     List<String> monthOptions=RunHistory.months();
@@ -1024,7 +1027,7 @@ public final class MainActivity extends Activity {
       content.addView(heading);
       int count=month.getValue().size();
       content.addView(ProgressViews.label(this,count+(count==1?" activity · ":" activities · ")+ProgressViews.time(month.getValue().stream().mapToLong(RunStore.Run::seconds).sum()),14,palette.muted,false));
-      for(var run:month.getValue())content.addView(ProgressViews.workout(this,palette,run,activityStarted(run),()->{progressActivityId=run.sessionId();render();}));
+      for(var run:month.getValue())content.addView(ProgressViews.workout(this,palette,run,activityStarted(run),comparisons.get(run.sessionId()),()->{progressActivityId=run.sessionId();render();}));
     }
   }
 
